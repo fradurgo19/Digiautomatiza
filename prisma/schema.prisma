@@ -1,0 +1,106 @@
+// Prisma Schema para Digiautomatiza
+// Base de datos: Neon PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Modelo de Usuario (Personal Comercial)
+model Usuario {
+  id        String   @id @default(cuid())
+  nombre    String
+  email     String   @unique
+  password  String   // Hash de la contraseña
+  rol       String   @default("comercial") // admin | comercial
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+// Modelo de Cliente
+model Cliente {
+  id                String   @id @default(cuid())
+  nombre            String
+  email             String
+  telefono          String
+  empresa           String?
+  serviciosInteres  String[] // Array de servicios
+  estado            String   @default("nuevo") // nuevo, contactado, interesado, en-negociacion, convertido, inactivo
+  notas             String?  @db.Text
+  fechaRegistro     DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relación con sesiones
+  sesiones Sesion[]
+
+  @@index([email])
+  @@index([estado])
+  @@map("clientes")
+}
+
+// Modelo de Sesión Programada
+model Sesion {
+  id          String   @id @default(cuid())
+  clienteId   String
+  fecha       DateTime
+  hora        String
+  servicio    String
+  estado      String   @default("programada") // programada, confirmada, completada, cancelada, reprogramada
+  notas       String?  @db.Text
+  urlReunion  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con cliente
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
+  @@index([fecha])
+  @@index([estado])
+  @@map("sesiones")
+}
+
+// Modelo de Contacto (Formulario Público)
+model Contacto {
+  id          String   @id @default(cuid())
+  nombre      String
+  email       String
+  telefono    String
+  empresa     String?
+  servicio    String
+  mensaje     String   @db.Text
+  atendido    Boolean  @default(false)
+  fechaEnvio  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([fechaEnvio])
+  @@index([atendido])
+  @@map("contactos")
+}
+
+// Modelo de Envío Masivo (Historial)
+model EnvioMasivo {
+  id             String   @id @default(cuid())
+  tipo           String   // email | whatsapp
+  usuarioEmail   String?
+  destinatarios  String[] // Array de emails o números
+  asunto         String?  // Solo para emails
+  mensaje        String   @db.Text
+  enviados       Int      @default(0)
+  fallidos       Int      @default(0)
+  fechaEnvio     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([fechaEnvio])
+  @@index([tipo])
+  @@map("envios_masivos")
+}

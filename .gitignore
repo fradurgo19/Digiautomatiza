@@ -1,0 +1,47 @@
+# Dependencias
+node_modules/
+server/node_modules/
+
+# Variables de entorno (IMPORTANTE: No subir credenciales)
+.env
+.env.local
+.env.production
+.env.development
+
+# Archivos de compilación
+dist/
+build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+prisma/migrations/dev.db
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Vercel
+.vercel
+
+# Temporal
+*.tmp
+*.temp
+
+# Logs
+logs/
+*.log
+
+# Docker volumes
+docker/postgres-data/

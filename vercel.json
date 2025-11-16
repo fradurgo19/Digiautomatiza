@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build && npm run db:generate",
+  "framework": "vite",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
+}

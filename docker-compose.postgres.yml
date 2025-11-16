@@ -1,0 +1,19 @@
+services:
+  postgres17:
+    image: postgres:17
+    container_name: digiautomatiza-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: digiauto
+      POSTGRES_PASSWORD: digiauto
+      POSTGRES_DB: digiautomatiza_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U digiauto -d digiautomatiza_local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
