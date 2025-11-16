@@ -16,6 +16,7 @@ import {
   actualizarCliente as actualizarClienteApi,
   eliminarCliente as eliminarClienteApi,
 } from '../services/databaseService';
+import { generarLinkWaMe } from '../services/whatsappService';
 
 type ClienteForm = {
   nombre: string;
@@ -226,41 +227,8 @@ export default function ClientesPage() {
     }
   };
 
-  const handleEnvioMasivoWhatsApp = async () => {
-    const clientesSeleccionados = clientes.filter(c => selectedClientes.includes(c.id));
-    const numeros = clientesSeleccionados.map(c => c.telefono);
-    
-    try {
-      // Importar el servicio dinámicamente
-      const { enviarWhatsAppMasivo } = await import('../services/whatsappService');
-      
-      const resultado = await enviarWhatsAppMasivo({
-        numeros,
-        mensaje: envioWhatsApp.mensaje,
-        archivos: envioWhatsApp.archivos,
-      });
-
-      // Mostrar resultado
-      let mensaje = `✅ Mensajes enviados exitosamente a ${resultado.exitosos.length} clientes`;
-      
-      if (resultado.fallidos.length > 0) {
-        mensaje += `\n\n❌ No se pudieron enviar ${resultado.fallidos.length} mensajes:`;
-        resultado.fallidos.forEach(({ numero, error }) => {
-          mensaje += `\n• ${numero}: ${error}`;
-        });
-      }
-
-      alert(mensaje);
-      
-      setIsEnvioWhatsAppModalOpen(false);
-      setSelectedClientes([]);
-      setEnvioWhatsApp({ mensaje: '', archivos: [] });
-    } catch (error) {
-      console.error('Error al enviar WhatsApp masivo:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al enviar mensajes: ${errorMessage}`);
-    }
-  };
+  // Envío masivo WhatsApp ahora se realiza mediante enlaces wa.me asistidos
+  // desde el modal, por lo que no se realiza ningún envío automático.
 
   const toggleSelectCliente = (clienteId: string) => {
     setSelectedClientes(prev =>
@@ -802,19 +770,57 @@ export default function ClientesPage() {
                 Puedes adjuntar documentos, imágenes, videos o audios
               </p>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                <strong>Nota:</strong> El envío masivo de WhatsApp requiere integración con WhatsApp Business API o servicios como Twilio.
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
+              <p className="text-sm text-emerald-900 font-semibold">
+                ¿Cómo funciona el envío asistido por WhatsApp?
               </p>
+              <ol className="list-decimal list-inside text-sm text-emerald-800 space-y-1">
+                <li>Escribe el mensaje que quieres enviar a tus clientes.</li>
+                <li>Haz clic en <strong>“Abrir en WhatsApp”</strong> para cada cliente.</li>
+                <li>WhatsApp Web / App se abrirá con el mensaje listo y solo confirmas el envío.</li>
+              </ol>
             </div>
-            <Button
-              variant="primary"
-              fullWidth
-              onClick={handleEnvioMasivoWhatsApp}
-              disabled={!envioWhatsApp.mensaje}
-            >
-              Enviar Mensajes WhatsApp
-            </Button>
+
+            <div className="space-y-3 max-h-64 overflow-y-auto rounded-2xl bg-white/80 border border-emerald-100 p-3">
+              {selectedClientes.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Selecciona clientes en la tabla para habilitar el envío asistido por WhatsApp.
+                </p>
+              ) : (
+                selectedClientes.map((clienteId) => {
+                  const cliente = clientes.find(c => c.id === clienteId);
+                  if (!cliente) return null;
+
+                  const link = generarLinkWaMe(cliente.telefono, envioWhatsApp.mensaje || '');
+
+                  return (
+                    <div
+                      key={cliente.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-emerald-900 truncate">
+                          {cliente.nombre}
+                        </p>
+                        <p className="text-xs text-emerald-700 truncate">
+                          {cliente.telefono}
+                        </p>
+                      </div>
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors ${
+                          !envioWhatsApp.mensaje ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+                        }`}
+                      >
+                        Abrir en WhatsApp
+                      </a>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </Modal>
 

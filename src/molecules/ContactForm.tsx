@@ -73,55 +73,57 @@ export default function ContactForm({ onSubmit }: ContactFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <Input
-        label="Nombre completo *"
-        type="text"
-        value={formData.nombre}
-        onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-        error={errors.nombre}
-        fullWidth
-        placeholder="Ej: Juan Pérez"
-      />
-      
-      <Input
-        label="Email *"
-        type="email"
-        value={formData.email}
-        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-        error={errors.email}
-        fullWidth
-        placeholder="correo@ejemplo.com"
-      />
-      
-      <Input
-        label="Teléfono *"
-        type="tel"
-        value={formData.telefono}
-        onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-        error={errors.telefono}
-        fullWidth
-        placeholder="+57 300 123 4567"
-      />
-      
-      <Input
-        label="Empresa (opcional)"
-        type="text"
-        value={formData.empresa}
-        onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
-        fullWidth
-        placeholder="Nombre de tu empresa"
-      />
-      
-      <Select
-        label="Servicio de interés *"
-        options={serviciosOptions}
-        value={formData.servicio}
-        onChange={(e) => setFormData({ ...formData, servicio: e.target.value as ServicioTipo })}
-        error={errors.servicio}
-        fullWidth
-        placeholder="Selecciona un servicio"
-      />
-      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          label="Nombre completo *"
+          type="text"
+          value={formData.nombre}
+          onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+          error={errors.nombre}
+          fullWidth
+          placeholder="Ej: Juan Pérez"
+        />
+
+        <Input
+          label="Email *"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          error={errors.email}
+          fullWidth
+          placeholder="correo@ejemplo.com"
+        />
+
+        <Input
+          label="Teléfono *"
+          type="tel"
+          value={formData.telefono}
+          onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+          error={errors.telefono}
+          fullWidth
+          placeholder="+57 300 123 4567"
+        />
+
+        <Input
+          label="Empresa (opcional)"
+          type="text"
+          value={formData.empresa}
+          onChange={(e) => setFormData({ ...formData, empresa: e.target.value })}
+          fullWidth
+          placeholder="Nombre de tu empresa"
+        />
+
+        <Select
+          label="Servicio de interés *"
+          options={serviciosOptions}
+          value={formData.servicio}
+          onChange={(e) => setFormData({ ...formData, servicio: e.target.value as ServicioTipo })}
+          error={errors.servicio}
+          fullWidth
+          placeholder="Selecciona un servicio"
+        />
+      </div>
+
       <TextArea
         label="Mensaje *"
         value={formData.mensaje}
@@ -131,7 +133,7 @@ export default function ContactForm({ onSubmit }: ContactFormProps) {
         rows={5}
         placeholder="Cuéntanos sobre tu proyecto..."
       />
-      
+
       <Button
         type="submit"
         variant="primary"

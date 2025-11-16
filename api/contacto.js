@@ -27,8 +27,8 @@ module.exports = async (req, res) => {
 
     // Enviar email con Resend
     const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
-      to: process.env.EMAIL_USER || 'digiautomatiza@outlook.com',
+      from: process.env.EMAIL_FROM || 'digiautomatiza1@gmail.com',
+      to: process.env.EMAIL_CONTACTO || process.env.EMAIL_USER || 'digiautomatiza1@gmail.com',
       subject: `📧 Nuevo Contacto: ${servicio} - ${nombre}`,
       html: `
         <h2>📬 Nuevo Contacto desde la Web</h2>

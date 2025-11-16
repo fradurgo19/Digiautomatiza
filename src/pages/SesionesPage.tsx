@@ -354,8 +354,8 @@ export default function SesionesPage() {
                   onChange={(e) => setNuevaSesion({ ...nuevaSesion, clienteId: e.target.value })}
                   fullWidth
                   placeholder="Selecciona un cliente"
-                  className="bg-emerald-200 border-emerald-400 focus:ring-emerald-700 focus:border-emerald-700"
-                  textClassName="text-emerald-950"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="!text-gray-900"
                   labelClassName="text-emerald-800"
                 />
                 
@@ -365,8 +365,8 @@ export default function SesionesPage() {
                   value={nuevaSesion.fecha}
                   onChange={(e) => setNuevaSesion({ ...nuevaSesion, fecha: e.target.value })}
                   fullWidth
-                  className="bg-emerald-50/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-gray-900 placeholder:text-emerald-500"
                   labelClassName="text-emerald-800"
                 />
                 
@@ -376,8 +376,8 @@ export default function SesionesPage() {
                   value={nuevaSesion.hora}
                   onChange={(e) => setNuevaSesion({ ...nuevaSesion, hora: e.target.value })}
                   fullWidth
-                  className="bg-emerald-50/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-gray-900 placeholder:text-emerald-500"
                   labelClassName="text-emerald-800"
                 />
                 
@@ -388,8 +388,8 @@ export default function SesionesPage() {
                   onChange={(e) => setNuevaSesion({ ...nuevaSesion, servicio: e.target.value as ServicioTipo })}
                   fullWidth
                   placeholder="Selecciona un servicio"
-                  className="bg-emerald-200 border-emerald-400 focus:ring-emerald-700 focus:border-emerald-700"
-                  textClassName="text-emerald-950"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="!text-gray-900"
                   labelClassName="text-emerald-800"
                 />
                 
@@ -399,8 +399,8 @@ export default function SesionesPage() {
                   value={nuevaSesion.estado}
                   onChange={(e) => setNuevaSesion({ ...nuevaSesion, estado: e.target.value as EstadoSesion })}
                   fullWidth
-                  className="bg-emerald-200 border-emerald-400 focus:ring-emerald-700 focus:border-emerald-700"
-                  textClassName="text-emerald-950"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="!text-gray-900"
                   labelClassName="text-emerald-800"
                 />
                 
@@ -411,8 +411,8 @@ export default function SesionesPage() {
                   onChange={(e) => setNuevaSesion({ ...nuevaSesion, urlReunion: e.target.value })}
                   fullWidth
                   placeholder="https://meet.google.com/..."
-                  className="bg-emerald-50/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-gray-900 placeholder:text-emerald-500"
                   labelClassName="text-emerald-800"
                 />
                 
@@ -423,8 +423,8 @@ export default function SesionesPage() {
                   fullWidth
                   rows={4}
                   placeholder="Información adicional sobre la sesión..."
-                  className="bg-emerald-50/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-gray-900 placeholder:text-emerald-500"
                   labelClassName="text-emerald-800"
                 />
                 

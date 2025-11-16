@@ -12,7 +12,8 @@ import { EnvioMasivoWhatsApp } from '../types';
 type WhatsAppProvider = 'twilio' | 'meta' | 'backend' | 'demo';
 
 // Configuración del proveedor (cambiar según necesidad)
-const WHATSAPP_PROVIDER: WhatsAppProvider = 'twilio'; // ✅ ACTIVADO: Twilio WhatsApp API
+// Modo por defecto: 'demo' (envío asistido con wa.me desde el frontend)
+const WHATSAPP_PROVIDER: WhatsAppProvider = 'demo';
 
 // Variables de entorno (configurar en .env)
 const TWILIO_ACCOUNT_SID = import.meta.env.VITE_TWILIO_ACCOUNT_SID || '';
@@ -42,6 +43,15 @@ export async function enviarWhatsAppMasivo(datos: EnvioMasivoWhatsApp): Promise<
     default:
       return await enviarDemo(datos);
   }
+}
+
+/**
+ * Genera un enlace wa.me con el número en formato E.164 y el mensaje codificado
+ */
+export function generarLinkWaMe(numero: string, mensaje: string): string {
+  const numeroFormateado = formatearNumeroWhatsApp(numero).replace('+', '');
+  const textoCodificado = encodeURIComponent(mensaje);
+  return `https://wa.me/${numeroFormateado}?text=${textoCodificado}`;
 }
 
 /**

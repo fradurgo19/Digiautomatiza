@@ -21,6 +21,12 @@ VITE_META_PHONE_NUMBER_ID=tu_phone_number_id_aqui
 # ===== BACKEND =====
 VITE_BACKEND_URL=http://localhost:3000
 
+# ===== EMAIL / SMTP OUTLOOK =====
+EMAIL_PROVIDER=outlook
+EMAIL_USER=digiautomatiza@outlook.com
+EMAIL_PASSWORD=tu_app_password_o_contraseña
+EMAIL_FROM=digiautomatiza@outlook.com
+
 # ===== SUPABASE (Opcional) =====
 VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
 VITE_SUPABASE_ANON_KEY=tu_anon_key_aqui
