@@ -20,16 +20,28 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
+      const usuarioId = req.headers['x-usuario-id'] ?? null;
+
+      const where = {};
+      if (usuarioId) {
+        where.usuarioId = String(usuarioId);
+      }
+
       // Obtener todos los clientes
       const clientes = await prisma.cliente.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
       });
       
       res.status(200).json({ clientes });
     } else if (req.method === 'POST') {
+      const usuarioId = req.headers['x-usuario-id'] ?? null;
       // Crear nuevo cliente
       const cliente = await prisma.cliente.create({
-        data: req.body,
+        data: {
+          ...req.body,
+          usuarioId: usuarioId ? String(usuarioId) : null,
+        },
       });
       
       res.status(201).json({ cliente });

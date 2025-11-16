@@ -1,6 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Usuario, AuthState, LoginCredentials } from '../types';
 
+const API_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  (import.meta.env.MODE === 'production'
+    ? 'https://digiautomatiza.vercel.app'
+    : 'http://localhost:3000');
+
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
@@ -37,26 +43,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      // TODO: Implementar autenticación real con backend
-      // Por ahora, simulamos login con credenciales predefinidas
-      if (credentials.email === 'comercial@digiautomatiza.com' && credentials.password === 'comercial2025') {
-        const usuario: Usuario = {
-          id: '1',
-          nombre: 'Usuario Comercial',
-          email: credentials.email,
-          rol: 'comercial',
-          activo: true,
-        };
-        
-        localStorage.setItem('usuario', JSON.stringify(usuario));
-        setAuthState({
-          usuario,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } else {
-        throw new Error('Credenciales inválidas');
+      const response = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Credenciales inválidas');
       }
+
+      const data = await response.json();
+      const usuario: Usuario = data.usuario;
+
+      localStorage.setItem('usuario', JSON.stringify(usuario));
+      setAuthState({
+        usuario,
+        isAuthenticated: true,
+        isLoading: false,
+      });
     } catch (error) {
       console.error('Error en login:', error);
       throw error;

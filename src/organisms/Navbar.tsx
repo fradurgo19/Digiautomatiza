@@ -11,6 +11,7 @@ export default function Navbar() {
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/clientes', label: 'Clientes', icon: '👥' },
     { path: '/sesiones', label: 'Sesiones', icon: '📅' },
+    { path: '/oportunidades', label: 'Oportunidades', icon: '📈' },
   ];
 
   const handleLogout = () => {
@@ -25,7 +26,9 @@ export default function Navbar() {
           {/* Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
             <div className="text-2xl">🚀</div>
-            <h1 className="text-xl font-bold text-blue-600">Digiautomatiza</h1>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-lime-500 bg-clip-text text-transparent">
+              Digiautomatiza
+            </h1>
           </div>
 
           {/* Navigation Links */}

@@ -3,7 +3,16 @@
  * Funciones para interactuar con Neon PostgreSQL vía Prisma
  */
 
-import type { Cliente, Sesion, ServicioTipo, EstadoCliente, EstadoSesion, Contacto } from '../types';
+import type {
+  Cliente,
+  Sesion,
+  ServicioTipo,
+  EstadoCliente,
+  EstadoSesion,
+  Contacto,
+  Oportunidad,
+  EtapaOportunidad,
+} from '../types';
 
 // URL del backend que manejará las operaciones de base de datos
 // En producción usa la URL de Vercel, en desarrollo usa localhost
@@ -23,11 +32,39 @@ const mapSesion = (sesion: any): Sesion => ({
   cliente: sesion?.cliente ? mapCliente(sesion.cliente) : sesion.cliente,
 });
 
+const mapOportunidad = (opp: any): Oportunidad => ({
+  ...opp,
+  fechaCierreEstimada: opp?.fechaCierreEstimada ? new Date(opp.fechaCierreEstimada) : undefined,
+  createdAt: opp?.createdAt ? new Date(opp.createdAt) : undefined,
+  updatedAt: opp?.updatedAt ? new Date(opp.updatedAt) : undefined,
+  cliente: opp?.cliente ? mapCliente(opp.cliente) : opp.cliente,
+});
+
+export interface DashboardStats {
+  totalClientes: number;
+  clientesInteresados: number;
+  sesionesProgramadas: number;
+  sesionesCompletadas: number;
+  scope: 'global' | 'usuario';
+}
+
 // ============ CLIENTES ============
 
 export async function obtenerClientes(): Promise<Cliente[]> {
   try {
-    const response = await fetch(`${API_URL}/api/clientes`);
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/clientes`, { headers });
     if (!response.ok) throw new Error('Error al obtener clientes');
     const data = await response.json();
     return (data.clientes || []).map(mapCliente);
@@ -39,9 +76,21 @@ export async function obtenerClientes(): Promise<Cliente[]> {
 
 export async function crearCliente(clienteData: Omit<Cliente, 'id' | 'fechaRegistro'>): Promise<Cliente> {
   try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/clientes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(clienteData),
     });
     
@@ -56,9 +105,21 @@ export async function crearCliente(clienteData: Omit<Cliente, 'id' | 'fechaRegis
 
 export async function actualizarCliente(id: string, clienteData: Partial<Cliente>): Promise<Cliente> {
   try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(clienteData),
     });
     
@@ -73,10 +134,22 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
 
 export async function eliminarCliente(id: string): Promise<void> {
   try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
       method: 'DELETE',
+      headers,
     });
-    
     if (!response.ok) throw new Error('Error al eliminar cliente');
   } catch (error) {
     console.error('Error al eliminar cliente:', error);
@@ -88,7 +161,19 @@ export async function eliminarCliente(id: string): Promise<void> {
 
 export async function obtenerSesiones(): Promise<Sesion[]> {
   try {
-    const response = await fetch(`${API_URL}/api/sesiones`);
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/sesiones`, { headers });
     if (!response.ok) throw new Error('Error al obtener sesiones');
     const data = await response.json();
     return (data.sesiones || []).map(mapSesion);
@@ -100,9 +185,21 @@ export async function obtenerSesiones(): Promise<Sesion[]> {
 
 export async function crearSesion(sesionData: Omit<Sesion, 'id' | 'cliente'>): Promise<Sesion> {
   try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/sesiones`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(sesionData),
     });
     
@@ -117,9 +214,21 @@ export async function crearSesion(sesionData: Omit<Sesion, 'id' | 'cliente'>): P
 
 export async function actualizarSesion(id: string, sesionData: Partial<Sesion>): Promise<Sesion> {
   try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(sesionData),
     });
     
@@ -134,10 +243,22 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
 
 export async function eliminarSesion(id: string): Promise<void> {
   try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
       method: 'DELETE',
+      headers,
     });
-    
     if (!response.ok) throw new Error('Error al eliminar sesión');
   } catch (error) {
     console.error('Error al eliminar sesión:', error);
@@ -171,6 +292,159 @@ export async function obtenerContactos(): Promise<Contacto[]> {
   } catch (error) {
     console.error('Error al obtener contactos:', error);
     return [];
+  }
+}
+
+// ============ OPORTUNIDADES ============
+
+export async function obtenerOportunidades(params?: {
+  etapa?: EtapaOportunidad | 'todas';
+  clienteId?: string;
+}): Promise<Oportunidad[]> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const query = new URLSearchParams();
+    if (params?.etapa && params.etapa !== 'todas') {
+      query.set('etapa', params.etapa);
+    }
+    if (params?.clienteId) {
+      query.set('clienteId', params.clienteId);
+    }
+
+    const url = `${API_URL}/api/oportunidades${query.toString() ? `?${query.toString()}` : ''}`;
+    const response = await fetch(url, { headers });
+    if (!response.ok) throw new Error('Error al obtener oportunidades');
+    const data = await response.json();
+    return (data.oportunidades || []).map(mapOportunidad);
+  } catch (error) {
+    console.error('Error al obtener oportunidades:', error);
+    return [];
+  }
+}
+
+export async function crearOportunidad(
+  oportunidadData: Omit<Oportunidad, 'id' | 'cliente' | 'createdAt' | 'updatedAt'>
+): Promise<Oportunidad> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/oportunidades`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(oportunidadData),
+    });
+
+    if (!response.ok) throw new Error('Error al crear oportunidad');
+    const data = await response.json();
+    return mapOportunidad(data.oportunidad);
+  } catch (error) {
+    console.error('Error al crear oportunidad:', error);
+    throw error;
+  }
+}
+
+export async function actualizarOportunidad(
+  id: string,
+  oportunidadData: Partial<Oportunidad>
+): Promise<Oportunidad> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(oportunidadData),
+    });
+
+    if (!response.ok) throw new Error('Error al actualizar oportunidad');
+    const data = await response.json();
+    return mapOportunidad(data.oportunidad);
+  } catch (error) {
+    console.error('Error al actualizar oportunidad:', error);
+    throw error;
+  }
+}
+
+export async function eliminarOportunidad(id: string): Promise<void> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    if (!response.ok) throw new Error('Error al eliminar oportunidad');
+  } catch (error) {
+    console.error('Error al eliminar oportunidad:', error);
+    throw error;
+  }
+}
+
+// ============ STATS ============
+
+export async function obtenerStatsDashboard(): Promise<DashboardStats | null> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/stats`, { headers });
+    if (!response.ok) throw new Error('Error al obtener estadísticas');
+    const data = await response.json();
+    return data as DashboardStats;
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    return null;
   }
 }
 

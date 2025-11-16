@@ -20,8 +20,15 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
+      const usuarioId = req.headers['x-usuario-id'] ?? null;
+      const where = {};
+      if (usuarioId) {
+        where.usuarioId = String(usuarioId);
+      }
+
       // Obtener todas las sesiones con cliente
       const sesiones = await prisma.sesion.findMany({
+        where,
         include: {
           cliente: true,
         },
@@ -30,6 +37,7 @@ module.exports = async (req, res) => {
       
       res.status(200).json({ sesiones });
     } else if (req.method === 'POST') {
+      const usuarioId = req.headers['x-usuario-id'] ?? null;
       // Crear nueva sesión
       const { clienteId, fecha, hora, servicio, estado, notas, urlReunion } = req.body;
       
@@ -42,6 +50,7 @@ module.exports = async (req, res) => {
           estado: estado || 'programada',
           notas,
           urlReunion,
+          usuarioId: usuarioId ? String(usuarioId) : null,
         },
         include: {
           cliente: true,

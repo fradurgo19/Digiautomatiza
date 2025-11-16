@@ -22,12 +22,18 @@ model Usuario {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relaciones
+  clientes      Cliente[]
+  sesiones      Sesion[]
+  oportunidades Oportunidad[]
+
   @@map("usuarios")
 }
 
 // Modelo de Cliente
 model Cliente {
   id                String   @id @default(cuid())
+  usuarioId         String?
   nombre            String
   email             String
   telefono          String
@@ -39,8 +45,10 @@ model Cliente {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  // Relación con sesiones
-  sesiones Sesion[]
+  // Relaciones
+  sesiones      Sesion[]
+  oportunidades Oportunidad[]
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([estado])
@@ -51,6 +59,7 @@ model Cliente {
 model Sesion {
   id          String   @id @default(cuid())
   clienteId   String
+  usuarioId   String?
   fecha       DateTime
   hora        String
   servicio    String
@@ -60,8 +69,9 @@ model Sesion {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relación con cliente
+  // Relaciones
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([clienteId])
   @@index([fecha])
@@ -103,4 +113,29 @@ model EnvioMasivo {
   @@index([fechaEnvio])
   @@index([tipo])
   @@map("envios_masivos")
+}
+
+// Modelo de Oportunidad Comercial (Pipeline)
+model Oportunidad {
+  id                   String   @id @default(cuid())
+  clienteId            String
+  usuarioId            String?
+  titulo               String
+  descripcion          String?  @db.Text
+  servicioPrincipal    String   // referencia a ServicioTipo en frontend
+  etapa                String   @default("nuevo") // nuevo, calificado, propuesta, negociacion, ganado, perdido
+  origen               String?  // lead-web, referenciado, frio, upsell, otro
+  valorEstimado        Float?   // valor potencial de la oportunidad
+  probabilidad         Int?     // 0-100 %
+  fechaCierreEstimada  DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relaciones
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([clienteId])
+  @@index([etapa])
+  @@map("oportunidades")
 }

@@ -49,6 +49,32 @@ export type EstadoSesion =
   | 'cancelada'
   | 'reprogramada';
 
+// Etapas de una oportunidad comercial (pipeline)
+export type EtapaOportunidad =
+  | 'nuevo'
+  | 'calificado'
+  | 'propuesta'
+  | 'negociacion'
+  | 'ganado'
+  | 'perdido';
+
+// Tipo de Oportunidad Comercial
+export interface Oportunidad {
+  id: string;
+  clienteId: string;
+  cliente: Cliente;
+  titulo: string;
+  descripcion?: string;
+  servicioPrincipal: ServicioTipo;
+  etapa: EtapaOportunidad;
+  origen?: string;
+  valorEstimado?: number;
+  probabilidad?: number; // 0-100
+  fechaCierreEstimada?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 // Tipo para Contacto (formulario principal)
 export interface Contacto {
   id?: string;

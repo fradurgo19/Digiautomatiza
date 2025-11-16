@@ -1,16 +1,39 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
+import { useAuth } from '../context/AuthContext';
+import { obtenerStatsDashboard, DashboardStats } from '../services/databaseService';
+import Loading from '../atoms/Loading';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const stats = [
-    { label: 'Total Clientes', value: '0', icon: '👥', color: 'text-emerald-300' },
-    { label: 'Clientes Interesados', value: '0', icon: '🧠', color: 'text-lime-200' },
-    { label: 'Sesiones Programadas', value: '0', icon: '📅', color: 'text-teal-200' },
-    { label: 'Correos Enviados', value: '0', icon: '📧', color: 'text-sky-200' },
-  ];
+  useEffect(() => {
+    const fetchStats = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await obtenerStatsDashboard();
+        if (data) {
+          setStats(data);
+        } else {
+          setError('No se pudieron cargar las estadísticas.');
+        }
+      } catch (e) {
+        console.error(e);
+        setError('Error al cargar estadísticas.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const quickActions = [
     {
@@ -58,23 +81,86 @@ export default function DashboardPage() {
           <p className="text-gray-700 mt-4 text-lg max-w-2xl">
             Control total de clientes, campañas multicanal y automatizaciones críticas desde un único cockpit.
           </p>
+          {stats && (
+            <p className="text-sm text-emerald-700 mt-2">
+              Vista:{' '}
+              <span className="font-semibold">
+                {stats.scope === 'global'
+                  ? 'Global (Administrador)'
+                  : `Mi cartera (${usuario?.nombre || 'Comercial'})`}
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
-                    {stat.label}
-                  </p>
-                  <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+          {isLoading ? (
+            <div className="col-span-4 flex justify-center py-10">
+              <Loading text="Cargando estadísticas..." />
+            </div>
+          ) : error || !stats ? (
+            <div className="col-span-4">
+              <Card className="bg-white/80 border border-red-100 text-red-800">
+                <p className="text-sm">{error || 'No se pudieron cargar las estadísticas.'}</p>
+              </Card>
+            </div>
+          ) : (
+            <>
+              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                      Total Clientes
+                    </p>
+                    <p className="text-3xl font-bold text-emerald-700">
+                      {stats.totalClientes}
+                    </p>
+                  </div>
+                  <div className="text-4xl">👥</div>
                 </div>
-                <div className="text-4xl">{stat.icon}</div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                      Clientes Interesados
+                    </p>
+                    <p className="text-3xl font-bold text-lime-700">
+                      {stats.clientesInteresados}
+                    </p>
+                  </div>
+                  <div className="text-4xl">🧠</div>
+                </div>
+              </Card>
+              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                      Sesiones Programadas
+                    </p>
+                    <p className="text-3xl font-bold text-teal-700">
+                      {stats.sesionesProgramadas}
+                    </p>
+                  </div>
+                  <div className="text-4xl">📅</div>
+                </div>
+              </Card>
+              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                      Sesiones Completadas
+                    </p>
+                    <p className="text-3xl font-bold text-sky-700">
+                      {stats.sesionesCompletadas}
+                    </p>
+                  </div>
+                  <div className="text-4xl">✅</div>
+                </div>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Quick Actions */}

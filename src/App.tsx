@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ClientesPage from './pages/ClientesPage';
 import SesionesPage from './pages/SesionesPage';
+import OportunidadesPage from './pages/OportunidadesPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SesionesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/oportunidades"
+            element={
+              <ProtectedRoute>
+                <OportunidadesPage />
               </ProtectedRoute>
             }
           />
