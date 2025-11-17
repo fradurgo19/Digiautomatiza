@@ -6,6 +6,12 @@
 
 /* eslint-disable no-console */
 
+// Cargar variables de entorno desde .env
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+config({ path: resolve(process.cwd(), '.env') });
+
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

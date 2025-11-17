@@ -1,0 +1,29 @@
+═══════════════════════════════════════════════════════════════
+  FIRMA SIMPLIFICADA PARA GMAIL (COPIA Y PEGA ESTO)
+═══════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────
+Digiautomatiza
+Suite de Automatización Empresarial
+
+📧 digiautomatiza1@gmail.com
+📱 +57 314 331 5108
+
+Digitalización • Automatización • Inteligencia de Negocio
+───────────────────────────────────────────────────────────────
+
+INSTRUCCIONES:
+1. Ve a Gmail → Configuración → Firma
+2. Crea una nueva firma
+3. Copia TODO el texto entre las líneas de guiones (sin los guiones)
+4. Pégalo en el editor de Gmail
+5. Selecciona "Digiautomatiza" y cambia el color a verde (#10b981)
+6. Selecciona "Suite de Automatización Empresarial" y cambia el color a verde claro (#6ee7b7)
+7. Haz clic en "Insertar imagen" y pega esta URL:
+   https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png
+8. Ajusta el tamaño de la imagen a 40px de alto
+9. Coloca la imagen al lado del texto "Digiautomatiza"
+10. Guarda los cambios
+
+═══════════════════════════════════════════════════════════════
+

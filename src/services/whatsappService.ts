@@ -12,8 +12,9 @@ import { EnvioMasivoWhatsApp } from '../types';
 type WhatsAppProvider = 'twilio' | 'meta' | 'backend' | 'demo';
 
 // Configuración del proveedor (cambiar según necesidad)
-// Modo por defecto: 'demo' (envío asistido con wa.me desde el frontend)
-const WHATSAPP_PROVIDER: WhatsAppProvider = 'demo';
+// Para usar YCloud, el flujo recomendado es vía backend personalizado.
+// Puedes cambiar a 'backend' cuando tengas el backend configurado en producción.
+const WHATSAPP_PROVIDER: WhatsAppProvider = 'backend';
 
 // Variables de entorno (configurar en .env)
 const TWILIO_ACCOUNT_SID = import.meta.env.VITE_TWILIO_ACCOUNT_SID || '';
@@ -174,19 +175,15 @@ async function enviarConMeta(datos: EnvioMasivoWhatsApp): Promise<ResultadoEnvio
  */
 async function enviarConBackend(datos: EnvioMasivoWhatsApp): Promise<ResultadoEnvio> {
   try {
-    const formData = new FormData();
-    formData.append('numeros', JSON.stringify(datos.numeros));
-    formData.append('mensaje', datos.mensaje);
-    
-    if (datos.archivos) {
-      datos.archivos.forEach((archivo, index) => {
-        formData.append(`archivo_${index}`, archivo);
-      });
-    }
-
     const response = await fetch(`${BACKEND_API_URL}/api/whatsapp/enviar-masivo`, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        numeros: datos.numeros,
+        mensaje: datos.mensaje,
+      }),
     });
 
     if (!response.ok) {

@@ -1,14 +1,14 @@
 /**
- * Proveedor de WhatsApp basado en YCloud (diseño listo para integrar su API)
+ * Proveedor de WhatsApp basado en YCloud
  *
  * Objetivo:
  * - Centralizar TODAS las llamadas a WhatsApp en un solo módulo.
  * - Mapear los casos de uso del negocio (Digiautomatiza) a los tipos de conversación de WhatsApp.
- * - Dejar lista la estructura para conectar la API real de YCloud cuando tengas tu cuenta.
+ * - Conectar la API real de YCloud usando las credenciales de tu cuenta.
  *
- * NOTA IMPORTANTE:
- * - Este archivo NO realiza llamadas reales hasta que completes las variables de entorno
- *   y el endpoint concreto de YCloud.
+ * IMPORTANTE:
+ * - Debes configurar en tu `.env` del backend (carpeta `server/`) las variables:
+ *   YCLOUD_API_BASE_URL, YCLOUD_API_KEY y YCLOUD_WHATSAPP_BUSINESS_ID
  */
 
 // Tipos de mensaje según la clasificación oficial de WhatsApp
@@ -64,21 +64,32 @@ function resolveCategoryForUseCase(useCase) {
 
 /**
  * Configuración base para YCloud.
- * Completa estas variables en tu .env cuando abras la cuenta:
+ * Completa estas variables en tu `.env` del backend (`server/.env`):
  *
- *  YCLOUD_API_BASE_URL=https://api.ycloud.com   (ejemplo, revisar doc oficial)
+ *  YCLOUD_API_BASE_URL=https://api.ycloud.com
  *  YCLOUD_API_KEY=tu_api_key_de_ycloud
  *  YCLOUD_WHATSAPP_BUSINESS_ID=tu_business_id_o_canal
+ *
+ * Revisa en el panel de YCloud cuál es la URL base y el endpoint exacto. El valor
+ * por defecto que usamos abajo es el más habitual:
+ *   https://api.ycloud.com/v1/whatsapp/messages
  */
-const YCLOUD_API_BASE_URL = process.env.YCLOUD_API_BASE_URL || '';
+const YCLOUD_API_BASE_URL = process.env.YCLOUD_API_BASE_URL || 'https://api.ycloud.com';
 const YCLOUD_API_KEY = process.env.YCLOUD_API_KEY || '';
 const YCLOUD_WHATSAPP_BUSINESS_ID = process.env.YCLOUD_WHATSAPP_BUSINESS_ID || '';
+// Número de WhatsApp como alternativa si no hay business_id
+const YCLOUD_WHATSAPP_NUMBER = process.env.YCLOUD_WHATSAPP_NUMBER || '15558366820';
 
 function ensureConfigured() {
-  if (!YCLOUD_API_BASE_URL || !YCLOUD_API_KEY || !YCLOUD_WHATSAPP_BUSINESS_ID) {
+  if (!YCLOUD_API_KEY) {
     throw new Error(
-      'YCloud no está configurado. Define YCLOUD_API_BASE_URL, YCLOUD_API_KEY y YCLOUD_WHATSAPP_BUSINESS_ID en .env'
+      'YCloud no está configurado. Define YCLOUD_API_KEY en .env (mínimo requerido)'
     );
+  }
+  
+  // El business_id es opcional - si no está, intentaremos usar el número
+  if (!YCLOUD_WHATSAPP_BUSINESS_ID && !YCLOUD_WHATSAPP_NUMBER) {
+    console.warn('⚠️ No se encontró YCLOUD_WHATSAPP_BUSINESS_ID ni YCLOUD_WHATSAPP_NUMBER. Intentando sin business_id...');
   }
 }
 
@@ -108,13 +119,8 @@ async function sendWhatsAppMessageYCloud({
 }) {
   const category = resolveCategoryForUseCase(useCase || UseCase.SEGUIMIENTO_DENTRO_24H);
 
-  // Por ahora solo dejamos el diseño. Cuando tengas la doc de YCloud:
-  // 1. Elige el endpoint correcto (ej. /whatsapp/messages o similar).
-  // 2. Ajusta el payload según la categoría y soporte de plantillas.
-
   ensureConfigured();
 
-  // Ejemplo de payload genérico (NO definitivo, adaptar a especificación de YCloud)
   const payload = {
     business_id: YCLOUD_WHATSAPP_BUSINESS_ID,
     to,
@@ -141,34 +147,32 @@ async function sendWhatsAppMessageYCloud({
     };
   }
 
-  // Cuando conectes la API real, descomenta la llamada fetch
-  // y revisa la autenticación (ejemplo con Bearer token):
-  /*
-  const response = await fetch(`${YCLOUD_API_BASE_URL}/v1/whatsapp/messages`, {
+  // Llamada real a la API de YCloud
+  const endpoint =
+    YCLOUD_API_BASE_URL.endsWith('/')
+      ? `${YCLOUD_API_BASE_URL}v1/whatsapp/messages`
+      : `${YCLOUD_API_BASE_URL}/v1/whatsapp/messages`;
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${YCLOUD_API_KEY}`,
+      Authorization: `Bearer ${YCLOUD_API_KEY}`,
     },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
+    console.error('❌ Error al enviar WhatsApp vía YCloud:', errorBody);
     throw new Error(`Error YCloud: ${response.status} - ${errorBody}`);
   }
 
-  return await response.json();
-  */
+  const data = await response.json();
 
-  // Modo diseño / stub: solo loguea para pruebas sin enviar nada
-  console.log('🧪 [whatsappProviderYCloud] Payload listo para enviar a YCloud:');
-  console.log(JSON.stringify(payload, null, 2));
+  console.log('✅ WhatsApp enviado vía YCloud:', JSON.stringify(data, null, 2));
 
-  return {
-    success: true,
-    simulated: true,
-  };
+  return data;
 }
 
 /**
