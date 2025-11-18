@@ -165,12 +165,21 @@ export default function ClientesPage() {
     setIsUpdatingCliente(true);
     try {
       const payload = buildClientePayload(clienteEditado);
+      console.log('🔄 Actualizando cliente:', clienteEnEdicion.id, payload);
+      
       const actualizado = await actualizarClienteApi(clienteEnEdicion.id, payload);
+      console.log('✅ Cliente actualizado:', actualizado);
+      
+      // Actualizar la lista de clientes
       setClientes((prev) => prev.map((cliente) => (cliente.id === actualizado.id ? actualizado : cliente)));
+      
+      // Recargar clientes para asegurar sincronización
+      await fetchClientes();
+      
       setIsEditModalOpen(false);
       resetEditState();
     } catch (error) {
-      console.error('Error al actualizar cliente:', error);
+      console.error('❌ Error al actualizar cliente:', error);
       alert('No se pudo actualizar el cliente. Intenta nuevamente.');
     } finally {
       setIsUpdatingCliente(false);

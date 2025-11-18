@@ -28,11 +28,22 @@ export default async function handler(req, res) {
     } else if (req.method === 'PUT' || req.method === 'PATCH') {
       // Actualizar cliente
       const datos = req.body;
+      
+      console.log(`🔄 Actualizando cliente ${id} con datos:`, JSON.stringify(datos, null, 2));
+      
       const cliente = await prisma.cliente.update({
         where: { id },
         data: datos,
       });
+      
+      console.log(`✅ Cliente actualizado exitosamente:`, cliente.id);
+      
+      // Headers para evitar caché
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.setHeader('Content-Type', 'application/json');
+      
       res.status(200).json({ cliente });
     } else {
       res.setHeader('Content-Type', 'application/json');

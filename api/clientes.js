@@ -39,6 +39,12 @@ export default async function handler(req, res) {
         orderBy: { createdAt: 'desc' },
       });
       
+      // Headers para evitar caché
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Content-Type', 'application/json');
+      
       res.status(200).json({ clientes });
     } else if (req.method === 'POST') {
       const usuarioId = req.headers['x-usuario-id'] ?? null;
