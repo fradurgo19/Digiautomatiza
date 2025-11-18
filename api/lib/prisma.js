@@ -72,10 +72,23 @@ function getPrismaClient() {
       console.log('✅ Convertida a Transaction pooler (puerto 6543)');
     }
     
-    // Asegurar que la URL tenga sslmode=require
+    // Asegurar que la URL tenga sslmode=require y deshabilitar prepared statements
+    // Prepared statements causan conflictos en serverless con múltiples consultas concurrentes
+    const separator = databaseUrl.includes('?') ? '&' : '?';
+    const params = [];
+    
     if (!databaseUrl.includes('sslmode=')) {
-      const separator = databaseUrl.includes('?') ? '&' : '?';
-      databaseUrl = `${databaseUrl}${separator}sslmode=require`;
+      params.push('sslmode=require');
+    }
+    
+    // Deshabilitar prepared statements para evitar errores "prepared statement already exists"
+    if (!databaseUrl.includes('prepared_statements=')) {
+      params.push('prepared_statements=false');
+    }
+    
+    if (params.length > 0) {
+      databaseUrl = `${databaseUrl}${separator}${params.join('&')}`;
+      console.log('✅ Parámetros agregados:', params.join(', '));
     }
     
     // Logging después de la conversión

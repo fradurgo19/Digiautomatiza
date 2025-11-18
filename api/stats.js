@@ -26,36 +26,41 @@ export default async function handler(req, res) {
     const rol = req.headers['x-usuario-rol'] ?? null;
     const isAdmin = rol && String(rol).toLowerCase() === 'admin';
 
-    const whereCliente = {};
-    const whereSesion = {};
+    // Construir filtros de manera explícita (undefined si no hay filtro)
+    let whereCliente = undefined;
+    let whereSesion = undefined;
 
     if (usuarioId && !isAdmin) {
-      whereCliente.usuarioId = String(usuarioId);
-      whereSesion.usuarioId = String(usuarioId);
+      whereCliente = { usuarioId: String(usuarioId) };
+      whereSesion = { usuarioId: String(usuarioId) };
     }
 
-    const [totalClientes, clientesInteresados, sesionesProgramadas, sesionesCompletadas] =
-      await Promise.all([
-        prisma.cliente.count({ where: whereCliente }),
-        prisma.cliente.count({
-          where: {
-            ...whereCliente,
-            estado: { in: ['interesado', 'en-negociacion', 'convertido'] },
-          },
-        }),
-        prisma.sesion.count({
-          where: {
-            ...whereSesion,
-            estado: { in: ['programada', 'confirmada', 'reprogramada'] },
-          },
-        }),
-        prisma.sesion.count({
-          where: {
-            ...whereSesion,
-            estado: 'completada',
-          },
-        }),
-      ]);
+    // Ejecutar consultas de forma secuencial para evitar conflictos de prepared statements
+    // Aunque deshabilitamos prepared statements, es más seguro ejecutar secuencialmente
+    const totalClientes = await prisma.cliente.count({ 
+      ...(whereCliente && { where: whereCliente })
+    });
+    
+    const clientesInteresados = await prisma.cliente.count({
+      where: {
+        ...(whereCliente || {}),
+        estado: { in: ['interesado', 'en-negociacion', 'convertido'] },
+      },
+    });
+    
+    const sesionesProgramadas = await prisma.sesion.count({
+      where: {
+        ...(whereSesion || {}),
+        estado: { in: ['programada', 'confirmada', 'reprogramada'] },
+      },
+    });
+    
+    const sesionesCompletadas = await prisma.sesion.count({
+      where: {
+        ...(whereSesion || {}),
+        estado: 'completada',
+      },
+    });
 
     res.status(200).json({
       totalClientes,
