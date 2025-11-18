@@ -47,10 +47,39 @@ function getPrismaClient() {
 
   console.log('🔌 Inicializando Prisma Client...');
   const isSupabase = databaseUrl.includes('supabase.co');
-  console.log('📍 Database host:', isSupabase ? 'Supabase' : 'Otro');
   
+  // Para Supabase en serverless (Vercel), usar Transaction pooler (puerto 6543)
+  // Si la URL usa la conexión directa (5432), convertirla al pooler ANTES de cualquier otra cosa
   if (isSupabase) {
-    // Extraer información del host para logging (sin exponer credenciales)
+    // Detectar si es conexión directa (db.kixlndfaipkgkhxqbdao.supabase.co:5432)
+    const isDirectConnection = databaseUrl.includes('db.kixlndfaipkgkhxqbdao.supabase.co:5432');
+    
+    if (isDirectConnection) {
+      console.log('🔄 Detectada conexión directa, convirtiendo a Transaction pooler...');
+      
+      // Convertir a Transaction pooler
+      databaseUrl = databaseUrl.replace(
+        'db.kixlndfaipkgkhxqbdao.supabase.co:5432',
+        'aws-1-us-east-2.pooler.supabase.com:6543'
+      );
+      
+      // Cambiar usuario de 'postgres' a 'postgres.kixlndfaipkgkhxqbdao' para pooler
+      databaseUrl = databaseUrl.replace(
+        'postgresql://postgres:',
+        'postgresql://postgres.kixlndfaipkgkhxqbdao:'
+      );
+      
+      console.log('✅ Convertida a Transaction pooler (puerto 6543)');
+    }
+    
+    // Asegurar que la URL tenga sslmode=require
+    if (!databaseUrl.includes('sslmode=')) {
+      const separator = databaseUrl.includes('?') ? '&' : '?';
+      databaseUrl = `${databaseUrl}${separator}sslmode=require`;
+    }
+    
+    // Logging después de la conversión
+    console.log('📍 Database host: Supabase');
     try {
       const urlMatch = databaseUrl.match(/@([^:]+):(\d+)/);
       if (urlMatch) {
@@ -61,15 +90,8 @@ function getPrismaClient() {
     } catch (e) {
       // Ignorar errores de parsing
     }
-  }
-
-  // Asegurar que la URL tenga sslmode=require para Supabase
-  // Usar método más robusto que funcione en todos los entornos
-  if (isSupabase && !databaseUrl.includes('sslmode=')) {
-    // Agregar sslmode=require si no está presente
-    const separator = databaseUrl.includes('?') ? '&' : '?';
-    databaseUrl = `${databaseUrl}${separator}sslmode=require`;
-    console.log('✅ Agregado sslmode=require a la URL');
+  } else {
+    console.log('📍 Database host: Otro');
   }
 
   // Crear nueva instancia con configuración optimizada para serverless
