@@ -25,8 +25,9 @@ export default function DashboardPage() {
           setError('No se pudieron cargar las estadísticas.');
         }
       } catch (e) {
-        console.error(e);
-        setError('Error al cargar estadísticas.');
+        console.error('Error al obtener estadísticas:', e);
+        const errorMessage = e instanceof Error ? e.message : 'Error desconocido al cargar estadísticas.';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }

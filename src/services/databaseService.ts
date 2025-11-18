@@ -117,18 +117,42 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
       }
     }
 
+    // Limpiar datos: remover campos que no deben enviarse y campos undefined
+    const cleanData: any = {};
+    Object.keys(clienteData).forEach(key => {
+      const value = (clienteData as any)[key];
+      // No incluir campos undefined, null (excepto si es explícitamente null), ni fechas como objetos Date
+      if (value !== undefined && key !== 'id' && key !== 'fechaRegistro' && key !== 'createdAt' && key !== 'updatedAt') {
+        if (value instanceof Date) {
+          cleanData[key] = value.toISOString();
+        } else {
+          cleanData[key] = value;
+        }
+      }
+    });
+
+    console.log('🔄 Actualizando cliente:', id, cleanData);
+
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify(clienteData),
+      body: JSON.stringify(cleanData),
     });
     
-    if (!response.ok) throw new Error('Error al actualizar cliente');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error en respuesta:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
     const data = await response.json();
+    console.log('✅ Cliente actualizado exitosamente');
     return mapCliente(data.cliente);
   } catch (error) {
-    console.error('Error al actualizar cliente:', error);
-    throw error;
+    console.error('❌ Error al actualizar cliente:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al actualizar cliente';
+    throw new Error(errorMessage);
   }
 }
 
@@ -146,14 +170,25 @@ export async function eliminarCliente(id: string): Promise<void> {
       }
     }
 
+    console.log('🗑️ Eliminando cliente:', id);
+
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
       method: 'DELETE',
       headers,
     });
-    if (!response.ok) throw new Error('Error al eliminar cliente');
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error en respuesta:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
+    console.log('✅ Cliente eliminado exitosamente');
   } catch (error) {
-    console.error('Error al eliminar cliente:', error);
-    throw error;
+    console.error('❌ Error al eliminar cliente:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al eliminar cliente';
+    throw new Error(errorMessage);
   }
 }
 
@@ -226,18 +261,41 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
       }
     }
 
+    // Limpiar datos: remover campos que no deben enviarse
+    const cleanData: any = {};
+    Object.keys(sesionData).forEach(key => {
+      const value = (sesionData as any)[key];
+      if (value !== undefined && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'cliente') {
+        if (value instanceof Date) {
+          cleanData[key] = value.toISOString();
+        } else {
+          cleanData[key] = value;
+        }
+      }
+    });
+
+    console.log('🔄 Actualizando sesión:', id, cleanData);
+
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify(sesionData),
+      body: JSON.stringify(cleanData),
     });
     
-    if (!response.ok) throw new Error('Error al actualizar sesión');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error en respuesta:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
     const data = await response.json();
+    console.log('✅ Sesión actualizada exitosamente');
     return mapSesion(data.sesion);
   } catch (error) {
-    console.error('Error al actualizar sesión:', error);
-    throw error;
+    console.error('❌ Error al actualizar sesión:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al actualizar sesión';
+    throw new Error(errorMessage);
   }
 }
 
@@ -255,14 +313,25 @@ export async function eliminarSesion(id: string): Promise<void> {
       }
     }
 
+    console.log('🗑️ Eliminando sesión:', id);
+
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
       method: 'DELETE',
       headers,
     });
-    if (!response.ok) throw new Error('Error al eliminar sesión');
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error en respuesta:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
+    console.log('✅ Sesión eliminada exitosamente');
   } catch (error) {
-    console.error('Error al eliminar sesión:', error);
-    throw error;
+    console.error('❌ Error al eliminar sesión:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al eliminar sesión';
+    throw new Error(errorMessage);
   }
 }
 
@@ -381,18 +450,41 @@ export async function actualizarOportunidad(
       }
     }
 
+    // Limpiar datos: remover campos que no deben enviarse
+    const cleanData: any = {};
+    Object.keys(oportunidadData).forEach(key => {
+      const value = (oportunidadData as any)[key];
+      if (value !== undefined && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'cliente') {
+        if (value instanceof Date) {
+          cleanData[key] = value.toISOString();
+        } else {
+          cleanData[key] = value;
+        }
+      }
+    });
+
+    console.log('🔄 Actualizando oportunidad:', id, cleanData);
+
     const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify(oportunidadData),
+      body: JSON.stringify(cleanData),
     });
 
-    if (!response.ok) throw new Error('Error al actualizar oportunidad');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error en respuesta:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
     const data = await response.json();
+    console.log('✅ Oportunidad actualizada exitosamente');
     return mapOportunidad(data.oportunidad);
   } catch (error) {
-    console.error('Error al actualizar oportunidad:', error);
-    throw error;
+    console.error('❌ Error al actualizar oportunidad:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al actualizar oportunidad';
+    throw new Error(errorMessage);
   }
 }
 
@@ -410,15 +502,25 @@ export async function eliminarOportunidad(id: string): Promise<void> {
       }
     }
 
+    console.log('🗑️ Eliminando oportunidad:', id);
+
     const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
       method: 'DELETE',
       headers,
     });
 
-    if (!response.ok) throw new Error('Error al eliminar oportunidad');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error en respuesta:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
+    console.log('✅ Oportunidad eliminada exitosamente');
   } catch (error) {
-    console.error('Error al eliminar oportunidad:', error);
-    throw error;
+    console.error('❌ Error al eliminar oportunidad:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al eliminar oportunidad';
+    throw new Error(errorMessage);
   }
 }
 
@@ -438,12 +540,22 @@ export async function obtenerStatsDashboard(): Promise<DashboardStats | null> {
       }
     }
 
+    console.log('📊 Obteniendo estadísticas del dashboard...');
     const response = await fetch(`${API_URL}/api/stats`, { headers });
-    if (!response.ok) throw new Error('Error al obtener estadísticas');
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error('❌ Error al obtener estadísticas:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
     const data = await response.json();
+    console.log('✅ Estadísticas obtenidas:', data);
     return data as DashboardStats;
   } catch (error) {
-    console.error('Error al obtener estadísticas:', error);
+    console.error('❌ Error al obtener estadísticas:', error);
+    // Retornar null en lugar de lanzar error para que el componente pueda manejarlo
     return null;
   }
 }

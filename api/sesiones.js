@@ -33,6 +33,8 @@ export default async function handler(req, res) {
       }
       // Si es admin o no hay usuarioId, where será undefined (obtiene todos)
 
+      console.log('📋 Obteniendo sesiones - Admin:', isAdmin, 'UsuarioId:', usuarioId, 'Filtro:', where);
+
       // Obtener todas las sesiones con cliente
       const sesiones = await prisma.sesion.findMany({
         ...(where && { where }),
@@ -42,11 +44,22 @@ export default async function handler(req, res) {
         orderBy: { fecha: 'desc' },
       });
       
+      console.log(`✅ Sesiones obtenidas: ${sesiones.length}`);
+      if (sesiones.length > 0) {
+        console.log('📋 Primeras sesiones:', sesiones.slice(0, 3).map(s => ({
+          id: s.id,
+          usuarioId: s.usuarioId,
+          cliente: s.cliente?.nombre
+        })));
+      }
+      
       res.status(200).json({ sesiones });
     } else if (req.method === 'POST') {
       const usuarioId = req.headers['x-usuario-id'] ?? null;
       // Crear nueva sesión
       const { clienteId, fecha, hora, servicio, estado, notas, urlReunion } = req.body;
+      
+      console.log('➕ Creando sesión - UsuarioId:', usuarioId, 'ClienteId:', clienteId);
       
       const sesion = await prisma.sesion.create({
         data: {
@@ -63,6 +76,8 @@ export default async function handler(req, res) {
           cliente: true,
         },
       });
+      
+      console.log('✅ Sesión creada exitosamente:', sesion.id, 'UsuarioId:', sesion.usuarioId);
       
       res.status(201).json({ sesion });
     } else {

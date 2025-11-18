@@ -74,9 +74,29 @@ export default async function handler(req, res) {
     // Asegurar que los headers CORS estén presentes incluso en errores
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ 
-      error: error.message || 'Error interno del servidor',
-      type: error.constructor.name
+    
+    // Manejar errores específicos de Prisma
+    let statusCode = 500;
+    let errorMessage = error.message || 'Error interno del servidor';
+    
+    if (error.code === 'P2025') {
+      // Registro no encontrado
+      statusCode = 404;
+      errorMessage = 'Oportunidad no encontrada';
+    } else if (error.code === 'P2002') {
+      // Violación de constraint único
+      statusCode = 409;
+      errorMessage = 'Ya existe una oportunidad con estos datos';
+    } else if (error.code === 'P2003') {
+      // Violación de foreign key
+      statusCode = 400;
+      errorMessage = 'Datos inválidos: referencia a registro inexistente';
+    }
+    
+    res.status(statusCode).json({ 
+      error: errorMessage,
+      type: error.constructor.name,
+      code: error.code
     });
   }
 }
