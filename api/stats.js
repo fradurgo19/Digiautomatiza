@@ -35,39 +35,31 @@ export default async function handler(req, res) {
       whereSesion = { usuarioId: String(usuarioId) };
     }
 
-    // Ejecutar consultas con pequeños delays para evitar conflictos de prepared statements
-    // Transaction pooler puede tener problemas con consultas concurrentes
-    const totalClientes = await prisma.cliente.count({ 
-      ...(whereCliente && { where: whereCliente })
-    });
-    
-    // Pequeño delay entre consultas para evitar conflictos
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const clientesInteresados = await prisma.cliente.count({
-      where: {
-        ...(whereCliente || {}),
-        estado: { in: ['interesado', 'en-negociacion', 'convertido'] },
-      },
-    });
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const sesionesProgramadas = await prisma.sesion.count({
-      where: {
-        ...(whereSesion || {}),
-        estado: { in: ['programada', 'confirmada', 'reprogramada'] },
-      },
-    });
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const sesionesCompletadas = await prisma.sesion.count({
-      where: {
-        ...(whereSesion || {}),
-        estado: 'completada',
-      },
-    });
+    // Ejecutar todas las consultas en paralelo usando Promise.all
+    // Esto es más eficiente y evita problemas con prepared statements
+    const [totalClientes, clientesInteresados, sesionesProgramadas, sesionesCompletadas] = await Promise.all([
+      prisma.cliente.count({ 
+        ...(whereCliente && { where: whereCliente })
+      }),
+      prisma.cliente.count({
+        where: {
+          ...(whereCliente || {}),
+          estado: { in: ['interesado', 'en-negociacion', 'convertido'] },
+        },
+      }),
+      prisma.sesion.count({
+        where: {
+          ...(whereSesion || {}),
+          estado: { in: ['programada', 'confirmada', 'reprogramada'] },
+        },
+      }),
+      prisma.sesion.count({
+        where: {
+          ...(whereSesion || {}),
+          estado: 'completada',
+        },
+      }),
+    ]);
 
     res.status(200).json({
       totalClientes,

@@ -74,12 +74,18 @@ function getPrismaClient() {
       console.log('✅ Convertida a Transaction pooler (puerto 6543)');
     }
     
-    // Asegurar que la URL tenga sslmode=require
+    // Asegurar que la URL tenga sslmode=require y pgbouncer=true
+    // pgbouncer=true desactiva prepared statements, evitando el error "prepared statement already exists"
     const separator = databaseUrl.includes('?') ? '&' : '?';
     const params = [];
     
     if (!databaseUrl.includes('sslmode=')) {
       params.push('sslmode=require');
+    }
+    
+    // Desactivar prepared statements para evitar conflictos con Supabase pooler
+    if (!databaseUrl.includes('pgbouncer=')) {
+      params.push('pgbouncer=true');
     }
     
     if (params.length > 0) {
@@ -112,6 +118,15 @@ function getPrismaClient() {
           url: databaseUrl,
         },
       },
+      // Desactivar prepared statements para Supabase pooler
+      // Esto evita el error "prepared statement already exists"
+      ...(isSupabase && {
+        __internal: {
+          engine: {
+            connectTimeout: 10000,
+          },
+        },
+      }),
     });
 
     // Guardar en globalThis para reutilización (tanto en dev como en prod)
