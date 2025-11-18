@@ -55,12 +55,29 @@ export default async function handler(req, res) {
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Error en /api/clientes:', error);
-    console.error('Stack trace:', error.stack);
-    res.status(500).json({ 
-      error: error.message || 'Error interno del servidor',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('❌ Error en /api/clientes:', error.message);
+    console.error('📋 Tipo de error:', error.constructor.name);
+    
+    // Manejo específico de errores de conexión
+    if (error.name === 'PrismaClientInitializationError' || error.message.includes("Can't reach database")) {
+      console.error('🔴 Error de conexión a la base de datos');
+      console.error('💡 Verifica:');
+      console.error('   1. DATABASE_URL en Vercel está configurada correctamente');
+      console.error('   2. El proyecto de Supabase está activo (no pausado)');
+      console.error('   3. La URL usa el puerto 5432 y tiene ?sslmode=require');
+      
+      res.status(500).json({ 
+        error: 'Error de conexión a la base de datos',
+        message: 'No se pudo conectar a Supabase. Verifica la configuración de DATABASE_URL en Vercel.',
+        type: 'DATABASE_CONNECTION_ERROR'
+      });
+    } else {
+      console.error('Stack trace:', error.stack);
+      res.status(500).json({ 
+        error: error.message || 'Error interno del servidor',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
   }
 }
 
