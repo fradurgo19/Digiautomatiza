@@ -17,7 +17,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, labelClassName, textClassName, error, options, placeholder, fullWidth = false, className = '', ...props }, ref) => {
-    const baseStyles = 'px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 backdrop-blur-sm bg-white/5 text-white';
+    const baseStyles = 'px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 backdrop-blur-sm bg-white/5';
     const errorStyles = error 
       ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500' 
       : 'border-white/10 focus:ring-blue-500/50 focus:border-blue-500 hover:border-white/20';
@@ -37,12 +37,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           {...props}
         >
           {placeholder && (
-            <option value="" disabled className="bg-gray-900">
+            <option value="" disabled className={textClassName ? textClassName : 'text-gray-900 bg-white'}>
               {placeholder}
             </option>
           )}
           {options.map((option) => (
-            <option key={option.value} value={option.value} className="bg-gray-900">
+            <option key={option.value} value={option.value} className={textClassName ? textClassName : 'text-gray-900 bg-white'}>
               {option.label}
             </option>
           ))}

@@ -1,3 +1,7 @@
+
+
+
+
 # 📱 Configuración de YCloud WhatsApp Business API
 
 ## ✅ Estado Actual
