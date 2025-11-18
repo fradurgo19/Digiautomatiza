@@ -35,13 +35,26 @@ export default async function handler(req, res) {
         where.usuarioId = String(usuarioId);
       }
 
+      // Construir filtro de manera explícita (undefined si no hay filtro)
+      const whereFilter = Object.keys(where).length > 0 ? where : undefined;
+
+      console.log('📋 Obteniendo oportunidades - Admin:', isAdmin, 'UsuarioId:', usuarioId, 'Filtro:', whereFilter);
+
       const oportunidades = await prisma.oportunidad.findMany({
-        where,
+        ...(whereFilter && { where: whereFilter }),
         include: {
           cliente: true,
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      console.log(`✅ Oportunidades obtenidas: ${oportunidades.length}`);
+
+      // Headers para evitar caché
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Content-Type', 'application/json');
 
       res.status(200).json({ oportunidades });
     } else if (req.method === 'POST') {

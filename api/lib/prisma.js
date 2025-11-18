@@ -54,37 +54,20 @@ function getPrismaClient() {
     // Detectar si es conexión directa (db.kixlndfaipkgkhxqbdao.supabase.co:5432)
     const isDirectConnection = databaseUrl.includes('db.kixlndfaipkgkhxqbdao.supabase.co:5432');
     
+    // NO convertir a pooler - usar conexión directa
+    // Los poolers de Supabase no están disponibles o tienen problemas
+    // La conexión directa funciona correctamente con el singleton de Prisma
     if (isDirectConnection) {
-      console.log('🔄 Detectada conexión directa, convirtiendo a Session pooler...');
-      
-      // Usar Session pooler (puerto 5432) en lugar de Transaction pooler
-      // Session pooler soporta prepared statements que Prisma necesita
-      databaseUrl = databaseUrl.replace(
-        'db.kixlndfaipkgkhxqbdao.supabase.co:5432',
-        'aws-1-us-east-2.pooler.supabase.com:5432'
-      );
-      
-      // Cambiar usuario de 'postgres' a 'postgres.kixlndfaipkgkhxqbdao' para pooler
-      databaseUrl = databaseUrl.replace(
-        'postgresql://postgres:',
-        'postgresql://postgres.kixlndfaipkgkhxqbdao:'
-      );
-      
-      console.log('✅ Convertida a Session pooler (puerto 5432) - compatible con prepared statements');
+      console.log('✅ Usando conexión directa a Supabase (puerto 5432)');
+      // Mantener la URL original sin cambios
     }
     
     // Asegurar que la URL tenga sslmode=require
-    // Session pooler soporta prepared statements correctamente
     const separator = databaseUrl.includes('?') ? '&' : '?';
     const params = [];
     
     if (!databaseUrl.includes('sslmode=')) {
       params.push('sslmode=require');
-    }
-    
-    // Agregar parámetro pgbouncer=true para indicar que usamos pooler
-    if (databaseUrl.includes('pooler.supabase.com') && !databaseUrl.includes('pgbouncer=')) {
-      params.push('pgbouncer=true');
     }
     
     if (params.length > 0) {
