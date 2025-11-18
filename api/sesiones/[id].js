@@ -2,7 +2,7 @@
 import prisma from '../lib/prisma.js';
 
 export default async function handler(req, res) {
-  // Configurar CORS - DEBE IR PRIMERO
+  // Configurar CORS - DEBE IR PRIMERO (antes de cualquier otra cosa)
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
   );
 
-  // Manejar preflight OPTIONS
+  // Manejar preflight OPTIONS - responder inmediatamente
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -22,14 +22,29 @@ export default async function handler(req, res) {
 
     if (req.method === 'DELETE') {
       // Eliminar sesión
+      console.log(`🗑️ Eliminando sesión ${id}`);
+      
       await prisma.sesion.delete({ where: { id } });
+      
+      console.log(`✅ Sesión eliminada exitosamente: ${id}`);
+      
+      // Headers para evitar caché y asegurar CORS
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Content-Type', 'application/json');
+      
       res.status(200).json({ success: true });
     } else if (req.method === 'PUT' || req.method === 'PATCH') {
       // Actualizar sesión
       const datos = { ...req.body };
+      
+      console.log(`🔄 Actualizando sesión ${id} con datos:`, JSON.stringify(datos, null, 2));
+      
       if (datos.fecha) {
         datos.fecha = new Date(datos.fecha);
       }
+      
       const sesion = await prisma.sesion.update({
         where: { id },
         data: datos,
@@ -37,14 +52,32 @@ export default async function handler(req, res) {
           cliente: true,
         },
       });
+      
+      console.log(`✅ Sesión actualizada exitosamente:`, sesion.id);
+      
+      // Headers para evitar caché
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Content-Type', 'application/json');
+      
       res.status(200).json({ sesion });
     } else {
+      res.setHeader('Content-Type', 'application/json');
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error(`Error en /api/sesiones/${req.query.id}:`, error);
+    console.error(`❌ Error en /api/sesiones/${req.query.id}:`, error.message);
+    console.error('📋 Método:', req.method);
+    console.error('📋 Stack:', error.stack);
+    
+    // Asegurar que los headers CORS estén presentes incluso en errores
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message || 'Error interno del servidor',
+      type: error.constructor.name
+    });
   }
 }
 
