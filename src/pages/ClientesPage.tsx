@@ -190,11 +190,18 @@ export default function ClientesPage() {
     if (!confirm('¿Está seguro de eliminar este cliente?')) return;
     
     try {
+      console.log('🗑️ Eliminando cliente:', clienteId);
       await eliminarClienteApi(clienteId);
+      console.log('✅ Cliente eliminado exitosamente');
+      
+      // Actualizar la lista de clientes
       setClientes((prev) => prev.filter((c) => c.id !== clienteId));
       setSelectedClientes((prev) => prev.filter((id) => id !== clienteId));
+      
+      // Recargar clientes para asegurar sincronización
+      await fetchClientes();
     } catch (error) {
-      console.error('Error al eliminar cliente:', error);
+      console.error('❌ Error al eliminar cliente:', error);
       alert('No se pudo eliminar el cliente. Verifica la API.');
     }
   };
