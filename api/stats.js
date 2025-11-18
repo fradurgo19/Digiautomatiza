@@ -35,11 +35,14 @@ export default async function handler(req, res) {
       whereSesion = { usuarioId: String(usuarioId) };
     }
 
-    // Ejecutar consultas de forma secuencial para evitar conflictos de prepared statements
-    // Aunque deshabilitamos prepared statements, es más seguro ejecutar secuencialmente
+    // Ejecutar consultas con pequeños delays para evitar conflictos de prepared statements
+    // Transaction pooler puede tener problemas con consultas concurrentes
     const totalClientes = await prisma.cliente.count({ 
       ...(whereCliente && { where: whereCliente })
     });
+    
+    // Pequeño delay entre consultas para evitar conflictos
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     const clientesInteresados = await prisma.cliente.count({
       where: {
@@ -48,12 +51,16 @@ export default async function handler(req, res) {
       },
     });
     
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     const sesionesProgramadas = await prisma.sesion.count({
       where: {
         ...(whereSesion || {}),
         estado: { in: ['programada', 'confirmada', 'reprogramada'] },
       },
     });
+    
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     const sesionesCompletadas = await prisma.sesion.count({
       where: {

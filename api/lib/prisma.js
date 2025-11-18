@@ -54,12 +54,24 @@ function getPrismaClient() {
     // Detectar si es conexión directa (db.kixlndfaipkgkhxqbdao.supabase.co:5432)
     const isDirectConnection = databaseUrl.includes('db.kixlndfaipkgkhxqbdao.supabase.co:5432');
     
-    // NO convertir a pooler - usar conexión directa
-    // Los poolers de Supabase no están disponibles o tienen problemas
-    // La conexión directa funciona correctamente con el singleton de Prisma
+    // Convertir a Transaction pooler (6543) - funciona mejor en serverless
+    // Aunque puede tener problemas con prepared statements, es la única opción que funciona desde Vercel
     if (isDirectConnection) {
-      console.log('✅ Usando conexión directa a Supabase (puerto 5432)');
-      // Mantener la URL original sin cambios
+      console.log('🔄 Detectada conexión directa, convirtiendo a Transaction pooler...');
+      
+      // Usar Transaction pooler (puerto 6543)
+      databaseUrl = databaseUrl.replace(
+        'db.kixlndfaipkgkhxqbdao.supabase.co:5432',
+        'aws-1-us-east-2.pooler.supabase.com:6543'
+      );
+      
+      // Cambiar usuario de 'postgres' a 'postgres.kixlndfaipkgkhxqbdao' para pooler
+      databaseUrl = databaseUrl.replace(
+        'postgresql://postgres:',
+        'postgresql://postgres.kixlndfaipkgkhxqbdao:'
+      );
+      
+      console.log('✅ Convertida a Transaction pooler (puerto 6543)');
     }
     
     // Asegurar que la URL tenga sslmode=require
