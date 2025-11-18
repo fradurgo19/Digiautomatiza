@@ -55,12 +55,13 @@ function getPrismaClient() {
     const isDirectConnection = databaseUrl.includes('db.kixlndfaipkgkhxqbdao.supabase.co:5432');
     
     if (isDirectConnection) {
-      console.log('🔄 Detectada conexión directa, convirtiendo a Transaction pooler...');
+      console.log('🔄 Detectada conexión directa, convirtiendo a Session pooler...');
       
-      // Convertir a Transaction pooler
+      // Usar Session pooler (puerto 5432) en lugar de Transaction pooler
+      // Session pooler soporta prepared statements que Prisma necesita
       databaseUrl = databaseUrl.replace(
         'db.kixlndfaipkgkhxqbdao.supabase.co:5432',
-        'aws-1-us-east-2.pooler.supabase.com:6543'
+        'aws-1-us-east-2.pooler.supabase.com:5432'
       );
       
       // Cambiar usuario de 'postgres' a 'postgres.kixlndfaipkgkhxqbdao' para pooler
@@ -69,11 +70,11 @@ function getPrismaClient() {
         'postgresql://postgres.kixlndfaipkgkhxqbdao:'
       );
       
-      console.log('✅ Convertida a Transaction pooler (puerto 6543)');
+      console.log('✅ Convertida a Session pooler (puerto 5432) - compatible con prepared statements');
     }
     
-    // Asegurar que la URL tenga sslmode=require y deshabilitar prepared statements
-    // Prepared statements causan conflictos en serverless con múltiples consultas concurrentes
+    // Asegurar que la URL tenga sslmode=require
+    // Session pooler soporta prepared statements correctamente
     const separator = databaseUrl.includes('?') ? '&' : '?';
     const params = [];
     
@@ -81,9 +82,9 @@ function getPrismaClient() {
       params.push('sslmode=require');
     }
     
-    // Deshabilitar prepared statements para evitar errores "prepared statement already exists"
-    if (!databaseUrl.includes('prepared_statements=')) {
-      params.push('prepared_statements=false');
+    // Agregar parámetro pgbouncer=true para indicar que usamos pooler
+    if (databaseUrl.includes('pooler.supabase.com') && !databaseUrl.includes('pgbouncer=')) {
+      params.push('pgbouncer=true');
     }
     
     if (params.length > 0) {
