@@ -1,9 +1,9 @@
 // Vercel Serverless Function - Gestión de Clientes
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -54,5 +54,5 @@ module.exports = async (req, res) => {
   } finally {
     await prisma.$disconnect();
   }
-};
+}
 

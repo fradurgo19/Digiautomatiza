@@ -1,7 +1,7 @@
 // Vercel Serverless Function - Envío masivo de WhatsApp vía YCloud
-const { sendWhatsAppMessageYCloud } = require('../../server/whatsappProviderYCloud');
+import { sendWhatsAppMessageYCloud } from '../../server/whatsappProviderYCloud.js';
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,6 +60,6 @@ module.exports = async (req, res) => {
     console.error('Error en /api/whatsapp/enviar-masivo:', error);
     res.status(500).json({ error: 'Error al procesar envío masivo de WhatsApp' });
   }
-};
+}
 
 

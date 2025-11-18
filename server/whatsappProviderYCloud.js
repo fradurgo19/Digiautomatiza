@@ -202,7 +202,7 @@ function buildTemplateComponentsFromVariables(templateVariables = {}) {
   return components;
 }
 
-module.exports = {
+export {
   MessageCategory,
   UseCase,
   resolveCategoryForUseCase,

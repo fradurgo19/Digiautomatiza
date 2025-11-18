@@ -1,9 +1,9 @@
 // Vercel Serverless Function - Formulario de Contacto
-const { Resend } = require('resend');
+import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,5 +57,5 @@ module.exports = async (req, res) => {
     console.error('Error al enviar correo:', error);
     res.status(500).json({ error: error.message });
   }
-};
+}
 
