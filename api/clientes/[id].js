@@ -22,8 +22,18 @@ export default async function handler(req, res) {
 
     if (req.method === 'DELETE') {
       // Eliminar cliente
+      console.log(`🗑️ Eliminando cliente ${id}`);
+      
       await prisma.cliente.delete({ where: { id } });
+      
+      console.log(`✅ Cliente eliminado exitosamente: ${id}`);
+      
+      // Headers para evitar caché y asegurar CORS
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.setHeader('Content-Type', 'application/json');
+      
       res.status(200).json({ success: true });
     } else if (req.method === 'PUT' || req.method === 'PATCH') {
       // Actualizar cliente
