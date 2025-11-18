@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   try {
     const usuarioId = req.headers['x-usuario-id'] ?? null;
     const rol = req.headers['x-usuario-rol'] ?? null;
-    const isAdmin = String(rol).toLowerCase() === 'admin';
+    const isAdmin = rol && String(rol).toLowerCase() === 'admin';
 
     const whereCliente = {};
     const whereSesion = {};

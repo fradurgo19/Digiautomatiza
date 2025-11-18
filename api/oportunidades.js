@@ -20,6 +20,8 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { etapa, clienteId } = req.query;
       const usuarioId = req.headers['x-usuario-id'] ?? null;
+      const rol = req.headers['x-usuario-rol'] ?? null;
+      const isAdmin = rol && String(rol).toLowerCase() === 'admin';
       const where = {};
 
       if (etapa && etapa !== 'todas') {
@@ -28,7 +30,8 @@ export default async function handler(req, res) {
       if (clienteId) {
         where.clienteId = clienteId;
       }
-      if (usuarioId) {
+      // Solo filtrar por usuario si NO es admin
+      if (usuarioId && !isAdmin) {
         where.usuarioId = String(usuarioId);
       }
 
