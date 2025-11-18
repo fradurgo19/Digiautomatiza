@@ -31,23 +31,20 @@ function getPrismaClient() {
   let databaseUrl = process.env.DATABASE_URL;
   
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL no está configurada en las variables de entorno');
+    const error = new Error('DATABASE_URL no está configurada en las variables de entorno');
+    console.error('❌ Error crítico:', error.message);
+    throw error;
   }
 
+  console.log('🔌 Inicializando Prisma Client...');
+  console.log('📍 Database host:', databaseUrl.includes('supabase.co') ? 'Supabase' : 'Otro');
+
   // Asegurar que la URL tenga sslmode=require para Supabase
-  try {
-    const url = new URL(databaseUrl);
-    
-    // Si es Supabase, asegurar sslmode=require
-    if (url.hostname.includes('supabase.co')) {
-      if (!url.searchParams.has('sslmode')) {
-        url.searchParams.set('sslmode', 'require');
-      }
-      databaseUrl = url.toString();
-    }
-  } catch (error) {
-    // Si falla el parsing, usar la URL original
-    console.warn('⚠️ No se pudo parsear DATABASE_URL, usando URL original');
+  // Usar método más robusto que funcione en todos los entornos
+  if (databaseUrl.includes('supabase.co') && !databaseUrl.includes('sslmode=')) {
+    // Agregar sslmode=require si no está presente
+    const separator = databaseUrl.includes('?') ? '&' : '?';
+    databaseUrl = `${databaseUrl}${separator}sslmode=require`;
   }
 
   // Crear nueva instancia con configuración optimizada para serverless

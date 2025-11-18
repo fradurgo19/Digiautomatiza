@@ -22,15 +22,20 @@ export default async function handler(req, res) {
       const rol = req.headers['x-usuario-rol'] ?? null;
       const isAdmin = rol && String(rol).toLowerCase() === 'admin';
 
-      const where = {};
-      // Solo filtrar por usuario si NO es admin
+      // Construir filtro de manera más explícita
+      let where = undefined;
+      
+      // Solo filtrar por usuario si NO es admin y tiene usuarioId
       if (usuarioId && !isAdmin) {
-        where.usuarioId = String(usuarioId);
+        where = {
+          usuarioId: String(usuarioId),
+        };
       }
+      // Si es admin o no hay usuarioId, where será undefined (obtiene todos)
 
       // Obtener todas las sesiones con cliente
       const sesiones = await prisma.sesion.findMany({
-        where,
+        ...(where && { where }),
         include: {
           cliente: true,
         },
@@ -65,7 +70,11 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Error en /api/sesiones:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: error.message || 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }
 
