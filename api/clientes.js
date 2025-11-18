@@ -33,11 +33,15 @@ export default async function handler(req, res) {
       }
       // Si es admin o no hay usuarioId, where será undefined (obtiene todos)
 
+      console.log('📋 Obteniendo clientes - Admin:', isAdmin, 'UsuarioId:', usuarioId);
+
       // Obtener todos los clientes
       const clientes = await prisma.cliente.findMany({
         ...(where && { where }),
         orderBy: { createdAt: 'desc' },
       });
+      
+      console.log(`✅ Clientes obtenidos: ${clientes.length}`);
       
       // Headers para evitar caché
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
