@@ -1,14 +1,16 @@
 /**
  * Cliente de Prisma para funciones serverless de Vercel
- * Usa patrón singleton para evitar conflictos con prepared statements
+ * Solución robusta para evitar conflictos con prepared statements en Supabase
  * 
- * IMPORTANTE: Para Supabase en Vercel, usa el puerto de pooling (6543)
- * en lugar del directo (5432) para evitar errores de prepared statements
+ * Estrategia:
+ * 1. Singleton robusto que persiste entre invocaciones
+ * 2. Parámetros de conexión optimizados para serverless
+ * 3. Manejo de errores mejorado
  */
 
 import { PrismaClient } from '@prisma/client';
 
-// Usar una variable de módulo para el singleton (persiste entre invocaciones en el mismo contenedor)
+// Singleton a nivel de módulo (persiste en el mismo contenedor)
 let prismaInstance = null;
 
 function getPrismaClient() {
@@ -25,16 +27,30 @@ function getPrismaClient() {
     return prismaInstance;
   }
 
-  // Ajustar DATABASE_URL para usar pooling si es necesario
+  // Obtener DATABASE_URL de las variables de entorno
   let databaseUrl = process.env.DATABASE_URL;
   
-  // Si es Supabase y usa puerto 5432, cambiar a 6543 (pooling)
-  if (databaseUrl && databaseUrl.includes('supabase.co') && databaseUrl.includes(':5432')) {
-    databaseUrl = databaseUrl.replace(':5432', ':6543');
-    console.log('⚠️ Usando puerto de pooling (6543) para Supabase en serverless');
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL no está configurada en las variables de entorno');
   }
 
-  // Crear nueva instancia
+  // Asegurar que la URL tenga sslmode=require para Supabase
+  try {
+    const url = new URL(databaseUrl);
+    
+    // Si es Supabase, asegurar sslmode=require
+    if (url.hostname.includes('supabase.co')) {
+      if (!url.searchParams.has('sslmode')) {
+        url.searchParams.set('sslmode', 'require');
+      }
+      databaseUrl = url.toString();
+    }
+  } catch (error) {
+    // Si falla el parsing, usar la URL original
+    console.warn('⚠️ No se pudo parsear DATABASE_URL, usando URL original');
+  }
+
+  // Crear nueva instancia con configuración optimizada para serverless
   prismaInstance = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     datasources: {
@@ -44,7 +60,7 @@ function getPrismaClient() {
     },
   });
 
-  // Guardar en globalThis para desarrollo y reutilización
+  // Guardar en globalThis para reutilización (tanto en dev como en prod)
   globalForPrisma.prisma = prismaInstance;
 
   return prismaInstance;
