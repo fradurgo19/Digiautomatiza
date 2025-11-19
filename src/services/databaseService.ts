@@ -136,7 +136,7 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
     console.log('🔄 Actualizando cliente:', id, cleanData);
 
     // Usar endpoint de acción para actualizar
-    const response = await fetch(`${API_URL}/api/clientes/${id}/action?action=update`, {
+    const response = await fetch(`${API_URL}/api/clientes/${id}/update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -179,7 +179,7 @@ export async function eliminarCliente(id: string): Promise<void> {
     console.log('🗑️ Eliminando cliente:', id);
 
     // Usar endpoint de acción para eliminar
-    const response = await fetch(`${API_URL}/api/clientes/${id}/action?action=delete`, {
+    const response = await fetch(`${API_URL}/api/clientes/${id}/delete`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -287,7 +287,7 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
     console.log('🔄 Actualizando sesión:', id, cleanData);
 
     // Usar endpoint de acción para actualizar
-    const response = await fetch(`${API_URL}/api/sesiones/${id}/action?action=update`, {
+    const response = await fetch(`${API_URL}/api/sesiones/${id}/update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -330,7 +330,7 @@ export async function eliminarSesion(id: string): Promise<void> {
     console.log('🗑️ Eliminando sesión:', id);
 
     // Usar endpoint de acción para eliminar
-    const response = await fetch(`${API_URL}/api/sesiones/${id}/action?action=delete`, {
+    const response = await fetch(`${API_URL}/api/sesiones/${id}/delete`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -484,7 +484,7 @@ export async function actualizarOportunidad(
     console.log('🔄 Actualizando oportunidad:', id, cleanData);
 
     // Usar endpoint de acción para actualizar
-    const response = await fetch(`${API_URL}/api/oportunidades/${id}/action?action=update`, {
+    const response = await fetch(`${API_URL}/api/oportunidades/${id}/update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -527,7 +527,7 @@ export async function eliminarOportunidad(id: string): Promise<void> {
     console.log('🗑️ Eliminando oportunidad:', id);
 
     // Usar endpoint de acción para eliminar
-    const response = await fetch(`${API_URL}/api/oportunidades/${id}/action?action=delete`, {
+    const response = await fetch(`${API_URL}/api/oportunidades/${id}/delete`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
