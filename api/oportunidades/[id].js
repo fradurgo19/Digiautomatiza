@@ -1,6 +1,5 @@
-// Vercel Serverless Function - Actualizar Sesión
-// Ruta: /api/sesiones/[id]/update
-import prisma from '../../lib/prisma.js';
+// Vercel Serverless Function - Gestión de Oportunidades por ID (DELETE, UPDATE)
+import prisma from '../lib/prisma.js';
 
 function setCORSHeaders(req, res) {
   const allowedOrigins = [
@@ -39,32 +38,42 @@ export default async function handler(req, res) {
     setCORSHeaders(req, res);
     const { id } = req.query;
     const body = req.body || {};
+    const action = body.action || 'update'; // Por defecto update, pero puede ser 'delete'
     const usuarioId = body.usuarioId || null;
 
-    const datos = { ...body };
-    delete datos.usuarioId;
-    delete datos.rol;
+    if (action === 'delete') {
+      console.log(`🗑️ Eliminando oportunidad ${id} - UsuarioId: ${usuarioId}`);
+      await prisma.oportunidad.delete({ where: { id } });
+      console.log(`✅ Oportunidad eliminada exitosamente: ${id}`);
+      res.status(200).json({ success: true });
+    } else {
+      // Update por defecto
+      const datos = { ...body };
+      delete datos.action;
+      delete datos.usuarioId;
+      delete datos.rol;
 
-    if (datos.fecha) {
-      datos.fecha = new Date(datos.fecha);
+      if (datos.fechaCierreEstimada) {
+        datos.fechaCierreEstimada = new Date(datos.fechaCierreEstimada);
+      }
+
+      console.log(`🔄 Actualizando oportunidad ${id} - UsuarioId: ${usuarioId}`, datos);
+      const oportunidad = await prisma.oportunidad.update({
+        where: { id },
+        data: datos,
+        include: { cliente: true },
+      });
+      console.log(`✅ Oportunidad actualizada exitosamente: ${oportunidad.id}`);
+      res.status(200).json({ oportunidad });
     }
-
-    console.log(`🔄 Actualizando sesión ${id} - UsuarioId: ${usuarioId}`, datos);
-    const sesion = await prisma.sesion.update({
-      where: { id },
-      data: datos,
-      include: { cliente: true },
-    });
-    console.log(`✅ Sesión actualizada exitosamente: ${sesion.id}`);
-    res.status(200).json({ sesion });
   } catch (error) {
-    console.error(`❌ Error al actualizar sesión ${req.query.id}:`, error.message);
+    console.error(`❌ Error en oportunidad ${req.query.id}:`, error.message);
     setCORSHeaders(req, res);
     let statusCode = 500;
     let errorMessage = error.message || 'Error interno del servidor';
     if (error.code === 'P2025') {
       statusCode = 404;
-      errorMessage = 'Sesión no encontrada';
+      errorMessage = 'Oportunidad no encontrada';
     }
     res.status(statusCode).json({ error: errorMessage, code: error.code });
   }

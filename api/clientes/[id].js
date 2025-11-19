@@ -1,6 +1,5 @@
-// Vercel Serverless Function - Eliminar Oportunidad
-// Ruta: /api/oportunidades/[id]/delete
-import prisma from '../../lib/prisma.js';
+// Vercel Serverless Function - Gestión de Clientes por ID (DELETE, UPDATE)
+import prisma from '../lib/prisma.js';
 
 function setCORSHeaders(req, res) {
   const allowedOrigins = [
@@ -39,20 +38,40 @@ export default async function handler(req, res) {
     setCORSHeaders(req, res);
     const { id } = req.query;
     const body = req.body || {};
+    const action = body.action || 'update'; // Por defecto update, pero puede ser 'delete'
     const usuarioId = body.usuarioId || null;
 
-    console.log(`🗑️ Eliminando oportunidad ${id} - UsuarioId: ${usuarioId}`);
-    await prisma.oportunidad.delete({ where: { id } });
-    console.log(`✅ Oportunidad eliminada exitosamente: ${id}`);
-    res.status(200).json({ success: true });
+    if (action === 'delete') {
+      console.log(`🗑️ Eliminando cliente ${id} - UsuarioId: ${usuarioId}`);
+      await prisma.cliente.delete({ where: { id } });
+      console.log(`✅ Cliente eliminado exitosamente: ${id}`);
+      res.status(200).json({ success: true });
+    } else {
+      // Update por defecto
+      const datos = { ...body };
+      delete datos.action;
+      delete datos.usuarioId;
+      delete datos.rol;
+
+      console.log(`🔄 Actualizando cliente ${id} - UsuarioId: ${usuarioId}`, datos);
+      const cliente = await prisma.cliente.update({
+        where: { id },
+        data: datos,
+      });
+      console.log(`✅ Cliente actualizado exitosamente: ${cliente.id}`);
+      res.status(200).json({ cliente });
+    }
   } catch (error) {
-    console.error(`❌ Error al eliminar oportunidad ${req.query.id}:`, error.message);
+    console.error(`❌ Error en cliente ${req.query.id}:`, error.message);
     setCORSHeaders(req, res);
     let statusCode = 500;
     let errorMessage = error.message || 'Error interno del servidor';
     if (error.code === 'P2025') {
       statusCode = 404;
-      errorMessage = 'Oportunidad no encontrada';
+      errorMessage = 'Cliente no encontrado';
+    } else if (error.code === 'P2002') {
+      statusCode = 409;
+      errorMessage = 'Ya existe un cliente con estos datos';
     }
     res.status(statusCode).json({ error: errorMessage, code: error.code });
   }

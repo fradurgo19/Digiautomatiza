@@ -1,9 +1,9 @@
-// Vercel Serverless Function - Login de Usuarios
+// Vercel Serverless Function - Login de Usuarios (Proxy a stats.js)
+// Este archivo existe solo para mantener la ruta /api/login funcionando
+// La lógica real está en stats.js
 import prisma from './lib/prisma.js';
 
-export default async function handler(req, res) {
-  // Configurar CORS
-  // Orígenes permitidos
+function setCORSHeaders(req, res) {
   const allowedOrigins = [
     'https://www.digiautomatiza.co',
     'https://digiautomatiza.co',
@@ -12,17 +12,21 @@ export default async function handler(req, res) {
     'http://localhost:3000',
   ];
   
-  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
+  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
   const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
   
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  return allowedOrigin;
+}
 
+export default async function handler(req, res) {
+  setCORSHeaders(req, res);
+  
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -35,10 +39,7 @@ export default async function handler(req, res) {
 
   try {
     const { email, password } = req.body;
-
-    const usuario = await prisma.usuario.findUnique({
-      where: { email },
-    });
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
 
     if (!usuario || usuario.password !== password || !usuario.activo) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -58,5 +59,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
-
 
