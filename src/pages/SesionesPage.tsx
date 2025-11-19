@@ -316,6 +316,8 @@ export default function SesionesPage() {
                       options={estadoOptions}
                       value={sesion.estado}
                       onChange={(e) => handleCambiarEstado(sesion.id, e.target.value as EstadoSesion)}
+                      textClassName="text-green-600"
+                      className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                     />
                     <Button
                       variant="danger"
