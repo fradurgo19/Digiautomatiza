@@ -1,16 +1,40 @@
 // Vercel Serverless Function - Gestión de Oportunidades por ID (PUT, PATCH, DELETE)
 import prisma from '../lib/prisma.js';
-import { setCORSHeaders } from '../lib/cors.js';
+
+// Función para establecer CORS de manera directa y síncrona
+function setCORSHeadersDirect(req, res) {
+  const allowedOrigins = [
+    'https://www.digiautomatiza.co',
+    'https://digiautomatiza.co',
+    'https://digiautomatiza.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ];
+  
+  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
+  );
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  return allowedOrigin;
+}
 
 export default async function handler(req, res) {
-  // Configurar CORS - DEBE IR PRIMERO, ANTES DE CUALQUIER OTRA COSA
-  // No usar try-catch aquí para asegurar que los headers siempre se establezcan
-  const allowedOrigin = setCORSHeaders(req, res);
+  // Establecer CORS de manera directa y síncrona - PRIMERO, ANTES DE TODO
+  const allowedOrigin = setCORSHeadersDirect(req, res);
   const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
   const { id } = req.query;
+  
   console.log(`🔍 [${req.method}] /api/oportunidades/${id} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
 
-  // Manejar preflight OPTIONS - responder inmediatamente con headers CORS
+  // Manejar preflight OPTIONS - responder inmediatamente
   if (req.method === 'OPTIONS') {
     console.log('✅ OPTIONS preflight recibido - Origin:', origin, 'Allowed:', allowedOrigin);
     res.status(200).end();
@@ -62,11 +86,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error(`❌ Error en /api/oportunidades/${req.query.id}:`, error.message);
     
-    try {
-      setCORSHeaders(req, res);
-    } catch (corsError) {
-      console.error('Error al establecer CORS en catch:', corsError);
-    }
+    // Re-establecer CORS en caso de error
+    setCORSHeadersDirect(req, res);
     res.setHeader('Content-Type', 'application/json');
     
     let statusCode = 500;
