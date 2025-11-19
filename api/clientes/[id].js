@@ -69,13 +69,17 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const action = body.action || body._method; // Soporte para action o _method
 
+    // Obtener usuarioId y rol del body (nuevo) o headers (compatibilidad)
+    const usuarioId = body.usuarioId || req.headers['x-usuario-id'] || null;
+    const rol = body.rol || req.headers['x-usuario-rol'] || null;
+
     // Determinar la acción: DELETE, PUT/PATCH, o POST con action
     const isDelete = req.method === 'DELETE' || action === 'delete';
     const isUpdate = req.method === 'PUT' || req.method === 'PATCH' || action === 'update';
 
     if (isDelete) {
       // Eliminar cliente
-      console.log(`🗑️ Eliminando cliente ${id} (método: ${req.method}, action: ${action})`);
+      console.log(`🗑️ Eliminando cliente ${id} (método: ${req.method}, action: ${action}, usuarioId: ${usuarioId})`);
       
       await prisma.cliente.delete({ where: { id } });
       
@@ -92,9 +96,11 @@ export default async function handler(req, res) {
     } else if (isUpdate) {
       // Actualizar cliente
       const datos = { ...body };
-      // Remover action/_method del body si existe
+      // Remover action/_method, usuarioId y rol del body (ya los tenemos)
       delete datos.action;
       delete datos._method;
+      delete datos.usuarioId;
+      delete datos.rol;
       
       console.log(`🔄 Actualizando cliente ${id} con datos:`, JSON.stringify(datos, null, 2));
       

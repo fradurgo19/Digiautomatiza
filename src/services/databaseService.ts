@@ -107,18 +107,9 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (usuario) {
-      try {
-        const parsed = JSON.parse(usuario);
-        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
-        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
-      } catch (e) {
-        console.warn('No se pudo parsear usuario desde localStorage', e);
-      }
-    }
-
+    
     // Limpiar datos: remover campos que no deben enviarse y campos undefined
-    const cleanData: any = {};
+    const cleanData: any = { action: 'update' };
     Object.keys(clienteData).forEach(key => {
       const value = (clienteData as any)[key];
       // No incluir campos undefined, null (excepto si es explícitamente null), ni fechas como objetos Date
@@ -130,14 +121,25 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
         }
       }
     });
+    
+    // Mover datos de usuario al body para evitar preflight OPTIONS
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) cleanData.usuarioId = String(parsed.id);
+        if (parsed?.rol) cleanData.rol = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
 
     console.log('🔄 Actualizando cliente:', id, cleanData);
 
-    // Usar POST con action='update' para evitar preflight OPTIONS
+    // Usar POST con action='update' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ...cleanData, action: 'update' }),
+      body: JSON.stringify(cleanData),
     });
     
     if (!response.ok) {
@@ -161,11 +163,14 @@ export async function eliminarCliente(id: string): Promise<void> {
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const body: any = { action: 'delete' };
+    
+    // Mover datos de usuario al body para evitar preflight OPTIONS
     if (usuario) {
       try {
         const parsed = JSON.parse(usuario);
-        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
-        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+        if (parsed?.id) body.usuarioId = String(parsed.id);
+        if (parsed?.rol) body.rol = String(parsed.rol);
       } catch (e) {
         console.warn('No se pudo parsear usuario desde localStorage', e);
       }
@@ -173,11 +178,11 @@ export async function eliminarCliente(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando cliente:', id);
 
-    // Usar POST con action='delete' para evitar preflight OPTIONS
+    // Usar POST con action='delete' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ action: 'delete' }),
+      body: JSON.stringify(body),
     });
     
     if (!response.ok) {
@@ -254,18 +259,9 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (usuario) {
-      try {
-        const parsed = JSON.parse(usuario);
-        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
-        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
-      } catch (e) {
-        console.warn('No se pudo parsear usuario desde localStorage', e);
-      }
-    }
-
+    
     // Limpiar datos: remover campos que no deben enviarse
-    const cleanData: any = {};
+    const cleanData: any = { action: 'update' };
     Object.keys(sesionData).forEach(key => {
       const value = (sesionData as any)[key];
       if (value !== undefined && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'cliente') {
@@ -276,14 +272,25 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
         }
       }
     });
+    
+    // Mover datos de usuario al body para evitar preflight OPTIONS
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) cleanData.usuarioId = String(parsed.id);
+        if (parsed?.rol) cleanData.rol = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
 
     console.log('🔄 Actualizando sesión:', id, cleanData);
 
-    // Usar POST con action='update' para evitar preflight OPTIONS
+    // Usar POST con action='update' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ...cleanData, action: 'update' }),
+      body: JSON.stringify(cleanData),
     });
     
     if (!response.ok) {
@@ -307,11 +314,14 @@ export async function eliminarSesion(id: string): Promise<void> {
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const body: any = { action: 'delete' };
+    
+    // Mover datos de usuario al body para evitar preflight OPTIONS
     if (usuario) {
       try {
         const parsed = JSON.parse(usuario);
-        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
-        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+        if (parsed?.id) body.usuarioId = String(parsed.id);
+        if (parsed?.rol) body.rol = String(parsed.rol);
       } catch (e) {
         console.warn('No se pudo parsear usuario desde localStorage', e);
       }
@@ -319,11 +329,11 @@ export async function eliminarSesion(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando sesión:', id);
 
-    // Usar POST con action='delete' para evitar preflight OPTIONS
+    // Usar POST con action='delete' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ action: 'delete' }),
+      body: JSON.stringify(body),
     });
     
     if (!response.ok) {
@@ -446,18 +456,9 @@ export async function actualizarOportunidad(
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (usuario) {
-      try {
-        const parsed = JSON.parse(usuario);
-        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
-        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
-      } catch (e) {
-        console.warn('No se pudo parsear usuario desde localStorage', e);
-      }
-    }
-
+    
     // Limpiar datos: remover campos que no deben enviarse
-    const cleanData: any = {};
+    const cleanData: any = { action: 'update' };
     Object.keys(oportunidadData).forEach(key => {
       const value = (oportunidadData as any)[key];
       if (value !== undefined && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'cliente') {
@@ -468,14 +469,25 @@ export async function actualizarOportunidad(
         }
       }
     });
+    
+    // Mover datos de usuario al body para evitar preflight OPTIONS
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) cleanData.usuarioId = String(parsed.id);
+        if (parsed?.rol) cleanData.rol = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
 
     console.log('🔄 Actualizando oportunidad:', id, cleanData);
 
-    // Usar POST con action='update' para evitar preflight OPTIONS
+    // Usar POST con action='update' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ...cleanData, action: 'update' }),
+      body: JSON.stringify(cleanData),
     });
 
     if (!response.ok) {
@@ -499,11 +511,14 @@ export async function eliminarOportunidad(id: string): Promise<void> {
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const body: any = { action: 'delete' };
+    
+    // Mover datos de usuario al body para evitar preflight OPTIONS
     if (usuario) {
       try {
         const parsed = JSON.parse(usuario);
-        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
-        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+        if (parsed?.id) body.usuarioId = String(parsed.id);
+        if (parsed?.rol) body.rol = String(parsed.rol);
       } catch (e) {
         console.warn('No se pudo parsear usuario desde localStorage', e);
       }
@@ -511,11 +526,11 @@ export async function eliminarOportunidad(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando oportunidad:', id);
 
-    // Usar POST con action='delete' para evitar preflight OPTIONS
+    // Usar POST con action='delete' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ action: 'delete' }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
