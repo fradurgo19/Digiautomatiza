@@ -14,14 +14,19 @@ function setCORSHeadersDirect(req, res) {
   const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
   const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
   
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
-  );
-  res.setHeader('Access-Control-Max-Age', '86400');
+  // Establecer headers de manera explícita y síncrona
+  try {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
+    );
+    res.setHeader('Access-Control-Max-Age', '86400');
+  } catch (error) {
+    console.error('Error al establecer headers CORS:', error);
+  }
   
   return allowedOrigin;
 }
@@ -34,10 +39,27 @@ export default async function handler(req, res) {
   
   console.log(`🔍 [${req.method}] /api/oportunidades/${id} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
 
-  // Manejar preflight OPTIONS - responder inmediatamente
+  // Manejar preflight OPTIONS - responder inmediatamente con headers explícitos
   if (req.method === 'OPTIONS') {
     console.log('✅ OPTIONS preflight recibido - Origin:', origin, 'Allowed:', allowedOrigin);
-    res.status(200).end();
+    // Asegurar que los headers estén establecidos antes de responder
+    // Usar writeHead para garantizar que los headers se envíen
+    try {
+      res.writeHead(200, {
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+        'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol',
+        'Access-Control-Max-Age': '86400',
+        'Content-Length': '0'
+      });
+      res.end();
+    } catch (error) {
+      console.error('Error al responder OPTIONS:', error);
+      // Fallback: usar setHeader y status
+      setCORSHeadersDirect(req, res);
+      res.status(200).end();
+    }
     return;
   }
   
@@ -51,6 +73,8 @@ export default async function handler(req, res) {
       
       console.log(`✅ Oportunidad eliminada exitosamente: ${id}`);
       
+      // Asegurar que los headers CORS estén presentes en la respuesta
+      setCORSHeadersDirect(req, res);
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
@@ -74,6 +98,8 @@ export default async function handler(req, res) {
       
       console.log(`✅ Oportunidad actualizada exitosamente:`, oportunidad.id);
       
+      // Asegurar que los headers CORS estén presentes en la respuesta
+      setCORSHeadersDirect(req, res);
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
