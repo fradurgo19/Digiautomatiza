@@ -16,7 +16,7 @@ import {
   actualizarCliente as actualizarClienteApi,
   eliminarCliente as eliminarClienteApi,
 } from '../services/databaseService';
-import { generarLinkWaMe } from '../services/whatsappService';
+import { enviarWhatsAppMasivo, formatearNumeroWhatsApp, validarNumerosWhatsApp } from '../services/whatsappService';
 
 type ClienteForm = {
   nombre: string;
@@ -86,6 +86,12 @@ export default function ClientesPage() {
     mensaje: '',
     archivos: [] as File[],
   });
+  const [isEnviandoWhatsApp, setIsEnviandoWhatsApp] = useState(false);
+  const [resultadoEnvioWhatsApp, setResultadoEnvioWhatsApp] = useState<{
+    exitosos: string[];
+    fallidos: Array<{ numero: string; error: string }>;
+    total: number;
+  } | null>(null);
 
   const estadoOptions = [
     { value: 'nuevo', label: 'Nuevo' },
@@ -206,6 +212,96 @@ export default function ClientesPage() {
     }
   };
 
+  const handleEnvioMasivoWhatsApp = async () => {
+    if (!envioWhatsApp.mensaje.trim()) {
+      alert('Por favor, escribe un mensaje antes de enviar.');
+      return;
+    }
+
+    if (selectedClientes.length === 0) {
+      alert('Por favor, selecciona al menos un cliente.');
+      return;
+    }
+
+    setIsEnviandoWhatsApp(true);
+    setResultadoEnvioWhatsApp(null);
+
+    try {
+      // Obtener números de teléfono de los clientes seleccionados
+      const numeros = selectedClientes
+        .map(id => {
+          const cliente = clientes.find(c => c.id === id);
+          return cliente?.telefono;
+        })
+        .filter((telefono): telefono is string => Boolean(telefono));
+
+      if (numeros.length === 0) {
+        alert('No se encontraron números de teléfono para los clientes seleccionados.');
+        setIsEnviandoWhatsApp(false);
+        return;
+      }
+
+      // Validar números
+      const { validos, invalidos } = validarNumerosWhatsApp(numeros);
+
+      if (invalidos.length > 0) {
+        const confirmar = confirm(
+          `Se encontraron ${invalidos.length} números inválidos:\n${invalidos.join(', ')}\n\n¿Deseas continuar solo con los números válidos?`
+        );
+        if (!confirmar) {
+          setIsEnviandoWhatsApp(false);
+          return;
+        }
+      }
+
+      if (validos.length === 0) {
+        alert('No hay números válidos para enviar.');
+        setIsEnviandoWhatsApp(false);
+        return;
+      }
+
+      console.log(`📤 Enviando ${validos.length} mensajes de WhatsApp...`);
+
+      // Preparar archivos (nota: YCloud requiere URLs públicas, por ahora solo enviamos el mensaje)
+      // TODO: Implementar subida de archivos a servidor público si es necesario
+      const archivosParaEnviar = envioWhatsApp.archivos.length > 0 
+        ? [] // Por ahora no enviamos archivos, solo mensajes de texto
+        : undefined;
+
+      // Enviar mensajes
+      const resultado = await enviarWhatsAppMasivo({
+        numeros: validos,
+        mensaje: envioWhatsApp.mensaje.trim(),
+        archivos: archivosParaEnviar,
+      });
+
+      console.log('✅ Resultado del envío:', resultado);
+
+      // Guardar resultado
+      setResultadoEnvioWhatsApp({
+        exitosos: resultado.exitosos,
+        fallidos: resultado.fallidos,
+        total: validos.length,
+      });
+
+      // Si todos fueron exitosos, limpiar formulario y cerrar modal después de mostrar resultado
+      if (resultado.fallidos.length === 0) {
+        setTimeout(() => {
+          setEnvioWhatsApp({ mensaje: '', archivos: [] });
+          setSelectedClientes([]);
+          setIsEnvioWhatsAppModalOpen(false);
+          setResultadoEnvioWhatsApp(null);
+        }, 3000);
+      }
+
+    } catch (error) {
+      console.error('❌ Error al enviar WhatsApp masivo:', error);
+      alert(`Error al enviar mensajes: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setIsEnviandoWhatsApp(false);
+    }
+  };
+
   const handleEnvioMasivoCorreo = async () => {
     const clientesSeleccionados = clientes.filter(c => selectedClientes.includes(c.id));
     const emails = clientesSeleccionados.map(c => c.email);
@@ -242,9 +338,6 @@ export default function ClientesPage() {
       alert(`Error al enviar correos: ${errorMessage}`);
     }
   };
-
-  // Envío masivo WhatsApp ahora se realiza mediante enlaces wa.me asistidos
-  // desde el modal, por lo que no se realiza ningún envío automático.
 
   const toggleSelectCliente = (clienteId: string) => {
     setSelectedClientes(prev =>
@@ -756,87 +849,203 @@ export default function ClientesPage() {
         {/* Modal Envío Masivo WhatsApp */}
         <Modal
           isOpen={isEnvioWhatsAppModalOpen}
-          onClose={() => setIsEnvioWhatsAppModalOpen(false)}
+          onClose={() => {
+            if (!isEnviandoWhatsApp) {
+              setIsEnvioWhatsAppModalOpen(false);
+              setResultadoEnvioWhatsApp(null);
+              setEnvioWhatsApp({ mensaje: '', archivos: [] });
+            }
+          }}
           title={`Envío Masivo WhatsApp (${selectedClientes.length} destinatarios)`}
-          size="lg"
+          size="xl"
         >
-          <div className="space-y-4 rounded-3xl bg-gradient-to-br from-emerald-50 via-emerald-100 to-white border border-emerald-200 p-6 shadow-lg shadow-emerald-100/60">
-            <TextArea
-              label="Mensaje *"
-              value={envioWhatsApp.mensaje}
-              onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, mensaje: e.target.value })}
-              fullWidth
-              rows={6}
-              placeholder="Escribe tu mensaje aquí..."
-              className="bg-white/90 border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500"
-              textClassName="text-emerald-900 placeholder:text-emerald-500"
-              labelClassName="text-emerald-800"
-            />
-            <div>
-              <label className="block text-sm font-medium text-emerald-800 mb-1">
-                Archivos adjuntos
-              </label>
-              <input
-                type="file"
-                multiple
-                className="w-full text-emerald-900"
-                onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, archivos: Array.from(e.target.files || []) })}
-              />
-              <p className="text-sm text-emerald-700 mt-1">
-                Puedes adjuntar documentos, imágenes, videos o audios
-              </p>
-            </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
-              <p className="text-sm text-emerald-900 font-semibold">
-                ¿Cómo funciona el envío asistido por WhatsApp?
-              </p>
-              <ol className="list-decimal list-inside text-sm text-emerald-800 space-y-1">
-                <li>Escribe el mensaje que quieres enviar a tus clientes.</li>
-                <li>Haz clic en <strong>“Abrir en WhatsApp”</strong> para cada cliente.</li>
-                <li>WhatsApp Web / App se abrirá con el mensaje listo y solo confirmas el envío.</li>
-              </ol>
-            </div>
-
-            <div className="space-y-3 max-h-64 overflow-y-auto rounded-2xl bg-white/80 border border-emerald-100 p-3">
-              {selectedClientes.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Selecciona clientes en la tabla para habilitar el envío asistido por WhatsApp.
-                </p>
-              ) : (
-                selectedClientes.map((clienteId) => {
-                  const cliente = clientes.find(c => c.id === clienteId);
-                  if (!cliente) return null;
-
-                  const link = generarLinkWaMe(cliente.telefono, envioWhatsApp.mensaje || '');
-
-                  return (
-                    <div
-                      key={cliente.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-emerald-900 truncate">
-                          {cliente.nombre}
-                        </p>
-                        <p className="text-xs text-emerald-700 truncate">
-                          {cliente.telefono}
-                        </p>
-                      </div>
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors ${
-                          !envioWhatsApp.mensaje ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
-                        }`}
-                      >
-                        Abrir en WhatsApp
-                      </a>
+          <div className="space-y-6 rounded-3xl bg-gradient-to-br from-emerald-50 via-emerald-100 to-white border border-emerald-200 p-6 shadow-lg shadow-emerald-100/60">
+            {resultadoEnvioWhatsApp ? (
+              // Mostrar resultados del envío
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className="bg-green-50 border-green-200">
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-green-700">{resultadoEnvioWhatsApp.exitosos.length}</p>
+                      <p className="text-sm text-green-600 mt-1">Enviados</p>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                  </Card>
+                  <Card className="bg-red-50 border-red-200">
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-red-700">{resultadoEnvioWhatsApp.fallidos.length}</p>
+                      <p className="text-sm text-red-600 mt-1">Fallidos</p>
+                    </div>
+                  </Card>
+                  <Card className="bg-blue-50 border-blue-200">
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-blue-700">{resultadoEnvioWhatsApp.total}</p>
+                      <p className="text-sm text-blue-600 mt-1">Total</p>
+                    </div>
+                  </Card>
+                </div>
+
+                {resultadoEnvioWhatsApp.exitosos.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                      ✅ Mensajes Enviados Exitosamente ({resultadoEnvioWhatsApp.exitosos.length})
+                    </h4>
+                    <div className="max-h-40 overflow-y-auto bg-green-50 rounded-lg p-3 border border-green-200">
+                      <div className="space-y-1">
+                        {resultadoEnvioWhatsApp.exitosos.map((numero, index) => {
+                          const cliente = clientes.find(c => formatearNumeroWhatsApp(c.telefono) === numero);
+                          return (
+                            <div key={index} className="text-sm py-1 border-b border-green-200 last:border-0">
+                              <strong className="text-green-800">{cliente?.nombre || numero}</strong>
+                              <span className="text-green-600 ml-2">{numero}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {resultadoEnvioWhatsApp.fallidos.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
+                      ❌ Mensajes Fallidos ({resultadoEnvioWhatsApp.fallidos.length})
+                    </h4>
+                    <div className="max-h-40 overflow-y-auto bg-red-50 rounded-lg p-3 border border-red-200">
+                      <div className="space-y-2">
+                        {resultadoEnvioWhatsApp.fallidos.map((fallido, index) => {
+                          const cliente = clientes.find(c => formatearNumeroWhatsApp(c.telefono) === fallido.numero);
+                          return (
+                            <div key={index} className="text-sm py-2 border-b border-red-200 last:border-0">
+                              <p className="font-semibold text-red-800">
+                                {cliente?.nombre || fallido.numero}
+                              </p>
+                              <p className="text-red-600 text-xs">{fallido.numero}</p>
+                              <p className="text-red-500 text-xs mt-1">Error: {fallido.error}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={() => {
+                      setResultadoEnvioWhatsApp(null);
+                      setEnvioWhatsApp({ mensaje: '', archivos: [] });
+                    }}
+                  >
+                    Enviar Otro Mensaje
+                  </Button>
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    onClick={() => {
+                      setIsEnvioWhatsAppModalOpen(false);
+                      setResultadoEnvioWhatsApp(null);
+                      setEnvioWhatsApp({ mensaje: '', archivos: [] });
+                      setSelectedClientes([]);
+                    }}
+                  >
+                    Cerrar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // Formulario de envío
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900 font-semibold mb-2">
+                    📱 Envío Directo con YCloud
+                  </p>
+                  <p className="text-xs text-blue-800">
+                    Los mensajes se enviarán automáticamente a través de YCloud API. Asegúrate de tener las variables de entorno configuradas en Vercel.
+                  </p>
+                </div>
+
+                <TextArea
+                  label="Mensaje *"
+                  value={envioWhatsApp.mensaje}
+                  onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, mensaje: e.target.value })}
+                  fullWidth
+                  rows={8}
+                  placeholder="Escribe tu mensaje aquí..."
+                  className="bg-white/90 border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500"
+                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  labelClassName="text-emerald-800 font-semibold"
+                  disabled={isEnviandoWhatsApp}
+                />
+
+                <div>
+                  <label className="block text-sm font-medium text-emerald-800 mb-2">
+                    Archivos adjuntos (Opcional)
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    className="w-full text-emerald-900 border border-emerald-200 rounded-lg p-2 bg-white"
+                    onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, archivos: Array.from(e.target.files || []) })}
+                    disabled={isEnviandoWhatsApp}
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  />
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Nota: Los archivos deben estar en URLs públicas para YCloud. Por ahora solo se envían mensajes de texto.
+                  </p>
+                </div>
+
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                  <p className="text-sm text-emerald-900 font-semibold mb-2">
+                    📋 Destinatarios Seleccionados ({selectedClientes.length})
+                  </p>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {selectedClientes.map((clienteId) => {
+                      const cliente = clientes.find(c => c.id === clienteId);
+                      if (!cliente) return null;
+                      return (
+                        <div
+                          key={cliente.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-white px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-emerald-900 truncate">
+                              {cliente.nombre}
+                            </p>
+                            <p className="text-xs text-emerald-700 truncate">
+                              {cliente.telefono}
+                            </p>
+                          </div>
+                          <div className="text-xs text-emerald-600">
+                            {validarNumerosWhatsApp([cliente.telefono]).validos.length > 0 ? '✅' : '⚠️'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {isEnviandoWhatsApp ? (
+                  <div className="text-center py-6">
+                    <Loading text="Enviando mensajes..." />
+                    <p className="text-sm text-emerald-700 mt-4">
+                      Por favor espera, esto puede tomar unos momentos...
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    onClick={handleEnvioMasivoWhatsApp}
+                    disabled={!envioWhatsApp.mensaje.trim() || selectedClientes.length === 0}
+                    className="py-3 text-lg font-semibold"
+                  >
+                    📤 Enviar a {selectedClientes.length} {selectedClientes.length === 1 ? 'Cliente' : 'Clientes'}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </Modal>
 
