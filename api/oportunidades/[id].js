@@ -3,24 +3,18 @@ import prisma from '../lib/prisma.js';
 import { setCORSHeaders } from '../lib/cors.js';
 
 export default async function handler(req, res) {
-  try {
-    const allowedOrigin = setCORSHeaders(req, res);
-    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
-    const { id } = req.query;
-    console.log(`🔍 [${req.method}] /api/oportunidades/${id} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
+  // Configurar CORS - DEBE IR PRIMERO, ANTES DE CUALQUIER OTRA COSA
+  // No usar try-catch aquí para asegurar que los headers siempre se establezcan
+  const allowedOrigin = setCORSHeaders(req, res);
+  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
+  const { id } = req.query;
+  console.log(`🔍 [${req.method}] /api/oportunidades/${id} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
 
-    if (req.method === 'OPTIONS') {
-      console.log('✅ OPTIONS preflight recibido');
-      res.status(200).end();
-      return;
-    }
-  } catch (corsError) {
-    console.error('Error al establecer CORS:', corsError);
-    setCORSHeaders(req, res);
-    if (req.method === 'OPTIONS') {
-      res.status(200).end();
-      return;
-    }
+  // Manejar preflight OPTIONS - responder inmediatamente con headers CORS
+  if (req.method === 'OPTIONS') {
+    console.log('✅ OPTIONS preflight recibido - Origin:', origin, 'Allowed:', allowedOrigin);
+    res.status(200).end();
+    return;
   }
   
   try {

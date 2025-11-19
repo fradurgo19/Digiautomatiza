@@ -25,14 +25,20 @@ export function setCORSHeaders(req, res) {
   }
   
   // Configurar headers CORS - SIEMPRE establecer todos los headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
-  );
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
+  // Usar writeHead para asegurar que los headers se establezcan antes de cualquier respuesta
+  try {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
+    );
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
+  } catch (error) {
+    // Si hay un error al establecer headers, loguear pero continuar
+    console.error('Error al establecer headers CORS:', error);
+  }
   
   return allowedOrigin;
 }
