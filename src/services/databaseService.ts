@@ -15,10 +15,10 @@ import type {
 } from '../types';
 
 // URL del backend que manejará las operaciones de base de datos
-// En producción usa la URL de Vercel, en desarrollo usa localhost
+// En producción usa el dominio de producción, en desarrollo usa localhost
 const API_URL = import.meta.env.VITE_BACKEND_URL || 
   (import.meta.env.MODE === 'production' 
-    ? 'https://digiautomatiza.vercel.app' 
+    ? 'https://www.digiautomatiza.co' 
     : 'http://localhost:3000');
 
 const mapCliente = (cliente: any): Cliente => ({

@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Usuario, AuthState, LoginCredentials } from '../types';
 
+// URL del backend - En producción usa el dominio de producción
 const API_URL =
   import.meta.env.VITE_BACKEND_URL ||
   (import.meta.env.MODE === 'production'
-    ? 'https://digiautomatiza.vercel.app'
+    ? 'https://www.digiautomatiza.co'
     : 'http://localhost:3000');
 
 interface AuthContextType extends AuthState {

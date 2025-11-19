@@ -20,7 +20,12 @@ const WHATSAPP_PROVIDER: WhatsAppProvider = 'backend';
 const TWILIO_ACCOUNT_SID = import.meta.env.VITE_TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = import.meta.env.VITE_TWILIO_AUTH_TOKEN || '';
 const TWILIO_WHATSAPP_NUMBER = import.meta.env.VITE_TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
-const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+// URL del backend - En producción siempre usa el dominio de producción
+// Si VITE_BACKEND_URL no está configurada, detecta automáticamente el entorno
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL || 
+  (import.meta.env.MODE === 'production' || import.meta.env.PROD
+    ? 'https://www.digiautomatiza.co' 
+    : 'http://localhost:3000');
 
 interface ResultadoEnvio {
   exitosos: string[];
