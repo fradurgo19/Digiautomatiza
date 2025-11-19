@@ -1,5 +1,5 @@
-// Vercel Serverless Function - Acciones de Cliente (DELETE, UPDATE)
-// Ruta: /api/clientes/[id]/[...action] captura /api/clientes/[id]/delete o /api/clientes/[id]/update
+// Vercel Serverless Function - Actualizar Cliente
+// Ruta: /api/clientes/[id]/update
 import prisma from '../../lib/prisma.js';
 
 function setCORSHeaders(req, res) {
@@ -23,14 +23,12 @@ function setCORSHeaders(req, res) {
 }
 
 export default async function handler(req, res) {
-  // Manejar OPTIONS
   if (req.method === 'OPTIONS') {
     setCORSHeaders(req, res);
     res.status(200).end();
     return;
   }
 
-  // Solo permitir POST
   if (req.method !== 'POST') {
     setCORSHeaders(req, res);
     res.status(405).json({ error: 'Method not allowed' });
@@ -39,42 +37,26 @@ export default async function handler(req, res) {
 
   try {
     setCORSHeaders(req, res);
-    const { id, action } = req.query; // action es un array: ['delete'] o ['update']
-    const actionType = Array.isArray(action) ? action[0] : action;
+    const { id } = req.query;
     const body = req.body || {};
     const usuarioId = body.usuarioId || null;
-    const rol = body.rol || null;
 
-    console.log(`🔍 Acción solicitada: ${actionType} para cliente ${id}`);
+    const datos = { ...body };
+    delete datos.usuarioId;
+    delete datos.rol;
 
-    if (actionType === 'delete') {
-      console.log(`🗑️ Eliminando cliente ${id} - UsuarioId: ${usuarioId}`);
-      await prisma.cliente.delete({ where: { id } });
-      console.log(`✅ Cliente eliminado exitosamente: ${id}`);
-      res.status(200).json({ success: true });
-    } else if (actionType === 'update') {
-      // Remover usuarioId y rol del body antes de actualizar
-      const datos = { ...body };
-      delete datos.usuarioId;
-      delete datos.rol;
-
-      console.log(`🔄 Actualizando cliente ${id} - UsuarioId: ${usuarioId}`, datos);
-      const cliente = await prisma.cliente.update({
-        where: { id },
-        data: datos,
-      });
-      console.log(`✅ Cliente actualizado exitosamente: ${cliente.id}`);
-      res.status(200).json({ cliente });
-    } else {
-      res.status(400).json({ error: 'Acción no válida. Use "delete" o "update"' });
-    }
+    console.log(`🔄 Actualizando cliente ${id} - UsuarioId: ${usuarioId}`, datos);
+    const cliente = await prisma.cliente.update({
+      where: { id },
+      data: datos,
+    });
+    console.log(`✅ Cliente actualizado exitosamente: ${cliente.id}`);
+    res.status(200).json({ cliente });
   } catch (error) {
-    console.error(`❌ Error en acción de cliente ${req.query.id}:`, error.message);
-
+    console.error(`❌ Error al actualizar cliente ${req.query.id}:`, error.message);
     setCORSHeaders(req, res);
     let statusCode = 500;
     let errorMessage = error.message || 'Error interno del servidor';
-
     if (error.code === 'P2025') {
       statusCode = 404;
       errorMessage = 'Cliente no encontrado';
@@ -82,11 +64,7 @@ export default async function handler(req, res) {
       statusCode = 409;
       errorMessage = 'Ya existe un cliente con estos datos';
     }
-
-    res.status(statusCode).json({ 
-      error: errorMessage,
-      code: error.code
-    });
+    res.status(statusCode).json({ error: errorMessage, code: error.code });
   }
 }
 
