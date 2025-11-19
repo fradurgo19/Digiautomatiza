@@ -27,6 +27,40 @@ export default async function handler(req, res) {
   }
   
   try {
+    // Verificar si hay un ID en el query (para delete/update)
+    const { id, action } = req.query;
+    
+    if (id && (action === 'delete' || action === 'update')) {
+      // Manejar acciones sobre un cliente específico
+      const body = req.body || {};
+      const usuarioId = body.usuarioId || req.headers['x-usuario-id'] || null;
+
+      console.log(`🔍 Acción sobre cliente ${id}: ${action}`);
+
+      if (action === 'delete') {
+        console.log(`🗑️ Eliminando cliente ${id} - UsuarioId: ${usuarioId}`);
+        await prisma.cliente.delete({ where: { id } });
+        console.log(`✅ Cliente eliminado exitosamente: ${id}`);
+        res.status(200).json({ success: true });
+        return;
+      } else if (action === 'update') {
+        // Update
+        const datos = { ...body };
+        delete datos.action;
+        delete datos.usuarioId;
+        delete datos.rol;
+
+        console.log(`🔄 Actualizando cliente ${id} - UsuarioId: ${usuarioId}`, datos);
+        const cliente = await prisma.cliente.update({
+          where: { id },
+          data: datos,
+        });
+        console.log(`✅ Cliente actualizado exitosamente: ${cliente.id}`);
+        res.status(200).json({ cliente });
+        return;
+      }
+    }
+
     if (req.method === 'GET') {
       // Obtener todos los clientes
       const usuarioId = req.headers['x-usuario-id'] ?? null;

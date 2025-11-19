@@ -23,8 +23,46 @@ export default async function handler(req, res) {
   }
   
   try {
+    // Verificar si hay un ID en el query (para delete/update)
+    const { id, action, etapa, clienteId } = req.query;
+    
+    if (id && (action === 'delete' || action === 'update')) {
+      // Manejar acciones sobre una oportunidad específica
+      const body = req.body || {};
+      const usuarioId = body.usuarioId || req.headers['x-usuario-id'] || null;
+
+      console.log(`🔍 Acción sobre oportunidad ${id}: ${action}`);
+
+      if (action === 'delete') {
+        console.log(`🗑️ Eliminando oportunidad ${id} - UsuarioId: ${usuarioId}`);
+        await prisma.oportunidad.delete({ where: { id } });
+        console.log(`✅ Oportunidad eliminada exitosamente: ${id}`);
+        res.status(200).json({ success: true });
+        return;
+      } else if (action === 'update') {
+        // Update
+        const datos = { ...body };
+        delete datos.action;
+        delete datos.usuarioId;
+        delete datos.rol;
+
+        if (datos.fechaCierreEstimada) {
+          datos.fechaCierreEstimada = new Date(datos.fechaCierreEstimada);
+        }
+
+        console.log(`🔄 Actualizando oportunidad ${id} - UsuarioId: ${usuarioId}`, datos);
+        const oportunidad = await prisma.oportunidad.update({
+          where: { id },
+          data: datos,
+          include: { cliente: true },
+        });
+        console.log(`✅ Oportunidad actualizada exitosamente: ${oportunidad.id}`);
+        res.status(200).json({ oportunidad });
+        return;
+      }
+    }
+
     if (req.method === 'GET') {
-      const { etapa, clienteId } = req.query;
       const usuarioId = req.headers['x-usuario-id'] ?? null;
       const rol = req.headers['x-usuario-rol'] ?? null;
       const isAdmin = rol && String(rol).toLowerCase() === 'admin';

@@ -23,6 +23,45 @@ export default async function handler(req, res) {
   }
   
   try {
+    // Verificar si hay un ID en el query (para delete/update)
+    const { id, action } = req.query;
+    
+    if (id && (action === 'delete' || action === 'update')) {
+      // Manejar acciones sobre una sesión específica
+      const body = req.body || {};
+      const usuarioId = body.usuarioId || req.headers['x-usuario-id'] || null;
+
+      console.log(`🔍 Acción sobre sesión ${id}: ${action}`);
+
+      if (action === 'delete') {
+        console.log(`🗑️ Eliminando sesión ${id} - UsuarioId: ${usuarioId}`);
+        await prisma.sesion.delete({ where: { id } });
+        console.log(`✅ Sesión eliminada exitosamente: ${id}`);
+        res.status(200).json({ success: true });
+        return;
+      } else if (action === 'update') {
+        // Update
+        const datos = { ...body };
+        delete datos.action;
+        delete datos.usuarioId;
+        delete datos.rol;
+
+        if (datos.fecha) {
+          datos.fecha = new Date(datos.fecha);
+        }
+
+        console.log(`🔄 Actualizando sesión ${id} - UsuarioId: ${usuarioId}`, datos);
+        const sesion = await prisma.sesion.update({
+          where: { id },
+          data: datos,
+          include: { cliente: true },
+        });
+        console.log(`✅ Sesión actualizada exitosamente: ${sesion.id}`);
+        res.status(200).json({ sesion });
+        return;
+      }
+    }
+
     if (req.method === 'GET') {
       const usuarioId = req.headers['x-usuario-id'] ?? null;
       const rol = req.headers['x-usuario-rol'] ?? null;

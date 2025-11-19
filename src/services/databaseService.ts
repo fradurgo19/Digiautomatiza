@@ -135,8 +135,8 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
 
     console.log('🔄 Actualizando cliente:', id, cleanData);
 
-    // Usar endpoint unificado (update es por defecto, no necesita action)
-    const response = await fetch(`${API_URL}/api/clientes/${id}`, {
+    // Usar endpoint base con query parameter
+    const response = await fetch(`${API_URL}/api/clientes?id=${id}&action=update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -178,11 +178,11 @@ export async function eliminarCliente(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando cliente:', id);
 
-    // Usar endpoint unificado con action='delete' en el body
-    const response = await fetch(`${API_URL}/api/clientes/${id}`, {
+    // Usar endpoint base con query parameter
+    const response = await fetch(`${API_URL}/api/clientes?id=${id}&action=delete`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ...body, action: 'delete' }),
+      body: JSON.stringify(body),
     });
     
     if (!response.ok) {
@@ -286,8 +286,8 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
 
     console.log('🔄 Actualizando sesión:', id, cleanData);
 
-    // Usar endpoint unificado (update es por defecto, no necesita action)
-    const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
+    // Usar endpoint base con query parameter
+    const response = await fetch(`${API_URL}/api/sesiones?id=${id}&action=update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -329,11 +329,11 @@ export async function eliminarSesion(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando sesión:', id);
 
-    // Usar endpoint unificado con action='delete' en el body
-    const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
+    // Usar endpoint base con query parameter
+    const response = await fetch(`${API_URL}/api/sesiones?id=${id}&action=delete`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ...body, action: 'delete' }),
+      body: JSON.stringify(body),
     });
     
     if (!response.ok) {
@@ -483,8 +483,8 @@ export async function actualizarOportunidad(
 
     console.log('🔄 Actualizando oportunidad:', id, cleanData);
 
-    // Usar endpoint unificado (update es por defecto, no necesita action)
-    const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
+    // Usar endpoint base con query parameter
+    const response = await fetch(`${API_URL}/api/oportunidades?id=${id}&action=update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -526,11 +526,11 @@ export async function eliminarOportunidad(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando oportunidad:', id);
 
-    // Usar endpoint unificado con action='delete' en el body
-    const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
+    // Usar endpoint base con query parameter
+    const response = await fetch(`${API_URL}/api/oportunidades?id=${id}&action=delete`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ...body, action: 'delete' }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
