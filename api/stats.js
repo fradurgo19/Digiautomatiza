@@ -1,30 +1,35 @@
-// Vercel Serverless Function - Stats comerciales para Dashboard
+// Vercel Serverless Function - Stats comerciales para Dashboard y Health Check
 import prisma from './lib/prisma.js';
+import { setCORSHeaders } from './lib/cors.js';
 
 export default async function handler(req, res) {
-  // Configurar CORS
-  // Orígenes permitidos
-  const allowedOrigins = [
-    'https://www.digiautomatiza.co',
-    'https://digiautomatiza.co',
-    'https://digiautomatiza.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000',
-  ];
-  
-  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
-  );
+  try {
+    // Configurar CORS
+    const allowedOrigin = setCORSHeaders(req, res);
+    
+    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
+    console.log(`🔍 [${req.method}] /api/stats - Origin: ${origin}, Allowed: ${allowedOrigin}`);
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+  } catch (corsError) {
+    console.error('Error al establecer CORS:', corsError);
+    setCORSHeaders(req, res);
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+  }
+
+  // Health check endpoint - si se accede a /api/stats?health=true
+  if (req.query.health === 'true') {
+    res.status(200).json({
+      status: 'ok',
+      message: 'API Digiautomatiza en Vercel',
+      timestamp: new Date().toISOString()
+    });
     return;
   }
 
