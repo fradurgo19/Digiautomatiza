@@ -3,8 +3,20 @@ import prisma from '../lib/prisma.js';
 
 export default async function handler(req, res) {
   // Configurar CORS - DEBE IR PRIMERO (antes de cualquier otra cosa)
+  // Orígenes permitidos
+  const allowedOrigins = [
+    'https://www.digiautomatiza.co',
+    'https://digiautomatiza.co',
+    'https://digiautomatiza.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ];
+  
+  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
@@ -65,7 +77,17 @@ export default async function handler(req, res) {
     console.error('📋 Stack:', error.stack);
     
     // Asegurar que los headers CORS estén presentes incluso en errores
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const allowedOrigins = [
+      'https://www.digiautomatiza.co',
+      'https://digiautomatiza.co',
+      'https://digiautomatiza.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ];
+    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
+    const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Content-Type', 'application/json');
     
     // Manejar errores específicos de Prisma

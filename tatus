@@ -1,0 +1,205 @@
+[1mdiff --git a/CONFIGURACION-YCLOUD.md b/CONFIGURACION-YCLOUD.md[m
+[1mindex df48fb1..42dce39 100644[m
+[1m--- a/CONFIGURACION-YCLOUD.md[m
+[1m+++ b/CONFIGURACION-YCLOUD.md[m
+[36m@@ -1,3 +1,7 @@[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m
+ # 📱 Configuración de YCloud WhatsApp Business API[m
+ [m
+ ## ✅ Estado Actual[m
+[1mdiff --git a/api/clientes/[id].js b/api/clientes/[id].js[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b342218[m
+[1m--- /dev/null[m
+[1m+++ b/api/clientes/[id].js[m
+[36m@@ -0,0 +1,47 @@[m
+[32m+[m[32m// Vercel Serverless Function - Gestión de Clientes (DELETE y PUT por ID)[m
+[32m+[m[32mimport prisma from '../lib/prisma.js';[m
+[32m+[m
+[32m+[m[32mexport default async function handler(req, res) {[m
+[32m+[m[32m  // Configurar CORS - DEBE IR PRIMERO[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Credentials', 'true');[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Origin', '*');[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');[m
+[32m+[m[32m  res.setHeader([m
+[32m+[m[32m    'Access-Control-Allow-Headers',[m
+[32m+[m[32m    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'[m
+[32m+[m[32m  );[m
+[32m+[m
+[32m+[m[32m  // Manejar preflight OPTIONS[m
+[32m+[m[32m  if (req.method === 'OPTIONS') {[m
+[32m+[m[32m    res.status(200).end();[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  try {[m
+[32m+[m[32m    const { id } = req.query;[m
+[32m+[m
+[32m+[m[32m    if (req.method === 'DELETE') {[m
+[32m+[m[32m      // Eliminar cliente[m
+[32m+[m[32m      await prisma.cliente.delete({ where: { id } });[m
+[32m+[m[32m      res.setHeader('Content-Type', 'application/json');[m
+[32m+[m[32m      res.status(200).json({ success: true });[m
+[32m+[m[32m    } else if (req.method === 'PUT' || req.method === 'PATCH') {[m
+[32m+[m[32m      // Actualizar cliente[m
+[32m+[m[32m      const datos = req.body;[m
+[32m+[m[32m      const cliente = await prisma.cliente.update({[m
+[32m+[m[32m        where: { id },[m
+[32m+[m[32m        data: datos,[m
+[32m+[m[32m      });[m
+[32m+[m[32m      res.setHeader('Content-Type', 'application/json');[m
+[32m+[m[32m      res.status(200).json({ cliente });[m
+[32m+[m[32m    } else {[m
+[32m+[m[32m      res.setHeader('Content-Type', 'application/json');[m
+[32m+[m[32m      res.status(405).json({ error: 'Method not allowed' });[m
+[32m+[m[32m    }[m
+[32m+[m[32m  } catch (error) {[m
+[32m+[m[32m    console.error(`Error en /api/clientes/${req.query.id}:`, error);[m
+[32m+[m[32m    res.setHeader('Content-Type', 'application/json');[m
+[32m+[m[32m    res.status(500).json({ error: error.message });[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/api/oportunidades/[id].js b/api/oportunidades/[id].js[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b2a8a38[m
+[1m--- /dev/null[m
+[1m+++ b/api/oportunidades/[id].js[m
+[36m@@ -0,0 +1,50 @@[m
+[32m+[m[32m// Vercel Serverless Function - Gestión de Oportunidades (DELETE y PUT por ID)[m
+[32m+[m[32mimport prisma from '../lib/prisma.js';[m
+[32m+[m
+[32m+[m[32mexport default async function handler(req, res) {[m
+[32m+[m[32m  // Configurar CORS - DEBE IR PRIMERO[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Credentials', 'true');[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Origin', '*');[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');[m
+[32m+[m[32m  res.setHeader([m
+[32m+[m[32m    'Access-Control-Allow-Headers',[m
+[32m+[m[32m    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'[m
+[32m+[m[32m  );[m
+[32m+[m
+[32m+[m[32m  // Manejar preflight OPTIONS[m
+[32m+[m[32m  if (req.method === 'OPTIONS') {[m
+[32m+[m[32m    res.status(200).end();[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  try {[m
+[32m+[m[32m    const { id } = req.query;[m
+[32m+[m
+[32m+[m[32m    if (req.method === 'DELETE') {[m
+[32m+[m[32m      // Eliminar oportunidad[m
+[32m+[m[32m      await prisma.oportunidad.delete({ where: { id } });[m
+[32m+[m[32m      res.status(200).json({ success: true });[m
+[32m+[m[32m    } else if (req.method === 'PUT' || req.method === 'PATCH') {[m
+[32m+[m[32m      // Actualizar oportunidad[m
+[32m+[m[32m      const datos = { ...req.body };[m
+[32m+[m[32m      if (datos.fechaCierreEstimada) {[m
+[32m+[m[32m        datos.fechaCierreEstimada = new Date(datos.fechaCierreEstimada);[m
+[32m+[m[32m      }[m
+[32m+[m[32m      const oportunidad = await prisma.oportunidad.update({[m
+[32m+[m[32m        where: { id },[m
+[32m+[m[32m        data: datos,[m
+[32m+[m[32m        include: {[m
+[32m+[m[32m          cliente: true,[m
+[32m+[m[32m        },[m
+[32m+[m[32m      });[m
+[32m+[m[32m      res.status(200).json({ oportunidad });[m
+[32m+[m[32m    } else {[m
+[32m+[m[32m      res.status(405).json({ error: 'Method not allowed' });[m
+[32m+[m[32m    }[m
+[32m+[m[32m  } catch (error) {[m
+[32m+[m[32m    console.error(`Error en /api/oportunidades/${req.query.id}:`, error);[m
+[32m+[m[32m    res.setHeader('Content-Type', 'application/json');[m
+[32m+[m[32m    res.status(500).json({ error: error.message });[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/api/sesiones/[id].js b/api/sesiones/[id].js[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b2835a6[m
+[1m--- /dev/null[m
+[1m+++ b/api/sesiones/[id].js[m
+[36m@@ -0,0 +1,50 @@[m
+[32m+[m[32m// Vercel Serverless Function - Gestión de Sesiones (DELETE y PUT por ID)[m
+[32m+[m[32mimport prisma from '../lib/prisma.js';[m
+[32m+[m
+[32m+[m[32mexport default async function handler(req, res) {[m
+[32m+[m[32m  // Configurar CORS - DEBE IR PRIMERO[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Credentials', 'true');[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Origin', '*');[m
+[32m+[m[32m  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');[m
+[32m+[m[32m  res.setHeader([m
+[32m+[m[32m    'Access-Control-Allow-Headers',[m
+[32m+[m[32m    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'[m
+[32m+[m[32m  );[m
+[32m+[m
+[32m+[m[32m  // Manejar preflight OPTIONS[m
+[32m+[m[32m  if (req.method === 'OPTIONS') {[m
+[32m+[m[32m    res.status(200).end();[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  try {[m
+[32m+[m[32m    const { id } = req.query;[m
+[32m+[m
+[32m+[m[32m    if (req.method === 'DELETE') {[m
+[32m+[m[32m      // Eliminar sesión[m
+[32m+[m[32m      await prisma.sesion.delete({ where: { id } });[m
+[32m+[m[32m      res.status(200).json({ success: true });[m
+[32m+[m[32m    } else if (req.method === 'PUT' || req.method === 'PATCH') {[m
+[32m+[m[32m      // Actualizar sesión[m
+[32m+[m[32m      const datos = { ...req.body };[m
+[32m+[m[32m      if (datos.fecha) {[m
+[32m+[m[32m        datos.fecha = new Date(datos.fecha);[m
+[32m+[m[32m      }[m
+[32m+[m[32m      const sesion = await prisma.sesion.update({[m
+[32m+[m[32m        where: { id },[m
+[32m+[m[32m        data: datos,[m
+[32m+[m[32m        include: {[m
+[32m+[m[32m          cliente: true,[m
+[32m+[m[32m        },[m
+[32m+[m[32m      });[m
+[32m+[m[32m      res.status(200).json({ sesion });[m
+[32m+[m[32m    } else {[m
+[32m+[m[32m      res.status(405).json({ error: 'Method not allowed' });[m
+[32m+[m[32m    }[m
+[32m+[m[32m  } catch (error) {[m
+[32m+[m[32m    console.error(`Error en /api/sesiones/${req.query.id}:`, error);[m
+[32m+[m[32m    res.setHeader('Content-Type', 'application/json');[m
+[32m+[m[32m    res.status(500).json({ error: error.message });[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[1mdiff --git a/src/atoms/Select.tsx b/src/atoms/Select.tsx[m
+[1mindex 9fe3269..e9d482c 100644[m
+[1m--- a/src/atoms/Select.tsx[m
+[1m+++ b/src/atoms/Select.tsx[m
+[36m@@ -17,7 +17,7 @@[m [minterface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {[m
+ [m
+ const Select = forwardRef<HTMLSelectElement, SelectProps>([m
+   ({ label, labelClassName, textClassName, error, options, placeholder, fullWidth = false, className = '', ...props }, ref) => {[m
+[31m-    const baseStyles = 'px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 backdrop-blur-sm bg-white/5 text-white';[m
+[32m+[m[32m    const baseStyles = 'px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 backdrop-blur-sm bg-white/5';[m
+     const errorStyles = error [m
+       ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500' [m
+       : 'border-white/10 focus:ring-blue-500/50 focus:border-blue-500 hover:border-white/20';[m
+[36m@@ -37,12 +37,12 @@[m [mconst Select = forwardRef<HTMLSelectElement, SelectProps>([m
+           {...props}[m
+         >[m
+           {placeholder && ([m
+[31m-            <option value="" disabled className="bg-gray-900">[m
+[32m+[m[32m            <option value="" disabled className={textClassName ? textClassName : 'text-gray-900 bg-white'}>[m
+               {placeholder}[m
+             </option>[m
+           )}[m
+           {options.map((option) => ([m
+[31m-            <option key={option.value} value={option.value} className="bg-gray-900">[m
+[32m+[m[32m            <option key={option.value} value={option.value} className={textClassName ? textClassName : 'text-gray-900 bg-white'}>[m
+               {option.label}[m
+             </option>[m
+           ))}[m
