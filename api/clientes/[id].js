@@ -1,4 +1,4 @@
-// Vercel Serverless Function - Gestión de Clientes (combinado: GET, POST, PUT, PATCH, DELETE)
+// Vercel Serverless Function - Gestión de Clientes por ID (PUT, PATCH, DELETE)
 import prisma from '../lib/prisma.js';
 import { setCORSHeaders } from '../lib/cors.js';
 
@@ -9,9 +9,8 @@ export default async function handler(req, res) {
     
     // Log para debugging
     const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
-    const slug = req.query.slug || [];
-    const id = Array.isArray(slug) ? slug[0] : slug;
-    console.log(`🔍 [${req.method}] /api/clientes${id ? `/${id}` : ''} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
+    const { id } = req.query;
+    console.log(`🔍 [${req.method}] /api/clientes/${id} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
 
     // Manejar preflight OPTIONS - responder inmediatamente
     if (req.method === 'OPTIONS') {
@@ -20,7 +19,6 @@ export default async function handler(req, res) {
       return;
     }
   } catch (corsError) {
-    // Si hay un error al establecer CORS, intentar establecerlos de nuevo
     console.error('Error al establecer CORS:', corsError);
     setCORSHeaders(req, res);
     if (req.method === 'OPTIONS') {
@@ -30,58 +28,9 @@ export default async function handler(req, res) {
   }
   
   try {
-    const slug = req.query.slug || [];
-    const id = Array.isArray(slug) ? slug[0] : slug;
+    const { id } = req.query;
 
-    if (req.method === 'GET') {
-      // Si hay ID, obtener un cliente específico (aunque no lo usamos actualmente)
-      if (id) {
-        const cliente = await prisma.cliente.findUnique({ where: { id } });
-        if (!cliente) {
-          res.status(404).json({ error: 'Cliente no encontrado' });
-          return;
-        }
-        res.status(200).json({ cliente });
-        return;
-      }
-
-      // Obtener todos los clientes
-      const usuarioId = req.headers['x-usuario-id'] ?? null;
-      const rol = req.headers['x-usuario-rol'] ?? null;
-      const isAdmin = rol && String(rol).toLowerCase() === 'admin';
-
-      let where = undefined;
-      if (usuarioId && !isAdmin) {
-        where = { usuarioId: String(usuarioId) };
-      }
-
-      console.log('📋 Obteniendo clientes - Admin:', isAdmin, 'UsuarioId:', usuarioId);
-
-      const clientes = await prisma.cliente.findMany({
-        ...(where && { where }),
-        orderBy: { createdAt: 'desc' },
-      });
-      
-      console.log(`✅ Clientes obtenidos: ${clientes.length}`);
-      
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      res.setHeader('Content-Type', 'application/json');
-      
-      res.status(200).json({ clientes });
-    } else if (req.method === 'POST') {
-      // Crear nuevo cliente
-      const usuarioId = req.headers['x-usuario-id'] ?? null;
-      const cliente = await prisma.cliente.create({
-        data: {
-          ...req.body,
-          usuarioId: usuarioId ? String(usuarioId) : null,
-        },
-      });
-      
-      res.status(201).json({ cliente });
-    } else if (req.method === 'DELETE' && id) {
+    if (req.method === 'DELETE') {
       // Eliminar cliente
       console.log(`🗑️ Eliminando cliente ${id}`);
       
@@ -95,7 +44,7 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'application/json');
       
       res.status(200).json({ success: true });
-    } else if ((req.method === 'PUT' || req.method === 'PATCH') && id) {
+    } else if (req.method === 'PUT' || req.method === 'PATCH') {
       // Actualizar cliente
       const datos = req.body;
       
@@ -119,11 +68,10 @@ export default async function handler(req, res) {
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    console.error(`❌ Error en /api/clientes${req.query.slug ? `/${req.query.slug}` : ''}:`, error.message);
+    console.error(`❌ Error en /api/clientes/${req.query.id}:`, error.message);
     console.error('📋 Método:', req.method);
     console.error('📋 Stack:', error.stack);
     
-    // Asegurar que los headers CORS estén presentes incluso en errores
     try {
       setCORSHeaders(req, res);
     } catch (corsError) {
@@ -131,14 +79,10 @@ export default async function handler(req, res) {
     }
     res.setHeader('Content-Type', 'application/json');
     
-    // Manejar errores específicos de Prisma
     let statusCode = 500;
     let errorMessage = error.message || 'Error interno del servidor';
     
-    if (error.name === 'PrismaClientInitializationError' || error.message.includes("Can't reach database")) {
-      statusCode = 500;
-      errorMessage = 'Error de conexión a la base de datos';
-    } else if (error.code === 'P2025') {
+    if (error.code === 'P2025') {
       statusCode = 404;
       errorMessage = 'Cliente no encontrado';
     } else if (error.code === 'P2002') {
