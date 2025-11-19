@@ -5,7 +5,7 @@ import { EnvioMasivoWhatsApp } from '../types';
  * Soporta múltiples métodos de envío:
  * 1. Twilio WhatsApp API (Producción)
  * 2. Meta Cloud API (Producción)
- * 3. Backend personalizado
+ * 3. Backend personalizado (YCloud) - Configurado por defecto
  */
 
 // Tipo de configuración
@@ -171,10 +171,13 @@ async function enviarConMeta(datos: EnvioMasivoWhatsApp): Promise<ResultadoEnvio
 }
 
 /**
- * Implementación con backend personalizado
+ * Implementación con backend personalizado (YCloud)
+ * El backend maneja la integración con YCloud API
  */
 async function enviarConBackend(datos: EnvioMasivoWhatsApp): Promise<ResultadoEnvio> {
   try {
+    console.log('📤 Enviando mensajes vía backend (YCloud)...');
+    
     const response = await fetch(`${BACKEND_API_URL}/api/whatsapp/enviar-masivo`, {
       method: 'POST',
       headers: {
@@ -183,17 +186,21 @@ async function enviarConBackend(datos: EnvioMasivoWhatsApp): Promise<ResultadoEn
       body: JSON.stringify({
         numeros: datos.numeros,
         mensaje: datos.mensaje,
+        archivos: datos.archivos, // Incluir archivos si existen
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Error en el servidor');
+      const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
     }
 
     const resultado = await response.json();
+    console.log('✅ Resultado del envío:', resultado);
     return resultado;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error al conectar con el backend';
+    console.error('❌ Error en envío con backend:', errorMessage);
     throw new Error(errorMessage);
   }
 }
@@ -297,7 +304,7 @@ export function obtenerInfoProveedor(): {
       return {
         proveedor: 'backend',
         configurado: Boolean(BACKEND_API_URL),
-        mensaje: 'Backend personalizado',
+        mensaje: 'Backend personalizado (YCloud)',
       };
     case 'demo':
     default:
