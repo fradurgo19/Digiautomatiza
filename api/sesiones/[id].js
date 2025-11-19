@@ -32,36 +32,37 @@ function setCORSHeadersDirect(req, res) {
 }
 
 export default async function handler(req, res) {
+  // Manejar OPTIONS PRIMERO, antes de cualquier otra cosa
+  if (req.method === 'OPTIONS') {
+    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
+    const allowedOrigins = [
+      'https://www.digiautomatiza.co',
+      'https://digiautomatiza.co',
+      'https://digiautomatiza.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ];
+    const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    
+    console.log('✅ OPTIONS preflight recibido - Origin:', origin, 'Allowed:', allowedOrigin);
+    
+    // Responder con headers CORS explícitos usando writeHead
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400',
+      'Content-Length': '0'
+    });
+    return res.end();
+  }
+  
   // Establecer CORS de manera directa y síncrona - PRIMERO, ANTES DE TODO
   const allowedOrigin = setCORSHeadersDirect(req, res);
   const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
   const { id } = req.query;
   
   console.log(`🔍 [${req.method}] /api/sesiones/${id} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
-
-  // Manejar preflight OPTIONS - responder inmediatamente con headers explícitos
-  if (req.method === 'OPTIONS') {
-    console.log('✅ OPTIONS preflight recibido - Origin:', origin, 'Allowed:', allowedOrigin);
-    // Asegurar que los headers estén establecidos antes de responder
-    // Usar writeHead para garantizar que los headers se envíen
-    try {
-      res.writeHead(200, {
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Origin': allowedOrigin,
-        'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
-        'Access-Control-Allow-Headers': 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol',
-        'Access-Control-Max-Age': '86400',
-        'Content-Length': '0'
-      });
-      res.end();
-    } catch (error) {
-      console.error('Error al responder OPTIONS:', error);
-      // Fallback: usar setHeader y status
-      setCORSHeadersDirect(req, res);
-      res.status(200).end();
-    }
-    return;
-  }
   
   try {
     const { id } = req.query;
