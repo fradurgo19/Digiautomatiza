@@ -135,8 +135,8 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
 
     console.log('🔄 Actualizando cliente:', id, cleanData);
 
-    // Usar POST con action='update' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
-    const response = await fetch(`${API_URL}/api/clientes/${id}`, {
+    // Usar endpoint separado para actualizar
+    const response = await fetch(`${API_URL}/api/clientes/${id}/update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -178,8 +178,8 @@ export async function eliminarCliente(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando cliente:', id);
 
-    // Usar POST con action='delete' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
-    const response = await fetch(`${API_URL}/api/clientes/${id}`, {
+    // Usar endpoint separado para eliminar
+    const response = await fetch(`${API_URL}/api/clientes/${id}/delete`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -286,8 +286,8 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
 
     console.log('🔄 Actualizando sesión:', id, cleanData);
 
-    // Usar POST con action='update' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
-    const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
+    // Usar endpoint separado para actualizar
+    const response = await fetch(`${API_URL}/api/sesiones/${id}/update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -329,8 +329,8 @@ export async function eliminarSesion(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando sesión:', id);
 
-    // Usar POST con action='delete' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
-    const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
+    // Usar endpoint separado para eliminar
+    const response = await fetch(`${API_URL}/api/sesiones/${id}/delete`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -483,8 +483,8 @@ export async function actualizarOportunidad(
 
     console.log('🔄 Actualizando oportunidad:', id, cleanData);
 
-    // Usar POST con action='update' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
-    const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
+    // Usar endpoint separado para actualizar
+    const response = await fetch(`${API_URL}/api/oportunidades/${id}/update`, {
       method: 'POST',
       headers,
       body: JSON.stringify(cleanData),
@@ -526,8 +526,8 @@ export async function eliminarOportunidad(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando oportunidad:', id);
 
-    // Usar POST con action='delete' y datos en body (sin headers personalizados) para evitar preflight OPTIONS
-    const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
+    // Usar endpoint separado para eliminar
+    const response = await fetch(`${API_URL}/api/oportunidades/${id}/delete`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
