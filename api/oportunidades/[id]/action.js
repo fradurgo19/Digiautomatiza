@@ -1,4 +1,4 @@
-// Vercel Serverless Function - Actualizar Cliente
+// Vercel Serverless Function - Acciones de Oportunidad (DELETE, UPDATE)
 import prisma from '../../lib/prisma.js';
 
 function setCORSHeaders(req, res) {
@@ -38,28 +38,39 @@ export default async function handler(req, res) {
 
   try {
     setCORSHeaders(req, res);
-    const { id } = req.query;
+    const { id, action } = req.query; // action viene de la URL: /delete o /update
     const body = req.body || {};
     const usuarioId = body.usuarioId || null;
     const rol = body.rol || null;
 
-    // Remover usuarioId y rol del body antes de actualizar
-    const datos = { ...body };
-    delete datos.usuarioId;
-    delete datos.rol;
+    if (action === 'delete') {
+      console.log(`🗑️ Eliminando oportunidad ${id} - UsuarioId: ${usuarioId}`);
+      await prisma.oportunidad.delete({ where: { id } });
+      console.log(`✅ Oportunidad eliminada exitosamente: ${id}`);
+      res.status(200).json({ success: true });
+    } else if (action === 'update') {
+      // Remover usuarioId y rol del body antes de actualizar
+      const datos = { ...body };
+      delete datos.usuarioId;
+      delete datos.rol;
 
-    console.log(`🔄 Actualizando cliente ${id} - UsuarioId: ${usuarioId}`, datos);
+      if (datos.fechaCierreEstimada) {
+        datos.fechaCierreEstimada = new Date(datos.fechaCierreEstimada);
+      }
 
-    const cliente = await prisma.cliente.update({
-      where: { id },
-      data: datos,
-    });
-
-    console.log(`✅ Cliente actualizado exitosamente: ${cliente.id}`);
-
-    res.status(200).json({ cliente });
+      console.log(`🔄 Actualizando oportunidad ${id} - UsuarioId: ${usuarioId}`, datos);
+      const oportunidad = await prisma.oportunidad.update({
+        where: { id },
+        data: datos,
+        include: { cliente: true },
+      });
+      console.log(`✅ Oportunidad actualizada exitosamente: ${oportunidad.id}`);
+      res.status(200).json({ oportunidad });
+    } else {
+      res.status(400).json({ error: 'Acción no válida. Use "delete" o "update"' });
+    }
   } catch (error) {
-    console.error(`❌ Error al actualizar cliente ${req.query.id}:`, error.message);
+    console.error(`❌ Error en acción de oportunidad ${req.query.id}:`, error.message);
 
     setCORSHeaders(req, res);
     let statusCode = 500;
@@ -67,10 +78,7 @@ export default async function handler(req, res) {
 
     if (error.code === 'P2025') {
       statusCode = 404;
-      errorMessage = 'Cliente no encontrado';
-    } else if (error.code === 'P2002') {
-      statusCode = 409;
-      errorMessage = 'Ya existe un cliente con estos datos';
+      errorMessage = 'Oportunidad no encontrada';
     }
 
     res.status(statusCode).json({ 

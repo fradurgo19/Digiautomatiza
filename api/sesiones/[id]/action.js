@@ -1,4 +1,4 @@
-// Vercel Serverless Function - Eliminar Sesión
+// Vercel Serverless Function - Acciones de Sesión (DELETE, UPDATE)
 import prisma from '../../lib/prisma.js';
 
 function setCORSHeaders(req, res) {
@@ -38,20 +38,39 @@ export default async function handler(req, res) {
 
   try {
     setCORSHeaders(req, res);
-    const { id } = req.query;
+    const { id, action } = req.query; // action viene de la URL: /delete o /update
     const body = req.body || {};
     const usuarioId = body.usuarioId || null;
     const rol = body.rol || null;
 
-    console.log(`🗑️ Eliminando sesión ${id} - UsuarioId: ${usuarioId}`);
+    if (action === 'delete') {
+      console.log(`🗑️ Eliminando sesión ${id} - UsuarioId: ${usuarioId}`);
+      await prisma.sesion.delete({ where: { id } });
+      console.log(`✅ Sesión eliminada exitosamente: ${id}`);
+      res.status(200).json({ success: true });
+    } else if (action === 'update') {
+      // Remover usuarioId y rol del body antes de actualizar
+      const datos = { ...body };
+      delete datos.usuarioId;
+      delete datos.rol;
 
-    await prisma.sesion.delete({ where: { id } });
+      if (datos.fecha) {
+        datos.fecha = new Date(datos.fecha);
+      }
 
-    console.log(`✅ Sesión eliminada exitosamente: ${id}`);
-
-    res.status(200).json({ success: true });
+      console.log(`🔄 Actualizando sesión ${id} - UsuarioId: ${usuarioId}`, datos);
+      const sesion = await prisma.sesion.update({
+        where: { id },
+        data: datos,
+        include: { cliente: true },
+      });
+      console.log(`✅ Sesión actualizada exitosamente: ${sesion.id}`);
+      res.status(200).json({ sesion });
+    } else {
+      res.status(400).json({ error: 'Acción no válida. Use "delete" o "update"' });
+    }
   } catch (error) {
-    console.error(`❌ Error al eliminar sesión ${req.query.id}:`, error.message);
+    console.error(`❌ Error en acción de sesión ${req.query.id}:`, error.message);
 
     setCORSHeaders(req, res);
     let statusCode = 500;
