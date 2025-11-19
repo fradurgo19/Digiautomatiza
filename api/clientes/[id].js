@@ -12,9 +12,23 @@ export default async function handler(req, res) {
     'http://localhost:3000',
   ];
   
-  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  // Obtener el origen de la petición
+  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
   
+  // Determinar el origen permitido
+  let allowedOrigin = allowedOrigins[0]; // Por defecto el primero
+  if (origin) {
+    // Buscar coincidencia exacta
+    const matched = allowedOrigins.find(o => o === origin);
+    if (matched) {
+      allowedOrigin = matched;
+    }
+  }
+  
+  // Log para debugging
+  console.log(`🔍 [${req.method}] /api/clientes/${req.query?.id || '[id]'} - Origin: ${origin}, Allowed: ${allowedOrigin}`);
+  
+  // Configurar headers CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -22,9 +36,11 @@ export default async function handler(req, res) {
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
   );
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
 
   // Manejar preflight OPTIONS - responder inmediatamente
   if (req.method === 'OPTIONS') {
+    console.log('✅ OPTIONS preflight recibido - Origin:', origin, 'Allowed:', allowedOrigin);
     res.status(200).end();
     return;
   }
@@ -77,17 +93,28 @@ export default async function handler(req, res) {
     console.error('📋 Stack:', error.stack);
     
     // Asegurar que los headers CORS estén presentes incluso en errores
-    const allowedOrigins = [
+    const errorAllowedOrigins = [
       'https://www.digiautomatiza.co',
       'https://digiautomatiza.co',
       'https://digiautomatiza.vercel.app',
       'http://localhost:5173',
       'http://localhost:3000',
     ];
-    const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
-    const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    const errorOrigin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
+    let errorAllowedOrigin = errorAllowedOrigins[0];
+    if (errorOrigin) {
+      const matched = errorAllowedOrigins.find(o => o === errorOrigin);
+      if (matched) {
+        errorAllowedOrigin = matched;
+      }
+    }
+    res.setHeader('Access-Control-Allow-Origin', errorAllowedOrigin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
+    );
     res.setHeader('Content-Type', 'application/json');
     
     // Manejar errores específicos de Prisma

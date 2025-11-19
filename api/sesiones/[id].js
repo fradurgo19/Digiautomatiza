@@ -12,9 +12,20 @@ export default async function handler(req, res) {
     'http://localhost:3000',
   ];
   
-  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/');
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  // Obtener el origen de la petición
+  const origin = req.headers.origin || req.headers.referer?.split('/').slice(0, 3).join('/') || '';
   
+  // Determinar el origen permitido
+  let allowedOrigin = allowedOrigins[0]; // Por defecto el primero
+  if (origin) {
+    // Buscar coincidencia exacta
+    const matched = allowedOrigins.find(o => o === origin);
+    if (matched) {
+      allowedOrigin = matched;
+    }
+  }
+  
+  // Configurar headers CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -22,6 +33,7 @@ export default async function handler(req, res) {
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-usuario-id, x-usuario-rol'
   );
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
 
   // Manejar preflight OPTIONS - responder inmediatamente
   if (req.method === 'OPTIONS') {
