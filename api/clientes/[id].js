@@ -66,10 +66,16 @@ export default async function handler(req, res) {
   
   try {
     const { id } = req.query;
+    const body = req.body || {};
+    const action = body.action || body._method; // Soporte para action o _method
 
-    if (req.method === 'DELETE') {
+    // Determinar la acción: DELETE, PUT/PATCH, o POST con action
+    const isDelete = req.method === 'DELETE' || action === 'delete';
+    const isUpdate = req.method === 'PUT' || req.method === 'PATCH' || action === 'update';
+
+    if (isDelete) {
       // Eliminar cliente
-      console.log(`🗑️ Eliminando cliente ${id}`);
+      console.log(`🗑️ Eliminando cliente ${id} (método: ${req.method}, action: ${action})`);
       
       await prisma.cliente.delete({ where: { id } });
       
@@ -83,9 +89,12 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'application/json');
       
       res.status(200).json({ success: true });
-    } else if (req.method === 'PUT' || req.method === 'PATCH') {
+    } else if (isUpdate) {
       // Actualizar cliente
-      const datos = req.body;
+      const datos = { ...body };
+      // Remover action/_method del body si existe
+      delete datos.action;
+      delete datos._method;
       
       console.log(`🔄 Actualizando cliente ${id} con datos:`, JSON.stringify(datos, null, 2));
       

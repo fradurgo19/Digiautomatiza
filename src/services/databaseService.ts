@@ -133,10 +133,11 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
 
     console.log('🔄 Actualizando cliente:', id, cleanData);
 
+    // Usar POST con action='update' para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
-      method: 'PUT',
+      method: 'POST',
       headers,
-      body: JSON.stringify(cleanData),
+      body: JSON.stringify({ ...cleanData, action: 'update' }),
     });
     
     if (!response.ok) {
@@ -159,7 +160,7 @@ export async function actualizarCliente(id: string, clienteData: Partial<Cliente
 export async function eliminarCliente(id: string): Promise<void> {
   try {
     const usuario = localStorage.getItem('usuario');
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (usuario) {
       try {
         const parsed = JSON.parse(usuario);
@@ -172,9 +173,11 @@ export async function eliminarCliente(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando cliente:', id);
 
+    // Usar POST con action='delete' para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/clientes/${id}`, {
-      method: 'DELETE',
+      method: 'POST',
       headers,
+      body: JSON.stringify({ action: 'delete' }),
     });
     
     if (!response.ok) {
@@ -276,10 +279,11 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
 
     console.log('🔄 Actualizando sesión:', id, cleanData);
 
+    // Usar POST con action='update' para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
-      method: 'PUT',
+      method: 'POST',
       headers,
-      body: JSON.stringify(cleanData),
+      body: JSON.stringify({ ...cleanData, action: 'update' }),
     });
     
     if (!response.ok) {
@@ -302,7 +306,7 @@ export async function actualizarSesion(id: string, sesionData: Partial<Sesion>):
 export async function eliminarSesion(id: string): Promise<void> {
   try {
     const usuario = localStorage.getItem('usuario');
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (usuario) {
       try {
         const parsed = JSON.parse(usuario);
@@ -315,9 +319,11 @@ export async function eliminarSesion(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando sesión:', id);
 
+    // Usar POST con action='delete' para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/sesiones/${id}`, {
-      method: 'DELETE',
+      method: 'POST',
       headers,
+      body: JSON.stringify({ action: 'delete' }),
     });
     
     if (!response.ok) {
@@ -465,10 +471,11 @@ export async function actualizarOportunidad(
 
     console.log('🔄 Actualizando oportunidad:', id, cleanData);
 
+    // Usar POST con action='update' para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
-      method: 'PUT',
+      method: 'POST',
       headers,
-      body: JSON.stringify(cleanData),
+      body: JSON.stringify({ ...cleanData, action: 'update' }),
     });
 
     if (!response.ok) {
@@ -491,7 +498,7 @@ export async function actualizarOportunidad(
 export async function eliminarOportunidad(id: string): Promise<void> {
   try {
     const usuario = localStorage.getItem('usuario');
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (usuario) {
       try {
         const parsed = JSON.parse(usuario);
@@ -504,9 +511,11 @@ export async function eliminarOportunidad(id: string): Promise<void> {
 
     console.log('🗑️ Eliminando oportunidad:', id);
 
+    // Usar POST con action='delete' para evitar preflight OPTIONS
     const response = await fetch(`${API_URL}/api/oportunidades/${id}`, {
-      method: 'DELETE',
+      method: 'POST',
       headers,
+      body: JSON.stringify({ action: 'delete' }),
     });
 
     if (!response.ok) {
