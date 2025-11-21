@@ -173,11 +173,20 @@ Para enviar archivos con YCloud:
 - El código incluye un delay de 100ms entre mensajes para evitar problemas
 - Para envíos masivos grandes, considera procesar en lotes
 
-### Plantillas de WhatsApp
+### Plantillas de WhatsApp ⚠️ IMPORTANTE
 
-- Para mensajes masivos, WhatsApp requiere usar **plantillas aprobadas**
-- Los mensajes de texto libre solo funcionan en ventanas de 24 horas después de que el usuario te escriba
+**Problema común: Los mensajes se marcan como exitosos pero no llegan**
+
+Esto sucede porque WhatsApp tiene restricciones estrictas:
+
+1. **Ventana de 24 horas**: Los mensajes de texto libre solo funcionan dentro de 24 horas después de que el usuario te escriba por última vez
+2. **Fuera de la ventana**: Si el usuario no te ha escrito en las últimas 24 horas, DEBES usar una plantilla aprobada
+3. **Plantillas requeridas**: Para envío masivo, siempre debes usar plantillas aprobadas por WhatsApp
+
+**Solución:**
 - Crea y aprueba plantillas en el panel de YCloud antes de enviar masivamente
+- Usa el parámetro `template` en lugar de `text` cuando envíes fuera de la ventana de 24 horas
+- Verifica el estado del número de WhatsApp Business en YCloud (debe estar "Connected" o "Verified")
 
 ### Costos
 
@@ -215,6 +224,49 @@ Para enviar archivos con YCloud:
 3. Que tengas créditos suficientes
 4. Que los números de destino estén en formato internacional (+código_país+número)
 
+### ⚠️ Mensaje marcado como exitoso pero no llega al cliente
+
+**Este es el problema más común.** La API responde con éxito (200 OK) pero el mensaje no se entrega.
+
+**Causas principales:**
+
+1. **Ventana de 24 horas cerrada** (MÁS COMÚN)
+   - WhatsApp solo permite mensajes de texto libre dentro de 24 horas después de que el usuario te escriba
+   - Si el usuario no te ha escrito en las últimas 24 horas, el mensaje se rechaza silenciosamente
+   - **Solución:** Usa plantillas aprobadas para mensajes fuera de la ventana
+
+2. **Número de WhatsApp Business no verificado**
+   - El número debe estar "Connected" o "Verified" en el panel de YCloud
+   - **Solución:** Ve a YCloud Dashboard → WhatsApp → Verifica el estado de tu número
+
+3. **Número de destino no tiene WhatsApp**
+   - El número debe estar registrado en WhatsApp
+   - **Solución:** Verifica que el número tenga WhatsApp activo
+
+4. **Falta de créditos en YCloud**
+   - Aunque la API acepta la solicitud, si no hay créditos, no se envía
+   - **Solución:** Verifica tu balance en YCloud Dashboard
+
+**Cómo verificar en los logs de Vercel:**
+1. Ve a Vercel Dashboard → Tu proyecto → Deployments
+2. Abre el último deployment → Logs
+3. Busca las líneas que dicen `📥 Respuesta de YCloud` (respuesta inmediata de la API)
+4. Busca las líneas que dicen `📥 Webhook recibido de YCloud` (actualizaciones de estado)
+5. Revisa el campo `status` en la respuesta - debería ser `sent`, `delivered`, etc.
+6. Si el status es `failed` o `rejected`, revisa el mensaje de error
+
+**Con webhooks configurados, verás:**
+- `📊 Estado del mensaje actualizado` - Cuando el estado cambia (sent → delivered → read)
+- `❌ Mensaje fallido` - Si el mensaje no se pudo entregar (con el motivo)
+- `✅ Mensaje entregado` - Confirmación de entrega
+- `👁️ Mensaje leído` - Cuando el cliente lee el mensaje
+
+**Solución inmediata:**
+- Para envío masivo, SIEMPRE usa plantillas aprobadas
+- Crea una plantilla en YCloud Dashboard → Templates
+- Espera la aprobación de WhatsApp (puede tomar horas o días)
+- Modifica el código para usar plantillas en lugar de texto libre
+
 ## 📚 Recursos Adicionales
 
 - [Documentación oficial de YCloud](https://docs.ycloud.com)
@@ -227,8 +279,10 @@ Para enviar archivos con YCloud:
 - [x] Base de datos en Supabase ✅
 - [x] API Key obtenida: `be2f369c4c53ca0d4fdafb5d3f4b744d`
 - [x] Número de WhatsApp Business configurado: `+15558366820`
+- [x] **Webhook configurado:** `https://www.digiautomatiza.co/api/whatsapp/webhook` (ID: `691fce65bc05db477e0587bf`) ✅
 - [ ] **Variables de entorno agregadas en Vercel** (Settings → Environment Variables)
 - [ ] **Redeploy realizado en Vercel** (Deployments → Redeploy)
+- [ ] **Webhook verificado** - Enviar mensaje de prueba y revisar logs
 - [ ] Prueba de envío realizada con éxito
 
 ## 🔑 Credenciales Listas para Configurar
@@ -245,6 +299,117 @@ Para enviar archivos con YCloud:
 5. ✅ **¡Listo!** Prueba enviando un WhatsApp desde la interfaz
 
 **Tiempo estimado:** 2-3 minutos
+
+---
+
+## 🔔 Configurar Webhooks (Recomendado)
+
+Los webhooks te permiten recibir actualizaciones en tiempo real sobre el estado de tus mensajes (enviado, entregado, leído, fallido).
+
+### Paso 1: Crear el endpoint de webhook en YCloud
+
+1. Ve a [YCloud Dashboard](https://dashboard.ycloud.com) → **Developers** → **Webhooks**
+2. Haz clic en **Create Webhook**
+3. Configura:
+   - **URL:** `https://www.digiautomatiza.co/api/whatsapp/webhook`
+   - **Enabled Events:** Selecciona los siguientes eventos (los más importantes):
+     - ✅ `whatsapp.message.updated` - **ESENCIAL** - Estado de mensajes (sent, delivered, read, failed)
+     - ✅ `whatsapp.inbound_message.received` - Mensajes entrantes de clientes
+     - ✅ `whatsapp.phone_number.quality_updated` - Calidad del número (importante para evitar bloqueos)
+     - ✅ `whatsapp.template.reviewed` - Estado de plantillas (aprobadas/rechazadas)
+     - ⚪ `whatsapp.business_account.updated` - (Opcional) Cambios en la cuenta
+     - ⚪ `whatsapp.phone_number.name_updated` - (Opcional) Cambios en el nombre
+   - **Status:** `active`
+   - **Description:** "Webhook para recibir actualizaciones de mensajes WhatsApp"
+4. Guarda el webhook
+5. **Copia el Secret** - lo necesitarás para verificar las firmas (opcional pero recomendado)
+
+**Eventos recomendados (mínimo):**
+- `whatsapp.message.updated` - Para saber si los mensajes se entregaron o fallaron
+- `whatsapp.inbound_message.received` - Para recibir respuestas de clientes
+
+### Paso 2: Verificar que el webhook funciona
+
+**Tu webhook ya está configurado:**
+- **URL:** `https://www.digiautomatiza.co/api/whatsapp/webhook`
+- **ID:** `691fce65bc05db477e0587bf`
+
+**Para verificar que funciona:**
+
+1. **Envía un mensaje de prueba** desde la aplicación (Gestión de Clientes → Enviar WhatsApp Masivo)
+2. **Ve a los logs de Vercel:**
+   - Vercel Dashboard → Tu proyecto → Deployments
+   - Abre el último deployment → **Logs**
+3. **Busca estas líneas en los logs:**
+   ```
+   📥 Webhook recibido de YCloud
+   📊 Estado del mensaje actualizado: { status: 'sent', ... }
+   ✅ Mensaje entregado - ID: xxx, Para: +57xxx
+   ```
+4. **Si no ves webhooks:**
+   - Verifica que el webhook esté en estado `active` en YCloud Dashboard
+   - Verifica que los eventos estén habilitados (`whatsapp.message.updated`)
+   - Espera unos segundos después de enviar (los webhooks pueden tardar)
+
+**Eventos que deberías recibir:**
+- `whatsapp.message.updated` con status: `accepted` → `sent` → `delivered` (o `failed`)
+- Si el mensaje falla, verás `❌ Mensaje fallido` con el motivo
+
+### Beneficios de los webhooks
+
+- ✅ Saber el estado real de cada mensaje (sent, delivered, read, failed)
+- ✅ Detectar problemas inmediatamente
+- ✅ Registrar estadísticas de entrega
+- ✅ Notificar a usuarios cuando un mensaje falla
+
+---
+
+## 📋 Formato de Mensajes con Plantillas
+
+Para enviar mensajes fuera de la ventana de 24 horas, debes usar plantillas aprobadas.
+
+### Crear una plantilla en YCloud
+
+1. Ve a YCloud Dashboard → **WhatsApp** → **Templates**
+2. Haz clic en **Create Template**
+3. Completa:
+   - **Name:** Nombre único (ej: "notificacion_cliente")
+   - **Category:** `UTILITY` o `MARKETING`
+   - **Language:** `es` (español)
+   - **Content:** Tu mensaje con variables `{{1}}`, `{{2}}`, etc.
+4. Envía para aprobación (puede tomar horas o días)
+
+### Usar plantillas en el código
+
+Actualmente el código envía mensajes de texto libre. Para usar plantillas, modifica el payload:
+
+```javascript
+// En lugar de:
+{
+  type: 'text',
+  text: { body: mensaje }
+}
+
+// Usa:
+{
+  type: 'template',
+  template: {
+    name: 'notificacion_cliente', // Nombre de tu plantilla
+    language: { code: 'es' },
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'valor1' },
+          { type: 'text', text: 'valor2' }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Nota:** Esto requiere modificar `api/whatsapp/enviar-masivo.js` para soportar plantillas.
 
 ---
 

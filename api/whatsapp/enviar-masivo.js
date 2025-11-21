@@ -64,6 +64,11 @@ export default async function handler(req, res) {
     const fallidos = [];
 
     console.log(`📤 Enviando ${numeros.length} mensajes de WhatsApp con YCloud`);
+    console.log(`🔑 Configuración YCloud:`, {
+      apiKey: YCLOUD_API_KEY ? `${YCLOUD_API_KEY.substring(0, 8)}...` : 'NO CONFIGURADA',
+      whatsappNumber: YCLOUD_WHATSAPP_NUMBER,
+      apiUrl: YCLOUD_API_URL
+    });
 
     // Enviar mensajes uno por uno (YCloud procesa mensajes individualmente)
     for (const numero of numeros) {
@@ -99,6 +104,8 @@ export default async function handler(req, res) {
           }
         }
 
+        console.log(`📤 Enviando a ${numeroFormateado} con payload:`, JSON.stringify(payload, null, 2));
+
         const response = await fetch(YCLOUD_API_URL, {
           method: 'POST',
           headers: {
@@ -109,15 +116,47 @@ export default async function handler(req, res) {
         });
 
         const responseData = await response.json().catch(() => ({}));
+        
+        console.log(`📥 Respuesta de YCloud para ${numeroFormateado}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          data: JSON.stringify(responseData, null, 2)
+        });
 
         if (response.ok) {
-          console.log(`✅ Mensaje enviado exitosamente a ${numeroFormateado}`);
-          exitosos.push(numero);
+          // Verificar si la respuesta contiene información del mensaje
+          const messageId = responseData.id || responseData.messageId || responseData.messages?.[0]?.id;
+          const messageStatus = responseData.status || responseData.messages?.[0]?.status;
+          
+          if (messageId) {
+            console.log(`✅ Mensaje aceptado por YCloud para ${numeroFormateado} - ID: ${messageId}, Status: ${messageStatus || 'accepted'}`);
+            
+            // IMPORTANTE: El estado 'accepted' solo significa que YCloud aceptó la solicitud
+            // El mensaje puede fallar después si:
+            // 1. La ventana de 24 horas está cerrada (necesitas usar plantilla)
+            // 2. El número no tiene WhatsApp
+            // 3. El número bloqueó tu cuenta
+            // 4. No hay créditos suficientes
+            
+            if (messageStatus === 'accepted' || !messageStatus) {
+              console.log(`⚠️ NOTA: El mensaje fue aceptado pero aún no se ha entregado.`);
+              console.log(`⚠️ El estado final (sent/delivered/failed) llegará vía webhook.`);
+              console.log(`⚠️ Si el mensaje no llega, verifica: ventana de 24h, número verificado, créditos.`);
+            }
+            
+            exitosos.push(numero);
+          } else {
+            // Si no hay messageId, puede que la respuesta sea exitosa pero incompleta
+            console.warn(`⚠️ Respuesta OK pero sin messageId para ${numeroFormateado}. Respuesta:`, responseData);
+            exitosos.push(numero);
+          }
         } else {
           const errorMessage = responseData.error?.message || 
                               responseData.message || 
+                              responseData.error?.code ||
                               `Error ${response.status}: ${response.statusText}`;
           console.error(`❌ Error al enviar a ${numeroFormateado}:`, errorMessage);
+          console.error(`📋 Detalles completos del error:`, responseData);
           fallidos.push({ 
             numero, 
             error: errorMessage 
