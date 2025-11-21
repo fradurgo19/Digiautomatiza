@@ -100,6 +100,10 @@ export interface EnvioMasivoWhatsApp {
   numeros: string[];
   mensaje: string;
   archivos?: File[];
+  // Opciones para plantillas de WhatsApp
+  usarPlantilla?: boolean; // Si true, usa plantilla en lugar de texto libre
+  nombrePlantilla?: string; // Nombre de la plantilla aprobada en YCloud
+  parametrosPlantilla?: string[]; // Parámetros para rellenar la plantilla (ej: ["Juan", "Empresa XYZ"])
 }
 
 // Tipo para Usuario (personal comercial)

@@ -85,6 +85,9 @@ export default function ClientesPage() {
   const [envioWhatsApp, setEnvioWhatsApp] = useState({
     mensaje: '',
     archivos: [] as File[],
+    usarPlantilla: false,
+    nombrePlantilla: '',
+    parametrosPlantilla: [] as string[],
   });
   const [isEnviandoWhatsApp, setIsEnviandoWhatsApp] = useState(false);
   const [resultadoEnvioWhatsApp, setResultadoEnvioWhatsApp] = useState<{
@@ -269,10 +272,19 @@ export default function ClientesPage() {
         : undefined;
 
       // Enviar mensajes
+      // Preparar parámetros de plantilla si se usa
+      let parametrosPlantilla: string[] = [];
+      if (envioWhatsApp.usarPlantilla && envioWhatsApp.mensaje.trim()) {
+        parametrosPlantilla = envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0);
+      }
+
       const resultado = await enviarWhatsAppMasivo({
         numeros: validos,
-        mensaje: envioWhatsApp.mensaje.trim(),
+        mensaje: envioWhatsApp.usarPlantilla ? '' : envioWhatsApp.mensaje.trim(), // Solo mensaje si no es plantilla
         archivos: archivosParaEnviar,
+        usarPlantilla: envioWhatsApp.usarPlantilla,
+        nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
+        parametrosPlantilla: envioWhatsApp.usarPlantilla && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
       });
 
       console.log('✅ Resultado del envío:', resultado);
@@ -853,7 +865,7 @@ export default function ClientesPage() {
             if (!isEnviandoWhatsApp) {
               setIsEnvioWhatsAppModalOpen(false);
               setResultadoEnvioWhatsApp(null);
-              setEnvioWhatsApp({ mensaje: '', archivos: [] });
+              setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', parametrosPlantilla: [] });
             }
           }}
           title={`Envío Masivo WhatsApp (${selectedClientes.length} destinatarios)`}
@@ -935,7 +947,7 @@ export default function ClientesPage() {
                     fullWidth
                     onClick={() => {
                       setResultadoEnvioWhatsApp(null);
-                      setEnvioWhatsApp({ mensaje: '', archivos: [] });
+                      setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', parametrosPlantilla: [] });
                     }}
                   >
                     Enviar Otro Mensaje
@@ -946,7 +958,7 @@ export default function ClientesPage() {
                     onClick={() => {
                       setIsEnvioWhatsAppModalOpen(false);
                       setResultadoEnvioWhatsApp(null);
-                      setEnvioWhatsApp({ mensaje: '', archivos: [] });
+                      setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', parametrosPlantilla: [] });
                       setSelectedClientes([]);
                     }}
                   >
@@ -966,13 +978,70 @@ export default function ClientesPage() {
                   </p>
                 </div>
 
+                {/* Opción para usar plantilla */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={envioWhatsApp.usarPlantilla}
+                      onChange={(e) => setEnvioWhatsApp({ 
+                        ...envioWhatsApp, 
+                        usarPlantilla: e.target.checked,
+                        nombrePlantilla: e.target.checked ? envioWhatsApp.nombrePlantilla : '',
+                      })}
+                      disabled={isEnviandoWhatsApp}
+                      className="w-5 h-5 text-emerald-600 border-emerald-300 rounded focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-900">
+                        📋 Usar Plantilla de WhatsApp (Recomendado para envío masivo)
+                      </p>
+                      <p className="text-xs text-amber-800 mt-1">
+                        Las plantillas permiten enviar mensajes fuera de la ventana de 24 horas. 
+                        Debes tener una plantilla aprobada en YCloud.
+                      </p>
+                    </div>
+                  </label>
+                  
+                  {envioWhatsApp.usarPlantilla && (
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-amber-900 mb-2">
+                          Nombre de la Plantilla *
+                        </label>
+                        <input
+                          type="text"
+                          value={envioWhatsApp.nombrePlantilla}
+                          onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, nombrePlantilla: e.target.value })}
+                          placeholder="Ej: notificacion_cliente, bienvenida, etc."
+                          className="w-full px-4 py-2 border border-amber-300 rounded-lg bg-white text-amber-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                          disabled={isEnviandoWhatsApp}
+                        />
+                        <p className="text-xs text-amber-700 mt-1">
+                          Ingresa el nombre exacto de la plantilla aprobada en YCloud (sin espacios, en minúsculas)
+                        </p>
+                      </div>
+                      <div className="bg-amber-100 border border-amber-300 rounded-lg p-3">
+                        <p className="text-xs text-amber-900 font-semibold mb-1">ℹ️ Nota sobre plantillas:</p>
+                        <p className="text-xs text-amber-800">
+                          • La plantilla debe estar aprobada por WhatsApp en YCloud<br/>
+                          • Si tu plantilla tiene variables ({{1}}, {{2}}), puedes agregarlas en el campo "Mensaje" separadas por comas<br/>
+                          • Ejemplo: Si la plantilla es "Hola {{1}}, tu pedido {{2}} está listo", escribe: "Juan, #12345"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <TextArea
-                  label="Mensaje *"
+                  label={envioWhatsApp.usarPlantilla ? "Parámetros de la Plantilla (Opcional)" : "Mensaje *"}
                   value={envioWhatsApp.mensaje}
                   onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, mensaje: e.target.value })}
                   fullWidth
-                  rows={8}
-                  placeholder="Escribe tu mensaje aquí..."
+                  rows={envioWhatsApp.usarPlantilla ? 4 : 8}
+                  placeholder={envioWhatsApp.usarPlantilla 
+                    ? "Si tu plantilla tiene variables, ingrésalas aquí separadas por comas. Ej: Juan, Empresa XYZ, #12345"
+                    : "Escribe tu mensaje aquí..."}
                   className="bg-white/90 border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500"
                   textClassName="text-emerald-900 placeholder:text-emerald-500"
                   labelClassName="text-emerald-800 font-semibold"
@@ -1038,7 +1107,12 @@ export default function ClientesPage() {
                     variant="primary"
                     fullWidth
                     onClick={handleEnvioMasivoWhatsApp}
-                    disabled={!envioWhatsApp.mensaje.trim() || selectedClientes.length === 0}
+                    disabled={
+                      selectedClientes.length === 0 || 
+                      (envioWhatsApp.usarPlantilla 
+                        ? !envioWhatsApp.nombrePlantilla.trim() 
+                        : !envioWhatsApp.mensaje.trim())
+                    }
                     className="py-3 text-lg font-semibold"
                   >
                     📤 Enviar a {selectedClientes.length} {selectedClientes.length === 1 ? 'Cliente' : 'Clientes'}

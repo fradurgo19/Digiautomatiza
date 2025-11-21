@@ -27,15 +27,22 @@ export default async function handler(req, res) {
       return;
     }
 
-    const { numeros, mensaje, archivos } = req.body;
+    const { numeros, mensaje, archivos, usarPlantilla, nombrePlantilla, parametrosPlantilla } = req.body;
 
     if (!numeros || !Array.isArray(numeros) || numeros.length === 0) {
       res.status(400).json({ error: 'Se requiere al menos un número de teléfono' });
       return;
     }
 
-    if (!mensaje || mensaje.trim().length === 0) {
-      res.status(400).json({ error: 'El mensaje es requerido' });
+    // Si se usa plantilla, el nombre de la plantilla es requerido
+    if (usarPlantilla && (!nombrePlantilla || nombrePlantilla.trim().length === 0)) {
+      res.status(400).json({ error: 'Si usas plantilla, debes proporcionar el nombre de la plantilla' });
+      return;
+    }
+
+    // Si no se usa plantilla, el mensaje es requerido
+    if (!usarPlantilla && (!mensaje || mensaje.trim().length === 0)) {
+      res.status(400).json({ error: 'El mensaje es requerido cuando no se usa plantilla' });
       return;
     }
 
@@ -43,6 +50,7 @@ export default async function handler(req, res) {
     const YCLOUD_API_KEY = process.env.YCLOUD_API_KEY || '';
     const YCLOUD_WHATSAPP_NUMBER = process.env.YCLOUD_WHATSAPP_NUMBER || '';
     const YCLOUD_API_URL = process.env.YCLOUD_API_URL || 'https://api.ycloud.com/v2/whatsapp/messages';
+    const YCLOUD_TEMPLATE_LANGUAGE = process.env.YCLOUD_TEMPLATE_LANGUAGE || 'es'; // Idioma de la plantilla (es, en, etc.)
 
     if (!YCLOUD_API_KEY) {
       console.error('❌ YCLOUD_API_KEY no configurada');
@@ -76,14 +84,49 @@ export default async function handler(req, res) {
         const numeroFormateado = formatearNumeroWhatsApp(numero);
         
         // Preparar payload para YCloud
-        const payload = {
-          from: YCLOUD_WHATSAPP_NUMBER,
-          to: numeroFormateado,
-          type: 'text',
-          text: {
-            body: mensaje,
-          },
-        };
+        let payload;
+        
+        if (usarPlantilla && nombrePlantilla) {
+          // Usar plantilla (para mensajes fuera de la ventana de 24 horas)
+          payload = {
+            from: YCLOUD_WHATSAPP_NUMBER,
+            to: numeroFormateado,
+            type: 'template',
+            template: {
+              name: nombrePlantilla,
+              language: {
+                code: YCLOUD_TEMPLATE_LANGUAGE,
+              },
+            },
+          };
+          
+          // Si hay parámetros para la plantilla, agregarlos
+          if (parametrosPlantilla && Array.isArray(parametrosPlantilla) && parametrosPlantilla.length > 0) {
+            payload.template.components = [
+              {
+                type: 'body',
+                parameters: parametrosPlantilla.map(param => ({
+                  type: 'text',
+                  text: String(param),
+                })),
+              },
+            ];
+          }
+          
+          console.log(`📋 Usando plantilla: ${nombrePlantilla} para ${numeroFormateado}`);
+        } else {
+          // Usar texto libre (solo funciona dentro de la ventana de 24 horas)
+          payload = {
+            from: YCLOUD_WHATSAPP_NUMBER,
+            to: numeroFormateado,
+            type: 'text',
+            text: {
+              body: mensaje,
+            },
+          };
+          
+          console.log(`📝 Usando mensaje de texto libre para ${numeroFormateado} (solo funciona dentro de 24h)`);
+        }
 
         // Si hay archivos, agregar media (YCloud soporta imágenes, videos, documentos, audio)
         if (archivos && archivos.length > 0) {

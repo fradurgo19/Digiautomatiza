@@ -382,7 +382,7 @@ Los webhooks te permiten recibir actualizaciones en tiempo real sobre el estado 
 
 Para enviar mensajes fuera de la ventana de 24 horas, debes usar plantillas aprobadas.
 
-### Crear una plantilla en YCloud
+### ✅ Crear una plantilla en YCloud
 
 1. Ve a YCloud Dashboard → **WhatsApp** → **Templates**
 2. Haz clic en **Create Template**
@@ -392,38 +392,43 @@ Para enviar mensajes fuera de la ventana de 24 horas, debes usar plantillas apro
    - **Language:** `es` (español)
    - **Content:** Tu mensaje con variables `{{1}}`, `{{2}}`, etc.
 4. Envía para aprobación (puede tomar horas o días)
+5. **Espera la aprobación** - Recibirás una notificación cuando esté aprobada
 
-### Usar plantillas en el código
+### ✅ Usar plantillas en la aplicación
 
-Actualmente el código envía mensajes de texto libre. Para usar plantillas, modifica el payload:
+**El código ya está implementado y listo para usar plantillas.**
 
-```javascript
-// En lugar de:
-{
-  type: 'text',
-  text: { body: mensaje }
-}
+1. **En la interfaz de envío masivo:**
+   - Marca la casilla "📋 Usar Plantilla de WhatsApp"
+   - Ingresa el nombre exacto de tu plantilla (ej: `notificacion_cliente`)
+   - Si tu plantilla tiene variables, ingrésalas en el campo "Parámetros" separadas por comas
 
-// Usa:
-{
-  type: 'template',
-  template: {
-    name: 'notificacion_cliente', // Nombre de tu plantilla
-    language: { code: 'es' },
-    components: [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: 'valor1' },
-          { type: 'text', text: 'valor2' }
-        ]
-      }
-    ]
-  }
-}
-```
+2. **Ejemplo de uso:**
+   - Plantilla: `"Hola {{1}}, tu pedido {{2}} está listo"`
+   - Nombre de plantilla: `notificacion_cliente`
+   - Parámetros: `Juan, #12345`
+   - Resultado: Se enviará "Hola Juan, tu pedido #12345 está listo"
 
-**Nota:** Esto requiere modificar `api/whatsapp/enviar-masivo.js` para soportar plantillas.
+3. **Ventajas de usar plantillas:**
+   - ✅ Funciona fuera de la ventana de 24 horas
+   - ✅ Mensajes aprobados por WhatsApp (mayor confiabilidad)
+   - ✅ Permite personalización con variables
+   - ✅ Ideal para envío masivo
+
+### 🔧 Configuración técnica
+
+El backend ya está configurado para usar plantillas. Solo necesitas:
+
+1. **Variable de entorno (opcional):**
+   ```env
+   YCLOUD_TEMPLATE_LANGUAGE=es
+   ```
+   Por defecto usa `es` (español)
+
+2. **El código automáticamente:**
+   - Detecta si usas plantilla o texto libre
+   - Construye el payload correcto según el tipo
+   - Envía los parámetros si la plantilla los requiere
 
 ---
 
