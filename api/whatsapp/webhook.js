@@ -39,14 +39,23 @@ export default async function handler(req, res) {
     switch (eventType) {
       case 'whatsapp.message.updated':
         // Actualización del estado de un mensaje (MÁS IMPORTANTE)
-        const { id: messageId, status, to, from, error } = webhookData.data || webhookData;
+        // YCloud envía los datos dentro de whatsappMessage
+        const messageData = webhookData.whatsappMessage || webhookData.data || webhookData;
+        const messageId = messageData.id || webhookData.id;
+        const status = messageData.status;
+        const to = messageData.to;
+        const from = messageData.from;
+        const errorCode = messageData.errorCode;
+        const errorMessage = messageData.errorMessage;
         
         console.log(`📊 Estado del mensaje actualizado:`, {
           messageId,
+          wamid: messageData.wamid,
           status, // accepted, sent, delivered, read, failed
           to,
           from,
-          error: error?.message || null,
+          errorCode,
+          errorMessage,
           timestamp: new Date().toISOString()
         });
 
@@ -59,9 +68,20 @@ export default async function handler(req, res) {
         
         if (status === 'failed') {
           console.error(`❌ Mensaje fallido - ID: ${messageId}, Para: ${to}`);
-          if (error) {
-            console.error(`❌ Error: ${error.message || JSON.stringify(error)}`);
+          if (errorCode) {
+            console.error(`❌ Código de error: ${errorCode}`);
           }
+          if (errorMessage) {
+            console.error(`❌ Mensaje de error: ${errorMessage}`);
+          }
+          
+          // Errores comunes de WhatsApp
+          if (errorCode === '131047') {
+            console.error(`⚠️ PROBLEMA: Ventana de 24 horas cerrada`);
+            console.error(`⚠️ SOLUCIÓN: Debes usar una plantilla aprobada para enviar mensajes fuera de la ventana de 24 horas`);
+            console.error(`⚠️ El cliente no te ha escrito en las últimas 24 horas, por lo que WhatsApp rechaza mensajes de texto libre`);
+          }
+          
           // Aquí podrías guardar el error en la base de datos o notificar al usuario
         } else if (status === 'delivered') {
           console.log(`✅ Mensaje entregado - ID: ${messageId}, Para: ${to}`);
@@ -69,6 +89,8 @@ export default async function handler(req, res) {
           console.log(`👁️ Mensaje leído - ID: ${messageId}, Para: ${to}`);
         } else if (status === 'sent') {
           console.log(`📤 Mensaje enviado - ID: ${messageId}, Para: ${to}`);
+        } else if (status === 'accepted') {
+          console.log(`⏳ Mensaje aceptado - ID: ${messageId}, Para: ${to} (esperando confirmación de entrega)`);
         }
         break;
 

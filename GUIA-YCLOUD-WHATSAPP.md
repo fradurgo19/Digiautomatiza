@@ -267,6 +267,20 @@ Esto sucede porque WhatsApp tiene restricciones estrictas:
 - Espera la aprobación de WhatsApp (puede tomar horas o días)
 - Modifica el código para usar plantillas en lugar de texto libre
 
+### ✅ Problema Confirmado: Ventana de 24 Horas
+
+**Error detectado en los logs:**
+```
+Error Code: 131047
+Error Message: "Message failed to send because more than 24 hours have passed since the customer last replied to this number."
+```
+
+**Esto significa:**
+- ✅ El webhook está funcionando correctamente
+- ✅ YCloud aceptó el mensaje
+- ❌ WhatsApp rechazó el mensaje porque la ventana de 24 horas está cerrada
+- ⚠️ **Solución:** Debes usar plantillas aprobadas para enviar mensajes fuera de la ventana de 24 horas
+
 ## 📚 Recursos Adicionales
 
 - [Documentación oficial de YCloud](https://docs.ycloud.com)
