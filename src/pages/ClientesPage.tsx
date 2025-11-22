@@ -979,7 +979,7 @@ export default function ClientesPage() {
                 </div>
 
                 {/* Opción para usar plantilla - MÁS VISIBLE */}
-                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg p-5 shadow-md">
+                <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-5 shadow-lg" style={{ backgroundColor: '#fffbeb', borderColor: '#fbbf24' }}>
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
