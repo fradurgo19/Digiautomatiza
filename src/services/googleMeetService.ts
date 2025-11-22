@@ -5,40 +5,23 @@
 
 /**
  * Genera un enlace de Google Meet único
- * Google Meet requiere un formato específico: xxx-yyyy-zzz (3-4-3 caracteres con guiones)
+ * Google Meet permite crear enlaces directamente usando códigos aleatorios
  */
 export function generarEnlaceGoogleMeet(): string {
-  // Generar un código en el formato correcto de Google Meet: xxx-yyyy-zzz
+  // Generar un código aleatorio de 10-11 caracteres (formato estándar de Google Meet)
   const caracteres = 'abcdefghijklmnopqrstuvwxyz';
-  
-  // Generar 3 letras
-  const parte1 = Array.from({ length: 3 }, () => 
+  const codigo = Array.from({ length: 10 }, () => 
     caracteres[Math.floor(Math.random() * caracteres.length)]
   ).join('');
-  
-  // Generar 4 letras
-  const parte2 = Array.from({ length: 4 }, () => 
-    caracteres[Math.floor(Math.random() * caracteres.length)]
-  ).join('');
-  
-  // Generar 3 letras
-  const parte3 = Array.from({ length: 3 }, () => 
-    caracteres[Math.floor(Math.random() * caracteres.length)]
-  ).join('');
-  
-  // Formato: xxx-yyyy-zzz
-  const codigo = `${parte1}-${parte2}-${parte3}`;
   
   return `https://meet.google.com/${codigo}`;
 }
 
 /**
  * Valida si una URL es un enlace válido de Google Meet
- * Formato esperado: https://meet.google.com/xxx-yyyy-zzz
  */
 export function esEnlaceGoogleMeetValido(url: string): boolean {
-  // Validar formato: https://meet.google.com/xxx-yyyy-zzz (3-4-3 caracteres con guiones)
-  const patron = /^https?:\/\/(www\.)?meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/i;
+  const patron = /^https?:\/\/(www\.)?meet\.google\.com\/[a-z-]+$/i;
   return patron.test(url);
 }
 

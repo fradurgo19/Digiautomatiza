@@ -16,7 +16,7 @@ import {
   actualizarSesion as actualizarSesionApi,
   eliminarSesion as eliminarSesionApi,
 } from '../services/databaseService';
-import { generarEnlaceGoogleMeet, esEnlaceGoogleMeetValido } from '../services/googleMeetService';
+import { esEnlaceGoogleMeetValido } from '../services/googleMeetService';
 
 export default function SesionesPage() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
@@ -105,8 +105,9 @@ export default function SesionesPage() {
         return;
       }
       
-      // Generar enlace de Google Meet automáticamente si no se proporcionó uno
-      const urlReunion = nuevaSesion.urlReunion || generarEnlaceGoogleMeet();
+      // NO generar enlace automáticamente - solo usar el que viene de Google Calendar o el ingresado manualmente
+      // Los enlaces aleatorios no funcionan porque no son reuniones reales creadas
+      const urlReunion = nuevaSesion.urlReunion || undefined;
       
       const payload = {
         clienteId: nuevaSesion.clienteId,
@@ -119,6 +120,12 @@ export default function SesionesPage() {
         crearEnCalendario: crearEnCalendario,
       };
       const nueva = await crearSesionApi(payload);
+      
+      // Si se creó el evento en Calendar y se generó un enlace, mostrar mensaje
+      if (crearEnCalendario && nueva.urlReunion) {
+        alert(`✅ Sesión creada exitosamente!\n\n📅 Evento creado en Google Calendar\n🎥 Enlace de Google Meet: ${nueva.urlReunion}`);
+      }
+      
       setSesiones(prev => [nueva, ...prev]);
       setIsAddModalOpen(false);
       setNuevaSesion({
@@ -420,22 +427,9 @@ export default function SesionesPage() {
                 />
                 
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-emerald-800">
-                      URL de la reunión (opcional)
-                    </label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const enlace = generarEnlaceGoogleMeet();
-                        setNuevaSesion({ ...nuevaSesion, urlReunion: enlace });
-                      }}
-                      className="text-xs"
-                    >
-                      🎥 Generar Google Meet
-                    </Button>
-                  </div>
+                  <label className="block text-sm font-medium text-emerald-800 mb-2">
+                    URL de la reunión (opcional)
+                  </label>
                   <Input
                     type="url"
                     value={nuevaSesion.urlReunion}
@@ -445,9 +439,12 @@ export default function SesionesPage() {
                     className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                     textClassName="text-gray-900 placeholder:text-emerald-500"
                   />
+                  <p className="text-xs text-emerald-700 mt-1">
+                    💡 Si marcas "Crear evento en Google Calendar", se generará automáticamente un enlace válido de Google Meet.
+                  </p>
                   {nuevaSesion.urlReunion && (
-                    <p className="text-xs text-emerald-700 mt-1">
-                      ✅ Enlace generado. El cliente podrá unirse a la reunión usando este enlace.
+                    <p className="text-xs text-blue-700 mt-1">
+                      ℹ️ Asegúrate de que el enlace sea válido. Puedes crearlo desde <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" className="underline">meet.google.com</a>
                     </p>
                   )}
                 </div>
