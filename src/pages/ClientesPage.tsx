@@ -595,6 +595,7 @@ export default function ClientesPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 fullWidth
+                textClassName="text-emerald-900 placeholder:text-emerald-500"
               />
             </Card>
 
