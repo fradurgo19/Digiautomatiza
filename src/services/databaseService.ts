@@ -226,7 +226,7 @@ export async function obtenerSesiones(): Promise<Sesion[]> {
   }
 }
 
-export async function crearSesion(sesionData: Omit<Sesion, 'id' | 'cliente'>): Promise<Sesion> {
+export async function crearSesion(sesionData: Omit<Sesion, 'id' | 'cliente'> & { crearEnCalendario?: boolean }): Promise<Sesion> {
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };

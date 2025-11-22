@@ -85,9 +85,14 @@ export default async function handler(req, res) {
       res.status(200).json({ sesiones });
     } else if (req.method === 'POST') {
       const usuarioId = req.headers['x-usuario-id'] ?? null;
-      const { clienteId, fecha, hora, servicio, estado, notas, urlReunion } = req.body;
+      const { clienteId, fecha, hora, servicio, estado, notas, urlReunion, crearEnCalendario } = req.body;
       
       console.log('➕ Creando sesión - UsuarioId:', usuarioId, 'ClienteId:', clienteId);
+      
+      // Obtener datos del cliente para el evento de calendario
+      const cliente = await prisma.cliente.findUnique({
+        where: { id: clienteId }
+      });
       
       const sesion = await prisma.sesion.create({
         data: {
@@ -104,6 +109,133 @@ export default async function handler(req, res) {
       });
       
       console.log('✅ Sesión creada exitosamente:', sesion.id);
+      
+      // Crear evento en Google Calendar si está habilitado y las credenciales están configuradas
+      let meetLinkFromCalendar = null;
+      if (crearEnCalendario !== false) {
+        try {
+          const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+          const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+          const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'digiautomatiza1@gmail.com';
+          
+          if (GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY) {
+            // Importar googleapis dinámicamente
+            const { google } = await import('googleapis');
+            
+            // Preparar fechas para el evento
+            const fechaSesion = new Date(fecha);
+            const [horas, minutos] = hora.split(':');
+            fechaSesion.setHours(parseInt(horas), parseInt(minutos), 0, 0);
+            
+            // Duración de 1 hora por defecto
+            const fechaFin = new Date(fechaSesion);
+            fechaFin.setHours(fechaFin.getHours() + 1);
+            
+            // Nombres de servicios
+            const nombresServicios = {
+              'paginas-web': 'Páginas Web',
+              'aplicaciones-web': 'Aplicaciones Web',
+              'chatbot-ia': 'Chatbot con IA',
+              'automatizacion': 'Automatización',
+              'analisis-datos': 'Análisis de Datos',
+              'sap-hana': 'Soporte SAP ERP & HANA'
+            };
+            
+            const nombreServicio = nombresServicios[servicio] || servicio;
+            const titulo = `Sesión: ${nombreServicio} - ${cliente?.nombre || 'Cliente'}`;
+            const descripcion = `Sesión programada con ${cliente?.nombre || 'cliente'}\n\n` +
+              `Servicio: ${nombreServicio}\n` +
+              `Cliente: ${cliente?.nombre || 'N/A'}\n` +
+              `Email: ${cliente?.email || 'N/A'}\n` +
+              `Teléfono: ${cliente?.telefono || 'N/A'}\n` +
+              (notas ? `\nNotas: ${notas}` : '');
+            
+            // Configurar autenticación con Service Account
+            const auth = new google.auth.JWT(
+              GOOGLE_SERVICE_ACCOUNT_EMAIL,
+              null,
+              GOOGLE_PRIVATE_KEY,
+              ['https://www.googleapis.com/auth/calendar'],
+              null
+            );
+
+            const calendar = google.calendar({ version: 'v3', auth });
+
+            // Preparar el evento con Google Meet
+            const evento = {
+              summary: titulo,
+              description: descripcion,
+              start: {
+                dateTime: fechaSesion.toISOString(),
+                timeZone: 'America/Bogota',
+              },
+              end: {
+                dateTime: fechaFin.toISOString(),
+                timeZone: 'America/Bogota',
+              },
+              conferenceData: {
+                createRequest: {
+                  requestId: `meet-${sesion.id}-${Date.now()}`,
+                  conferenceSolutionKey: {
+                    type: 'hangoutsMeet'
+                  }
+                }
+              },
+              ...(cliente?.email && {
+                attendees: [
+                  { email: cliente.email }
+                ]
+              }),
+              reminders: {
+                useDefault: false,
+                overrides: [
+                  { method: 'email', minutes: 24 * 60 },
+                  { method: 'popup', minutes: 15 }
+                ]
+              }
+            };
+
+            console.log('📅 Creando evento en Google Calendar...');
+            const calendarResponse = await calendar.events.insert({
+              calendarId: GOOGLE_CALENDAR_ID,
+              conferenceDataVersion: 1,
+              requestBody: evento,
+            });
+
+            const eventoCreado = calendarResponse.data;
+            meetLinkFromCalendar = eventoCreado.hangoutLink || eventoCreado.conferenceData?.entryPoints?.[0]?.uri;
+
+            console.log('✅ Evento creado en Google Calendar:', {
+              eventoId: eventoCreado.id,
+              meetLink: meetLinkFromCalendar || 'No disponible'
+            });
+            
+            // Si se generó un enlace de Meet desde el calendario, actualizar la sesión
+            if (meetLinkFromCalendar && !urlReunion) {
+              const sesionActualizada = await prisma.sesion.update({
+                where: { id: sesion.id },
+                data: { urlReunion: meetLinkFromCalendar },
+                include: { cliente: true }
+              });
+              console.log('✅ Enlace de Google Meet agregado desde calendario:', meetLinkFromCalendar);
+              res.status(201).json({ 
+                sesion: sesionActualizada, 
+                eventoCalendario: {
+                  eventoId: eventoCreado.id,
+                  meetLink: meetLinkFromCalendar,
+                  htmlLink: eventoCreado.htmlLink
+                }
+              });
+              return;
+            }
+          } else {
+            console.log('ℹ️ Google Calendar no configurado, saltando creación de evento');
+          }
+        } catch (calendarError) {
+          console.error('⚠️ Error al crear evento en Google Calendar (sesión guardada):', calendarError);
+          // No fallar la creación de la sesión si falla el calendario
+        }
+      }
       
       res.status(201).json({ sesion });
     } else {

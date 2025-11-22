@@ -36,6 +36,7 @@ export default function SesionesPage() {
     notas: '',
     urlReunion: '',
   });
+  const [crearEnCalendario, setCrearEnCalendario] = useState(true);
 
   const serviciosOptions = [
     { value: 'paginas-web', label: 'Páginas Web' },
@@ -108,6 +109,7 @@ export default function SesionesPage() {
         estado: nuevaSesion.estado,
         notas: nuevaSesion.notas || undefined,
         urlReunion: urlReunion,
+        crearEnCalendario: crearEnCalendario,
       };
       const nueva = await crearSesionApi(payload);
       setSesiones(prev => [nueva, ...prev]);
@@ -441,6 +443,27 @@ export default function SesionesPage() {
                       ✅ Enlace generado. El cliente podrá unirse a la reunión usando este enlace.
                     </p>
                   )}
+                </div>
+
+                {/* Opción para crear en Google Calendar */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={crearEnCalendario}
+                      onChange={(e) => setCrearEnCalendario(e.target.checked)}
+                      disabled={isSavingSesion}
+                      className="w-5 h-5 text-blue-600 border-blue-300 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-900">
+                        📅 Crear evento en Google Calendar
+                      </p>
+                      <p className="text-xs text-blue-800 mt-1">
+                        Se creará automáticamente un evento en el calendario de digiautomatiza1@gmail.com con enlace de Google Meet
+                      </p>
+                    </div>
+                  </label>
                 </div>
                 
                 <TextArea
