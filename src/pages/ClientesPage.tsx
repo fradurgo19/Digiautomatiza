@@ -978,9 +978,9 @@ export default function ClientesPage() {
                   </p>
                 </div>
 
-                {/* Opción para usar plantilla */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
+                {/* Opción para usar plantilla - MÁS VISIBLE */}
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg p-5 shadow-md">
+                  <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={envioWhatsApp.usarPlantilla}
@@ -990,13 +990,13 @@ export default function ClientesPage() {
                         nombrePlantilla: e.target.checked ? envioWhatsApp.nombrePlantilla : '',
                       })}
                       disabled={isEnviandoWhatsApp}
-                      className="w-5 h-5 text-emerald-600 border-emerald-300 rounded focus:ring-emerald-500"
+                      className="w-6 h-6 mt-1 text-emerald-600 border-emerald-300 rounded focus:ring-emerald-500 flex-shrink-0"
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-900">
+                      <p className="text-base font-bold text-amber-900 mb-1">
                         📋 Usar Plantilla de WhatsApp (Recomendado para envío masivo)
                       </p>
-                      <p className="text-xs text-amber-800 mt-1">
+                      <p className="text-sm text-amber-800">
                         Las plantillas permiten enviar mensajes fuera de la ventana de 24 horas. 
                         Debes tener una plantilla aprobada en YCloud.
                       </p>
@@ -1004,30 +1004,30 @@ export default function ClientesPage() {
                   </label>
                   
                   {envioWhatsApp.usarPlantilla && (
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-5 space-y-4 border-t border-amber-300 pt-4">
                       <div>
-                        <label className="block text-sm font-medium text-amber-900 mb-2">
+                        <label className="block text-sm font-bold text-amber-900 mb-2">
                           Nombre de la Plantilla *
                         </label>
                         <input
                           type="text"
                           value={envioWhatsApp.nombrePlantilla}
                           onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, nombrePlantilla: e.target.value })}
-                          placeholder="Ej: notificacion_cliente, bienvenida, etc."
-                          className="w-full px-4 py-2 border border-amber-300 rounded-lg bg-white text-amber-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                          placeholder="Ej: template_marketing_20251120221528"
+                          className="w-full px-4 py-3 border-2 border-amber-400 rounded-lg bg-white text-amber-900 font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                           disabled={isEnviandoWhatsApp}
                         />
-                        <p className="text-xs text-amber-700 mt-1">
-                          Ingresa el nombre exacto de la plantilla aprobada en YCloud (sin espacios, en minúsculas)
+                        <p className="text-xs text-amber-700 mt-2 font-medium">
+                          ⚠️ Ingresa el nombre EXACTO de la plantilla aprobada en YCloud (copia y pega desde el panel de YCloud)
                         </p>
                       </div>
                       <div className="bg-amber-100 border border-amber-300 rounded-lg p-3">
-                        <p className="text-xs text-amber-900 font-semibold mb-1">ℹ️ Nota sobre plantillas:</p>
-                        <p className="text-xs text-amber-800">
-                          • La plantilla debe estar aprobada por WhatsApp en YCloud<br/>
-                          • Si tu plantilla tiene variables ({{1}}, {{2}}), puedes agregarlas en el campo "Mensaje" separadas por comas<br/>
-                          • Ejemplo: Si la plantilla es "Hola {{1}}, tu pedido {{2}} está listo", escribe: "Juan, #12345"
-                        </p>
+                        <p className="text-xs text-amber-900 font-semibold mb-2">ℹ️ Nota sobre plantillas:</p>
+                        <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                          <li>La plantilla debe estar aprobada por WhatsApp en YCloud</li>
+                          <li>Si tu plantilla tiene variables ({{1}}, {{2}}), puedes agregarlas en el campo "Mensaje" separadas por comas</li>
+                          <li>Ejemplo: Si la plantilla es "Hola {{1}}, tu pedido {{2}} está listo", escribe: "Juan, #12345"</li>
+                        </ul>
                       </div>
                     </div>
                   )}
