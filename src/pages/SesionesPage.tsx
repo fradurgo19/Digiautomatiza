@@ -16,6 +16,7 @@ import {
   actualizarSesion as actualizarSesionApi,
   eliminarSesion as eliminarSesionApi,
 } from '../services/databaseService';
+import { generarEnlaceGoogleMeet } from '../services/googleMeetService';
 
 export default function SesionesPage() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
@@ -96,6 +97,9 @@ export default function SesionesPage() {
 
     setIsSavingSesion(true);
     try {
+      // Generar enlace de Google Meet automáticamente si no se proporcionó uno
+      const urlReunion = nuevaSesion.urlReunion || generarEnlaceGoogleMeet();
+      
       const payload = {
         clienteId: nuevaSesion.clienteId,
         fecha: new Date(nuevaSesion.fecha),
@@ -103,7 +107,7 @@ export default function SesionesPage() {
         servicio: nuevaSesion.servicio,
         estado: nuevaSesion.estado,
         notas: nuevaSesion.notas || undefined,
-        urlReunion: nuevaSesion.urlReunion || undefined,
+        urlReunion: urlReunion,
       };
       const nueva = await crearSesionApi(payload);
       setSesiones(prev => [nueva, ...prev]);
@@ -406,17 +410,38 @@ export default function SesionesPage() {
                   labelClassName="text-emerald-800"
                 />
                 
-                <Input
-                  label="URL de la reunión (opcional)"
-                  type="url"
-                  value={nuevaSesion.urlReunion}
-                  onChange={(e) => setNuevaSesion({ ...nuevaSesion, urlReunion: e.target.value })}
-                  fullWidth
-                  placeholder="https://meet.google.com/..."
-                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                  textClassName="text-gray-900 placeholder:text-emerald-500"
-                  labelClassName="text-emerald-800"
-                />
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-emerald-800">
+                      URL de la reunión (opcional)
+                    </label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const enlace = generarEnlaceGoogleMeet();
+                        setNuevaSesion({ ...nuevaSesion, urlReunion: enlace });
+                      }}
+                      className="text-xs"
+                    >
+                      🎥 Generar Google Meet
+                    </Button>
+                  </div>
+                  <Input
+                    type="url"
+                    value={nuevaSesion.urlReunion}
+                    onChange={(e) => setNuevaSesion({ ...nuevaSesion, urlReunion: e.target.value })}
+                    fullWidth
+                    placeholder="https://meet.google.com/..."
+                    className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    textClassName="text-gray-900 placeholder:text-emerald-500"
+                  />
+                  {nuevaSesion.urlReunion && (
+                    <p className="text-xs text-emerald-700 mt-1">
+                      ✅ Enlace generado. El cliente podrá unirse a la reunión usando este enlace.
+                    </p>
+                  )}
+                </div>
                 
                 <TextArea
                   label="Notas"
