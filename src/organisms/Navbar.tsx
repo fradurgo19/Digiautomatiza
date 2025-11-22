@@ -25,7 +25,11 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
-            <div className="text-2xl">🚀</div>
+            <img 
+              src="https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png" 
+              alt="Digiautomatiza Logo" 
+              className="h-10 w-auto"
+            />
             <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-lime-500 bg-clip-text text-transparent">
               Digiautomatiza
             </h1>
