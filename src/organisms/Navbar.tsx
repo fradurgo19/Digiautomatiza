@@ -44,6 +44,7 @@ export default function Navbar() {
                 }`}
               >
                 <span>{item.icon}</span>
+                <span className="text-lg">🚀</span>
                 <span>{item.label}</span>
               </button>
             ))}
