@@ -16,7 +16,7 @@ import {
   actualizarSesion as actualizarSesionApi,
   eliminarSesion as eliminarSesionApi,
 } from '../services/databaseService';
-import { generarEnlaceGoogleMeet } from '../services/googleMeetService';
+import { generarEnlaceGoogleMeet, esEnlaceGoogleMeetValido } from '../services/googleMeetService';
 
 export default function SesionesPage() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
@@ -98,6 +98,13 @@ export default function SesionesPage() {
 
     setIsSavingSesion(true);
     try {
+      // Validar formato del enlace si se proporcionó uno manualmente
+      if (nuevaSesion.urlReunion && !esEnlaceGoogleMeetValido(nuevaSesion.urlReunion)) {
+        alert('El enlace de Google Meet debe tener el formato: https://meet.google.com/xxx-yyyy-zzz\n\nEjemplo: https://meet.google.com/abc-defg-hij');
+        setIsSavingSesion(false);
+        return;
+      }
+      
       // Generar enlace de Google Meet automáticamente si no se proporcionó uno
       const urlReunion = nuevaSesion.urlReunion || generarEnlaceGoogleMeet();
       
@@ -434,7 +441,7 @@ export default function SesionesPage() {
                     value={nuevaSesion.urlReunion}
                     onChange={(e) => setNuevaSesion({ ...nuevaSesion, urlReunion: e.target.value })}
                     fullWidth
-                    placeholder="https://meet.google.com/..."
+                    placeholder="https://meet.google.com/xxx-yyyy-zzz"
                     className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                     textClassName="text-gray-900 placeholder:text-emerald-500"
                   />
