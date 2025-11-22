@@ -229,9 +229,23 @@ export default function ClientesPage() {
   };
 
   const handleEnvioMasivoWhatsApp = async () => {
-    if (!envioWhatsApp.mensaje.trim()) {
-      alert('Por favor, escribe un mensaje antes de enviar.');
-      return;
+    // Validar mensaje solo si NO se usa plantilla, o si se usa plantilla CON variables
+    if (!envioWhatsApp.usarPlantilla) {
+      // Si no usa plantilla, siempre requiere mensaje
+      if (!envioWhatsApp.mensaje.trim()) {
+        alert('Por favor, escribe un mensaje antes de enviar.');
+        return;
+      }
+    } else {
+      // Si usa plantilla, verificar si tiene variables
+      const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+      const tieneVariables = plantillaSeleccionada?.tieneVariables || false;
+      
+      // Solo requiere mensaje si la plantilla tiene variables
+      if (tieneVariables && !envioWhatsApp.mensaje.trim()) {
+        alert('Por favor, ingresa los parámetros de la plantilla separados por comas.');
+        return;
+      }
     }
 
     if (selectedClientes.length === 0) {
