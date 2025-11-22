@@ -81,6 +81,16 @@ export default function ClientesPage() {
     archivos: [] as File[],
   });
 
+  // Plantillas de WhatsApp disponibles
+  const plantillasWhatsApp = [
+    {
+      nombre: 'template_marketing_20251120221528',
+      descripcion: 'Plantilla de Marketing - Promoción de Servicios',
+      categoria: 'MARKETING',
+      estado: 'Activo'
+    }
+  ];
+
   // Formulario envío masivo WhatsApp
   const [envioWhatsApp, setEnvioWhatsApp] = useState({
     mensaje: '',
@@ -1009,16 +1019,21 @@ export default function ClientesPage() {
                         <label className="block text-sm font-bold text-amber-900 mb-2">
                           Nombre de la Plantilla *
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={envioWhatsApp.nombrePlantilla}
                           onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, nombrePlantilla: e.target.value })}
-                          placeholder="Ej: template_marketing_20251120221528"
                           className="w-full px-4 py-3 border-2 border-amber-400 rounded-lg bg-white text-amber-900 font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                           disabled={isEnviandoWhatsApp}
-                        />
+                        >
+                          <option value="">Selecciona una plantilla</option>
+                          {plantillasWhatsApp.map((plantilla) => (
+                            <option key={plantilla.nombre} value={plantilla.nombre}>
+                              {plantilla.nombre} - {plantilla.descripcion} ({plantilla.estado})
+                            </option>
+                          ))}
+                        </select>
                         <p className="text-xs text-amber-700 mt-2 font-medium">
-                          ⚠️ Ingresa el nombre EXACTO de la plantilla aprobada en YCloud (copia y pega desde el panel de YCloud)
+                          Selecciona la plantilla aprobada en YCloud que deseas usar
                         </p>
                       </div>
                       <div className="bg-amber-100 border border-amber-300 rounded-lg p-3">
