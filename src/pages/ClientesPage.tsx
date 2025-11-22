@@ -1025,8 +1025,8 @@ export default function ClientesPage() {
                         <p className="text-xs text-amber-900 font-semibold mb-2">ℹ️ Nota sobre plantillas:</p>
                         <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
                           <li>La plantilla debe estar aprobada por WhatsApp en YCloud</li>
-                          <li>Si tu plantilla tiene variables ({{1}}, {{2}}), puedes agregarlas en el campo "Mensaje" separadas por comas</li>
-                          <li>Ejemplo: Si la plantilla es "Hola {{1}}, tu pedido {{2}} está listo", escribe: "Juan, #12345"</li>
+                          <li>Si tu plantilla tiene variables (ej: variable1, variable2), puedes agregarlas en el campo "Mensaje" separadas por comas</li>
+                          <li>Ejemplo: Si la plantilla tiene variables, escribe los valores separados por comas: "Juan, #12345"</li>
                         </ul>
                       </div>
                     </div>
