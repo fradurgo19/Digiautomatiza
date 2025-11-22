@@ -88,7 +88,8 @@ export default function ClientesPage() {
       descripcion: 'Plantilla de Marketing - Promoción de Servicios',
       categoria: 'MARKETING',
       estado: 'Activo',
-      idioma: 'es_CO' // Español Colombia
+      idioma: 'es_CO', // Español Colombia
+      tieneVariables: false // Esta plantilla NO tiene variables
     }
   ];
 
@@ -284,15 +285,16 @@ export default function ClientesPage() {
         : undefined;
 
       // Enviar mensajes
-      // Preparar parámetros de plantilla si se usa
-      let parametrosPlantilla: string[] = [];
-      if (envioWhatsApp.usarPlantilla && envioWhatsApp.mensaje.trim()) {
-        parametrosPlantilla = envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0);
-      }
-
-      // Obtener el idioma de la plantilla seleccionada
+      // Obtener información de la plantilla seleccionada
       const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
       const idiomaPlantilla = plantillaSeleccionada?.idioma || envioWhatsApp.idiomaPlantilla || 'es_CO';
+      const tieneVariables = plantillaSeleccionada?.tieneVariables || false;
+
+      // Preparar parámetros de plantilla SOLO si la plantilla tiene variables
+      let parametrosPlantilla: string[] = [];
+      if (envioWhatsApp.usarPlantilla && tieneVariables && envioWhatsApp.mensaje.trim()) {
+        parametrosPlantilla = envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0);
+      }
 
       const resultado = await enviarWhatsAppMasivo({
         numeros: validos,
@@ -301,7 +303,7 @@ export default function ClientesPage() {
         usarPlantilla: envioWhatsApp.usarPlantilla,
         nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
         idiomaPlantilla: envioWhatsApp.usarPlantilla ? idiomaPlantilla : undefined,
-        parametrosPlantilla: envioWhatsApp.usarPlantilla && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
+        parametrosPlantilla: envioWhatsApp.usarPlantilla && tieneVariables && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
       });
 
       console.log('✅ Resultado del envío:', resultado);
@@ -1062,20 +1064,53 @@ export default function ClientesPage() {
                   )}
                 </div>
 
-                <TextArea
-                  label={envioWhatsApp.usarPlantilla ? "Parámetros de la Plantilla (Opcional)" : "Mensaje *"}
-                  value={envioWhatsApp.mensaje}
-                  onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, mensaje: e.target.value })}
-                  fullWidth
-                  rows={envioWhatsApp.usarPlantilla ? 4 : 8}
-                  placeholder={envioWhatsApp.usarPlantilla 
-                    ? "Si tu plantilla tiene variables, ingrésalas aquí separadas por comas. Ej: Juan, Empresa XYZ, #12345"
-                    : "Escribe tu mensaje aquí..."}
-                  className="bg-white/90 border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500"
-                  textClassName="text-emerald-900 placeholder:text-emerald-500"
-                  labelClassName="text-emerald-800 font-semibold"
-                  disabled={isEnviandoWhatsApp}
-                />
+                {envioWhatsApp.usarPlantilla ? (
+                  (() => {
+                    const plantillaActual = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+                    const tieneVars = plantillaActual?.tieneVariables || false;
+                    
+                    if (!tieneVars) {
+                      return (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <p className="text-sm text-blue-900 font-semibold">
+                            ℹ️ Esta plantilla no requiere parámetros
+                          </p>
+                          <p className="text-xs text-blue-800 mt-1">
+                            La plantilla seleccionada no tiene variables. El mensaje se enviará tal como está configurado en YCloud.
+                          </p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <TextArea
+                        label="Parámetros de la Plantilla *"
+                        value={envioWhatsApp.mensaje}
+                        onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, mensaje: e.target.value })}
+                        fullWidth
+                        rows={4}
+                        placeholder="Ingresa los valores de las variables separados por comas. Ej: Juan, Empresa XYZ, #12345"
+                        className="bg-white/90 border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500"
+                        textClassName="text-emerald-900 placeholder:text-emerald-500"
+                        labelClassName="text-emerald-800 font-semibold"
+                        disabled={isEnviandoWhatsApp}
+                      />
+                    );
+                  })()
+                ) : (
+                  <TextArea
+                    label="Mensaje *"
+                    value={envioWhatsApp.mensaje}
+                    onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, mensaje: e.target.value })}
+                    fullWidth
+                    rows={8}
+                    placeholder="Escribe tu mensaje aquí..."
+                    className="bg-white/90 border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
+                    labelClassName="text-emerald-800 font-semibold"
+                    disabled={isEnviandoWhatsApp}
+                  />
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-emerald-800 mb-2">
@@ -1139,7 +1174,16 @@ export default function ClientesPage() {
                     disabled={
                       selectedClientes.length === 0 || 
                       (envioWhatsApp.usarPlantilla 
-                        ? !envioWhatsApp.nombrePlantilla.trim() 
+                        ? (() => {
+                            const plantillaActual = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+                            const tieneVars = plantillaActual?.tieneVariables || false;
+                            // Si no hay plantilla seleccionada, deshabilitar
+                            if (!envioWhatsApp.nombrePlantilla.trim()) return true;
+                            // Si la plantilla tiene variables, requerir mensaje
+                            if (tieneVars && !envioWhatsApp.mensaje.trim()) return true;
+                            // Si la plantilla no tiene variables, solo requiere nombre
+                            return false;
+                          })()
                         : !envioWhatsApp.mensaje.trim())
                     }
                     className="py-3 text-lg font-semibold"
