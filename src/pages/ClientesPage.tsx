@@ -87,7 +87,8 @@ export default function ClientesPage() {
       nombre: 'template_marketing_20251120221528',
       descripcion: 'Plantilla de Marketing - Promoción de Servicios',
       categoria: 'MARKETING',
-      estado: 'Activo'
+      estado: 'Activo',
+      idioma: 'es_CO' // Español Colombia
     }
   ];
 
@@ -97,6 +98,7 @@ export default function ClientesPage() {
     archivos: [] as File[],
     usarPlantilla: false,
     nombrePlantilla: '',
+    idiomaPlantilla: 'es_CO',
     parametrosPlantilla: [] as string[],
   });
   const [isEnviandoWhatsApp, setIsEnviandoWhatsApp] = useState(false);
@@ -288,12 +290,17 @@ export default function ClientesPage() {
         parametrosPlantilla = envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0);
       }
 
+      // Obtener el idioma de la plantilla seleccionada
+      const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+      const idiomaPlantilla = plantillaSeleccionada?.idioma || envioWhatsApp.idiomaPlantilla || 'es_CO';
+
       const resultado = await enviarWhatsAppMasivo({
         numeros: validos,
         mensaje: envioWhatsApp.usarPlantilla ? '' : envioWhatsApp.mensaje.trim(), // Solo mensaje si no es plantilla
         archivos: archivosParaEnviar,
         usarPlantilla: envioWhatsApp.usarPlantilla,
         nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
+        idiomaPlantilla: envioWhatsApp.usarPlantilla ? idiomaPlantilla : undefined,
         parametrosPlantilla: envioWhatsApp.usarPlantilla && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
       });
 
@@ -875,7 +882,7 @@ export default function ClientesPage() {
             if (!isEnviandoWhatsApp) {
               setIsEnvioWhatsAppModalOpen(false);
               setResultadoEnvioWhatsApp(null);
-              setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', parametrosPlantilla: [] });
+              setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
             }
           }}
           title={`Envío Masivo WhatsApp (${selectedClientes.length} destinatarios)`}
@@ -957,7 +964,7 @@ export default function ClientesPage() {
                     fullWidth
                     onClick={() => {
                       setResultadoEnvioWhatsApp(null);
-                      setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', parametrosPlantilla: [] });
+                      setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
                     }}
                   >
                     Enviar Otro Mensaje
@@ -968,7 +975,7 @@ export default function ClientesPage() {
                     onClick={() => {
                       setIsEnvioWhatsAppModalOpen(false);
                       setResultadoEnvioWhatsApp(null);
-                      setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', parametrosPlantilla: [] });
+                      setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
                       setSelectedClientes([]);
                     }}
                   >
@@ -1021,7 +1028,14 @@ export default function ClientesPage() {
                         </label>
                         <select
                           value={envioWhatsApp.nombrePlantilla}
-                          onChange={(e) => setEnvioWhatsApp({ ...envioWhatsApp, nombrePlantilla: e.target.value })}
+                          onChange={(e) => {
+                            const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === e.target.value);
+                            setEnvioWhatsApp({ 
+                              ...envioWhatsApp, 
+                              nombrePlantilla: e.target.value,
+                              idiomaPlantilla: plantillaSeleccionada?.idioma || 'es_CO'
+                            });
+                          }}
                           className="w-full px-4 py-3 border-2 border-amber-400 rounded-lg bg-white text-amber-900 font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                           disabled={isEnviandoWhatsApp}
                         >

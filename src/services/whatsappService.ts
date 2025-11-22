@@ -194,6 +194,7 @@ async function enviarConBackend(datos: EnvioMasivoWhatsApp): Promise<ResultadoEn
         archivos: datos.archivos, // Incluir archivos si existen
         usarPlantilla: datos.usarPlantilla || false,
         nombrePlantilla: datos.nombrePlantilla,
+        idiomaPlantilla: datos.idiomaPlantilla,
         parametrosPlantilla: datos.parametrosPlantilla,
       }),
     });

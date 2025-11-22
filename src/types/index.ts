@@ -103,6 +103,7 @@ export interface EnvioMasivoWhatsApp {
   // Opciones para plantillas de WhatsApp
   usarPlantilla?: boolean; // Si true, usa plantilla en lugar de texto libre
   nombrePlantilla?: string; // Nombre de la plantilla aprobada en YCloud
+  idiomaPlantilla?: string; // Código de idioma de la plantilla (ej: "es", "es_CO", "en")
   parametrosPlantilla?: string[]; // Parámetros para rellenar la plantilla (ej: ["Juan", "Empresa XYZ"])
 }
 

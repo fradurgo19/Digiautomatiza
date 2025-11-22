@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const { numeros, mensaje, archivos, usarPlantilla, nombrePlantilla, parametrosPlantilla } = req.body;
+    const { numeros, mensaje, archivos, usarPlantilla, nombrePlantilla, idiomaPlantilla, parametrosPlantilla } = req.body;
 
     if (!numeros || !Array.isArray(numeros) || numeros.length === 0) {
       res.status(400).json({ error: 'Se requiere al menos un número de teléfono' });
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     const YCLOUD_API_KEY = process.env.YCLOUD_API_KEY || '';
     const YCLOUD_WHATSAPP_NUMBER = process.env.YCLOUD_WHATSAPP_NUMBER || '';
     const YCLOUD_API_URL = process.env.YCLOUD_API_URL || 'https://api.ycloud.com/v2/whatsapp/messages';
-    const YCLOUD_TEMPLATE_LANGUAGE = process.env.YCLOUD_TEMPLATE_LANGUAGE || 'es'; // Idioma de la plantilla (es, en, etc.)
+    const YCLOUD_TEMPLATE_LANGUAGE_DEFAULT = process.env.YCLOUD_TEMPLATE_LANGUAGE || 'es_CO'; // Idioma por defecto (es_CO para español Colombia)
 
     if (!YCLOUD_API_KEY) {
       console.error('❌ YCLOUD_API_KEY no configurada');
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
             template: {
               name: nombrePlantilla,
               language: {
-                code: YCLOUD_TEMPLATE_LANGUAGE,
+                code: idiomaPlantilla || YCLOUD_TEMPLATE_LANGUAGE_DEFAULT,
               },
             },
           };
