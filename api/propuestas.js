@@ -179,6 +179,20 @@ export default async function handler(req, res) {
           include: { cliente: true, oportunidad: true },
           orderBy: { createdAt: 'desc' },
         });
+        
+        // Log para diagnosticar adjuntos en consulta normal
+        console.log('📋 Propuestas obtenidas (consulta normal):', propuestas.length);
+        propuestas.forEach((p, index) => {
+          console.log(`📎 Propuesta ${index + 1} (${p.id}):`, {
+            titulo: p.titulo,
+            adjuntos: p.adjuntos,
+            tipoAdjuntos: typeof p.adjuntos,
+            esNull: p.adjuntos === null,
+            esUndefined: p.adjuntos === undefined,
+            esString: typeof p.adjuntos === 'string',
+            valorRaw: p.adjuntos
+          });
+        });
       } catch (schemaError) {
         // Si falla por columnas que no existen, usar select explícito sin las columnas nuevas
         if (schemaError.message && schemaError.message.includes('does not exist')) {
@@ -220,6 +234,20 @@ export default async function handler(req, res) {
             orderBy: { createdAt: 'desc' },
           });
           
+          // Log para diagnosticar adjuntos antes de parsear (fallback)
+          console.log('📋 Propuestas obtenidas (fallback):', propuestas.length);
+          propuestas.forEach((p, index) => {
+            console.log(`📎 Propuesta ${index + 1} (${p.id}) ANTES de parsear:`, {
+              titulo: p.titulo,
+              adjuntos: p.adjuntos,
+              tipoAdjuntos: typeof p.adjuntos,
+              esNull: p.adjuntos === null,
+              esUndefined: p.adjuntos === undefined,
+              esString: typeof p.adjuntos === 'string',
+              valorRaw: p.adjuntos
+            });
+          });
+          
           // Parsear adjuntos y otros campos JSON para todas las propuestas
           propuestas = propuestas.map(p => {
             const propuesta = { ...p };
@@ -228,12 +256,13 @@ export default async function handler(req, res) {
             if (propuesta.adjuntos && typeof propuesta.adjuntos === 'string' && propuesta.adjuntos !== 'null' && propuesta.adjuntos.trim() !== '') {
               try {
                 propuesta.adjuntos = JSON.parse(propuesta.adjuntos);
-                console.log('✅ Adjuntos parseados en GET:', propuesta.adjuntos);
+                console.log('✅ Adjuntos parseados en GET (fallback):', propuesta.id, propuesta.adjuntos);
               } catch (e) {
-                console.error('❌ Error al parsear adjuntos en GET:', e, 'Valor:', propuesta.adjuntos);
+                console.error('❌ Error al parsear adjuntos en GET (fallback):', e, 'Valor:', propuesta.adjuntos);
                 propuesta.adjuntos = null;
               }
             } else if (!propuesta.adjuntos || propuesta.adjuntos === 'null' || propuesta.adjuntos === '') {
+              console.log('⚠️ Adjuntos vacíos o null en fallback:', propuesta.id);
               propuesta.adjuntos = null;
             }
             
@@ -251,6 +280,19 @@ export default async function handler(req, res) {
       
       console.log(`✅ Propuestas obtenidas: ${propuestas.length}`);
       
+      // Log antes de parsear adjuntos (consulta normal)
+      propuestas.forEach((p, index) => {
+        console.log(`📎 Propuesta ${index + 1} (${p.id}) ANTES de parsear final:`, {
+          titulo: p.titulo,
+          adjuntos: p.adjuntos,
+          tipoAdjuntos: typeof p.adjuntos,
+          esNull: p.adjuntos === null,
+          esUndefined: p.adjuntos === undefined,
+          esString: typeof p.adjuntos === 'string',
+          valorRaw: p.adjuntos
+        });
+      });
+      
       // Asegurar que adjuntos se parseen correctamente en todas las propuestas
       propuestas = propuestas.map(p => {
         if (p.adjuntos && typeof p.adjuntos === 'string' && p.adjuntos !== 'null' && p.adjuntos.trim() !== '') {
@@ -263,12 +305,23 @@ export default async function handler(req, res) {
             p.adjuntos = null;
           }
         } else if (!p.adjuntos || p.adjuntos === 'null' || p.adjuntos === '') {
+          console.log('⚠️ Adjuntos vacíos o null en parseo final:', p.id);
           p.adjuntos = null;
         } else if (Array.isArray(p.adjuntos)) {
           // Ya es un array, dejarlo como está
-          console.log('✅ Adjuntos ya es array en propuesta:', p.id);
+          console.log('✅ Adjuntos ya es array en propuesta:', p.id, p.adjuntos);
         }
         return p;
+      });
+      
+      // Log después de parsear
+      propuestas.forEach((p, index) => {
+        console.log(`📎 Propuesta ${index + 1} (${p.id}) DESPUÉS de parsear:`, {
+          titulo: p.titulo,
+          adjuntos: p.adjuntos,
+          tipoAdjuntos: typeof p.adjuntos,
+          esArray: Array.isArray(p.adjuntos)
+        });
       });
       
       res.status(200).json({ propuestas });
