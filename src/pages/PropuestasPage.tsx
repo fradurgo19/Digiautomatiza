@@ -440,7 +440,8 @@ export default function PropuestasPage() {
                 }
               }}
               fullWidth
-              className="bg-white/90 border-emerald-300"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900"
             />
 
             <Select
@@ -449,7 +450,8 @@ export default function PropuestasPage() {
               value={nuevaPropuesta.clienteId}
               onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, clienteId: e.target.value })}
               fullWidth
-              className="bg-white/90 border-emerald-300"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900"
             />
 
             <Input
@@ -458,7 +460,8 @@ export default function PropuestasPage() {
               onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, titulo: e.target.value })}
               fullWidth
               placeholder="Ej: Desarrollo de Página Web Corporativa"
-              className="bg-white/90 border-emerald-300"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
             />
 
             <Select
@@ -467,7 +470,8 @@ export default function PropuestasPage() {
               value={nuevaPropuesta.servicio}
               onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, servicio: e.target.value as ServicioTipo })}
               fullWidth
-              className="bg-white/90 border-emerald-300"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900"
             />
 
             <div className="border-t pt-4">
@@ -486,7 +490,8 @@ export default function PropuestasPage() {
                         value={item.descripcion}
                         onChange={(e) => actualizarItem(item.id, 'descripcion', e.target.value)}
                         placeholder="Descripción del item"
-                        className="bg-white border-emerald-300"
+                        className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                        textClassName="text-emerald-900 placeholder:text-emerald-500"
                       />
                     </div>
                     <div className="col-span-2">
@@ -495,7 +500,8 @@ export default function PropuestasPage() {
                         value={item.cantidad}
                         onChange={(e) => actualizarItem(item.id, 'cantidad', parseInt(e.target.value) || 0)}
                         placeholder="Cant."
-                        className="bg-white border-emerald-300"
+                        className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                        textClassName="text-emerald-900 placeholder:text-emerald-500"
                       />
                     </div>
                     <div className="col-span-2">
@@ -504,7 +510,8 @@ export default function PropuestasPage() {
                         value={item.precioUnitario}
                         onChange={(e) => actualizarItem(item.id, 'precioUnitario', parseFloat(e.target.value) || 0)}
                         placeholder="Precio Unit."
-                        className="bg-white border-emerald-300"
+                        className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                        textClassName="text-emerald-900 placeholder:text-emerald-500"
                       />
                     </div>
                     <div className="col-span-2">
@@ -512,6 +519,7 @@ export default function PropuestasPage() {
                         value={formatearMoneda(item.subtotal)}
                         disabled
                         className="bg-gray-100 border-emerald-300"
+                        textClassName="text-emerald-900"
                       />
                     </div>
                     <div className="col-span-1">
@@ -540,8 +548,9 @@ export default function PropuestasPage() {
                         type="number"
                         value={nuevaPropuesta.descuento}
                         onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, descuento: e.target.value })}
-                        className="w-24 bg-white border-emerald-300"
+                        className="w-24 bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                         placeholder="0"
+                        textClassName="text-emerald-900 placeholder:text-emerald-500"
                       />
                     </div>
                     <span>{formatearMoneda(calcularTotal().descuento)}</span>
@@ -560,7 +569,8 @@ export default function PropuestasPage() {
               value={nuevaPropuesta.validez}
               onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, validez: e.target.value })}
               fullWidth
-              className="bg-white/90 border-emerald-300"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
             />
 
             <TextArea
@@ -570,7 +580,8 @@ export default function PropuestasPage() {
               fullWidth
               rows={3}
               placeholder="Notas adicionales sobre esta propuesta..."
-              className="bg-white/90 border-emerald-300"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
             />
 
             <div className="flex gap-3 pt-4 border-t">
