@@ -181,12 +181,6 @@ export default function SesionesPage() {
       return;
     }
 
-    // Validar formato del enlace si se proporcionó uno manualmente
-    if (sesionEditando.urlReunion && !esEnlaceGoogleMeetValido(sesionEditando.urlReunion)) {
-      alert('El enlace de Google Meet debe tener el formato: https://meet.google.com/xxx-yyyy-zzz\n\nEjemplo: https://meet.google.com/abc-defg-hij');
-      return;
-    }
-
     setIsSavingSesion(true);
     try {
       const payload = {
