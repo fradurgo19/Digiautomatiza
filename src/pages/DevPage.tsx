@@ -5,10 +5,13 @@ import Card from '../atoms/Card';
 import Button from '../atoms/Button';
 import Badge from '../atoms/Badge';
 import Modal from '../molecules/Modal';
+import Input from '../atoms/Input';
 import Loading from '../atoms/Loading';
+import GanttChart from '../components/GanttChart';
 import { useAuth } from '../context/AuthContext';
-import { Propuesta, EstadoAprobacion } from '../types';
-import { obtenerPropuestas } from '../services/databaseService';
+import { Propuesta, TareaProyecto } from '../types';
+import { obtenerPropuestas, actualizarPropuesta } from '../services/databaseService';
+
 // Función para formatear moneda
 const formatearMoneda = (valor: number): string => {
   return new Intl.NumberFormat('es-CO', {
@@ -34,11 +37,26 @@ export default function DevPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [propuestaSeleccionada, setPropuestaSeleccionada] = useState<Propuesta | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Formulario de fechas y tareas
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaEntrega, setFechaEntrega] = useState('');
+  const [tareas, setTareas] = useState<TareaProyecto[]>([]);
+  const [nuevaTarea, setNuevaTarea] = useState({
+    nombre: '',
+    fechaInicio: '',
+    fechaFin: '',
+    duracion: 0,
+    progreso: 0,
+    responsable: '',
+    descripcion: '',
+  });
 
   // Verificar si el usuario es administrador
   useEffect(() => {
     if (usuario && usuario.rol !== 'admin') {
-      // Redirigir a dashboard si no es admin
       navigate('/dashboard');
     }
   }, [usuario, navigate]);
@@ -48,7 +66,6 @@ export default function DevPage() {
       setIsLoading(true);
       try {
         const todasLasPropuestas = await obtenerPropuestas();
-        // Filtrar solo las propuestas aprobadas
         const propuestasAprobadas = todasLasPropuestas.filter(
           p => p.estadoAprobacion === 'Aprobada'
         );
@@ -67,11 +84,100 @@ export default function DevPage() {
 
   const handleVerPropuesta = (propuesta: Propuesta) => {
     setPropuestaSeleccionada(propuesta);
+    setFechaInicio(propuesta.fechaInicio ? new Date(propuesta.fechaInicio).toISOString().slice(0, 10) : '');
+    setFechaEntrega(propuesta.fechaEntrega ? new Date(propuesta.fechaEntrega).toISOString().slice(0, 10) : '');
+    setTareas(propuesta.tareasProyecto || []);
     setIsModalOpen(true);
   };
 
+  const handleEditarProyecto = (propuesta: Propuesta) => {
+    setPropuestaSeleccionada(propuesta);
+    setFechaInicio(propuesta.fechaInicio ? new Date(propuesta.fechaInicio).toISOString().slice(0, 10) : '');
+    setFechaEntrega(propuesta.fechaEntrega ? new Date(propuesta.fechaEntrega).toISOString().slice(0, 10) : '');
+    setTareas(propuesta.tareasProyecto || []);
+    setIsEditModalOpen(true);
+  };
+
+  const handleAgregarTarea = () => {
+    if (!nuevaTarea.nombre || !nuevaTarea.fechaInicio || !nuevaTarea.fechaFin) {
+      alert('Por favor completa nombre, fecha de inicio y fecha de fin de la tarea.');
+      return;
+    }
+
+    const fechaInicioTarea = new Date(nuevaTarea.fechaInicio);
+    const fechaFinTarea = new Date(nuevaTarea.fechaFin);
+    const duracion = Math.ceil((fechaFinTarea.getTime() - fechaInicioTarea.getTime()) / (1000 * 60 * 60 * 24));
+
+    const tarea: TareaProyecto = {
+      id: `tarea-${Date.now()}`,
+      nombre: nuevaTarea.nombre,
+      fechaInicio: nuevaTarea.fechaInicio,
+      fechaFin: nuevaTarea.fechaFin,
+      duracion: duracion > 0 ? duracion : nuevaTarea.duracion || 1,
+      progreso: nuevaTarea.progreso,
+      responsable: nuevaTarea.responsable || undefined,
+      descripcion: nuevaTarea.descripcion || undefined,
+    };
+
+    setTareas([...tareas, tarea]);
+    setNuevaTarea({
+      nombre: '',
+      fechaInicio: '',
+      fechaFin: '',
+      duracion: 0,
+      progreso: 0,
+      responsable: '',
+      descripcion: '',
+    });
+  };
+
+  const handleEliminarTarea = (tareaId: string) => {
+    if (confirm('¿Estás seguro de eliminar esta tarea?')) {
+      setTareas(tareas.filter(t => t.id !== tareaId));
+    }
+  };
+
+  const handleActualizarProgreso = (tareaId: string, progreso: number) => {
+    setTareas(tareas.map(t => 
+      t.id === tareaId ? { ...t, progreso: Math.max(0, Math.min(100, progreso)) } : t
+    ));
+  };
+
+  const handleGuardarProyecto = async () => {
+    if (!propuestaSeleccionada) return;
+
+    if (!fechaInicio || !fechaEntrega) {
+      alert('Por favor ingresa la fecha de inicio y fecha de entrega del proyecto.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await actualizarPropuesta(propuestaSeleccionada.id, {
+        fechaInicio: new Date(fechaInicio),
+        fechaEntrega: new Date(fechaEntrega),
+        tareasProyecto: tareas,
+      });
+
+      // Recargar propuestas
+      const todasLasPropuestas = await obtenerPropuestas();
+      const propuestasAprobadas = todasLasPropuestas.filter(
+        p => p.estadoAprobacion === 'Aprobada'
+      );
+      setPropuestas(propuestasAprobadas);
+
+      setIsEditModalOpen(false);
+      alert('✅ Proyecto actualizado exitosamente');
+    } catch (error) {
+      console.error('Error al actualizar proyecto:', error);
+      alert('Error al actualizar el proyecto. Intenta nuevamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const formatearFecha = (fecha?: Date): string => {
-    if (!fecha) return 'N/A';
+    if (!fecha) return 'No definida';
     return new Date(fecha).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
@@ -79,7 +185,6 @@ export default function DevPage() {
     });
   };
 
-  // Si no es admin, no mostrar nada (será redirigido)
   if (usuario?.rol !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50">
@@ -168,7 +273,8 @@ export default function DevPage() {
                         <div>
                           <p><strong>Servicio:</strong> {servicioInfo?.icon} {servicioInfo?.label}</p>
                           <p><strong>Número:</strong> {propuesta.numeroPropuesta}</p>
-                          <p><strong>Comercial:</strong> {propuesta.cliente.nombre}</p>
+                          <p><strong>Fecha Inicio:</strong> {formatearFecha(propuesta.fechaInicio)}</p>
+                          <p><strong>Fecha Entrega:</strong> {formatearFecha(propuesta.fechaEntrega)}</p>
                         </div>
                         <div>
                           <p><strong>Valor Total:</strong> {formatearMoneda(propuesta.valorTotal)}</p>
@@ -178,37 +284,14 @@ export default function DevPage() {
                         </div>
                       </div>
 
-                      {propuesta.especificaciones && (
-                        <div className="mt-3 p-3 bg-emerald-50 rounded-lg">
-                          <p className="text-sm font-semibold text-emerald-800 mb-1">Especificaciones del Servicio:</p>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{propuesta.especificaciones}</p>
-                        </div>
-                      )}
-
-                      {propuesta.notas && (
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm font-semibold text-blue-800 mb-1">Notas Internas:</p>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{propuesta.notas}</p>
-                        </div>
-                      )}
-
-                      {propuesta.adjuntos && propuesta.adjuntos.length > 0 && (
-                        <div className="mt-3">
-                          <p className="text-sm font-semibold text-gray-700 mb-2">Archivos Adjuntos:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {propuesta.adjuntos.map((adjunto, index) => (
-                              <a
-                                key={index}
-                                href={adjunto.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                              >
-                                <span>{adjunto.tipo === 'imagen' ? '🖼️' : '📄'}</span>
-                                <span className="text-sm">{adjunto.nombre}</span>
-                              </a>
-                            ))}
-                          </div>
+                      {/* Diagrama de Gantt */}
+                      {propuesta.tareasProyecto && propuesta.tareasProyecto.length > 0 && (
+                        <div className="mt-4">
+                          <GanttChart
+                            tareas={propuesta.tareasProyecto}
+                            fechaInicio={propuesta.fechaInicio}
+                            fechaEntrega={propuesta.fechaEntrega}
+                          />
                         </div>
                       )}
                     </div>
@@ -220,6 +303,13 @@ export default function DevPage() {
                         onClick={() => handleVerPropuesta(propuesta)}
                       >
                         👁️ Ver Detalles
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditarProyecto(propuesta)}
+                      >
+                        ✏️ Gestionar Proyecto
                       </Button>
                     </div>
                   </div>
@@ -259,37 +349,30 @@ export default function DevPage() {
                   <p className="text-gray-900">{propuestaSeleccionada.cliente.telefono}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-700">Número de Propuesta:</p>
-                  <p className="text-gray-900">{propuestaSeleccionada.numeroPropuesta}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">Servicio:</p>
-                  <p className="text-gray-900">
-                    {serviciosOptions.find(s => s.value === propuestaSeleccionada.servicio)?.icon}{' '}
-                    {serviciosOptions.find(s => s.value === propuestaSeleccionada.servicio)?.label}
+                  <p className="text-sm font-semibold text-gray-700">Fecha de Inicio:</p>
+                  <p className="text-gray-900 font-semibold text-emerald-600">
+                    {formatearFecha(propuestaSeleccionada.fechaInicio)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-700">Valor Total:</p>
-                  <p className="text-gray-900">{formatearMoneda(propuestaSeleccionada.valorTotal)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">Descuento:</p>
-                  <p className="text-gray-900">
-                    {propuestaSeleccionada.descuento ? formatearMoneda(propuestaSeleccionada.descuento) : 'N/A'}
+                  <p className="text-sm font-semibold text-gray-700">Fecha de Entrega:</p>
+                  <p className="text-gray-900 font-semibold text-emerald-600">
+                    {formatearFecha(propuestaSeleccionada.fechaEntrega)}
                   </p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">Valor Final:</p>
-                  <p className="text-gray-900 font-bold text-emerald-600">
-                    {formatearMoneda(propuestaSeleccionada.valorFinal)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">Fecha de Vencimiento:</p>
-                  <p className="text-gray-900">{formatearFecha(propuestaSeleccionada.fechaVencimiento)}</p>
                 </div>
               </div>
+
+              {/* Diagrama de Gantt */}
+              {propuestaSeleccionada.tareasProyecto && propuestaSeleccionada.tareasProyecto.length > 0 && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-semibold text-gray-700 mb-3">Diagrama de Gantt:</p>
+                  <GanttChart
+                    tareas={propuestaSeleccionada.tareasProyecto}
+                    fechaInicio={propuestaSeleccionada.fechaInicio}
+                    fechaEntrega={propuestaSeleccionada.fechaEntrega}
+                  />
+                </div>
+              )}
 
               {propuestaSeleccionada.especificaciones && (
                 <div className="border-t pt-4">
@@ -299,42 +382,172 @@ export default function DevPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </Modal>
 
-              {propuestaSeleccionada.notas && (
-                <div className="border-t pt-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Notas Internas:</p>
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-gray-700 whitespace-pre-wrap">{propuestaSeleccionada.notas}</p>
+        {/* Modal Gestionar Proyecto */}
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setPropuestaSeleccionada(null);
+          }}
+          title={`Gestionar Proyecto: ${propuestaSeleccionada?.titulo || ''}`}
+          size="xl"
+        >
+          {propuestaSeleccionada && (
+            <div className="space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Fechas del Proyecto */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-emerald-50 rounded-lg">
+                <Input
+                  label="Fecha de Inicio del Proyecto *"
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  fullWidth
+                  className="bg-white"
+                />
+                <Input
+                  label="Fecha de Entrega del Proyecto *"
+                  type="date"
+                  value={fechaEntrega}
+                  onChange={(e) => setFechaEntrega(e.target.value)}
+                  fullWidth
+                  className="bg-white"
+                />
+              </div>
+
+              {/* Agregar Nueva Tarea */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-gray-800 mb-3">Agregar Nueva Tarea</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-gray-50 rounded-lg">
+                  <Input
+                    label="Nombre de la Tarea *"
+                    value={nuevaTarea.nombre}
+                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, nombre: e.target.value })}
+                    placeholder="Ej: Diseño de interfaz"
+                    fullWidth
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Responsable (Opcional)"
+                    value={nuevaTarea.responsable}
+                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, responsable: e.target.value })}
+                    placeholder="Nombre del desarrollador"
+                    fullWidth
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Fecha de Inicio *"
+                    type="date"
+                    value={nuevaTarea.fechaInicio}
+                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, fechaInicio: e.target.value })}
+                    fullWidth
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Fecha de Fin *"
+                    type="date"
+                    value={nuevaTarea.fechaFin}
+                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, fechaFin: e.target.value })}
+                    fullWidth
+                    className="bg-white"
+                  />
+                  <Input
+                    label="Progreso (%)"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={nuevaTarea.progreso.toString()}
+                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, progreso: parseInt(e.target.value) || 0 })}
+                    fullWidth
+                    className="bg-white"
+                  />
+                  <div className="flex items-end">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      onClick={handleAgregarTarea}
+                    >
+                      + Agregar Tarea
+                    </Button>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {propuestaSeleccionada.adjuntos && propuestaSeleccionada.adjuntos.length > 0 && (
+              {/* Lista de Tareas */}
+              {tareas.length > 0 && (
                 <div className="border-t pt-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Archivos Adjuntos:</p>
+                  <h3 className="font-semibold text-gray-800 mb-3">Tareas del Proyecto ({tareas.length})</h3>
                   <div className="space-y-2">
-                    {propuestaSeleccionada.adjuntos.map((adjunto, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <span className="text-2xl">{adjunto.tipo === 'imagen' ? '🖼️' : '📄'}</span>
+                    {tareas.map((tarea) => (
+                      <div key={tarea.id} className="p-3 bg-white border border-gray-200 rounded-lg flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{adjunto.nombre}</p>
+                          <p className="font-medium text-gray-900">{tarea.nombre}</p>
                           <p className="text-sm text-gray-600">
-                            {adjunto.tamaño ? `${(adjunto.tamaño / 1024).toFixed(2)} KB` : 'Tamaño desconocido'}
+                            {tarea.fechaInicio} - {tarea.fechaFin} ({tarea.duracion} días)
+                            {tarea.responsable && ` • ${tarea.responsable}`}
                           </p>
                         </div>
-                        <a
-                          href={adjunto.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                        >
-                          Ver
-                        </a>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={tarea.progreso.toString()}
+                            onChange={(e) => handleActualizarProgreso(tarea.id, parseInt(e.target.value) || 0)}
+                            className="w-20 bg-white"
+                          />
+                          <span className="text-sm text-gray-600">%</span>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleEliminarTarea(tarea.id)}
+                          >
+                            ×
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              {/* Vista Previa del Diagrama de Gantt */}
+              {tareas.length > 0 && (
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold text-gray-800 mb-3">Vista Previa del Diagrama de Gantt</h3>
+                  <GanttChart
+                    tareas={tareas}
+                    fechaInicio={fechaInicio ? new Date(fechaInicio) : undefined}
+                    fechaEntrega={fechaEntrega ? new Date(fechaEntrega) : undefined}
+                  />
+                </div>
+              )}
+
+              {/* Botones de Acción */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setPropuestaSeleccionada(null);
+                  }}
+                  disabled={isSaving}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={handleGuardarProyecto}
+                  disabled={isSaving || !fechaInicio || !fechaEntrega}
+                >
+                  {isSaving ? 'Guardando...' : 'Guardar Proyecto'}
+                </Button>
+              </div>
             </div>
           )}
         </Modal>
@@ -342,4 +555,3 @@ export default function DevPage() {
     </div>
   );
 }
-

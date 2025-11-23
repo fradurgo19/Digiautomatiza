@@ -56,6 +56,16 @@ export default async function handler(req, res) {
         if (datos.fechaRechazo) {
           datos.fechaRechazo = new Date(datos.fechaRechazo);
         }
+        if (datos.fechaInicio) {
+          datos.fechaInicio = new Date(datos.fechaInicio);
+        }
+        if (datos.fechaEntrega) {
+          datos.fechaEntrega = new Date(datos.fechaEntrega);
+        }
+        // Convertir tareasProyecto a JSON si es array
+        if (datos.tareasProyecto && typeof datos.tareasProyecto !== 'string') {
+          datos.tareasProyecto = JSON.stringify(datos.tareasProyecto);
+        }
 
         // Convertir items y adjuntos a JSON si son arrays/objetos
         if (datos.items && typeof datos.items !== 'string') {
@@ -100,6 +110,10 @@ export default async function handler(req, res) {
             console.log('⚠️ Columnas nuevas no encontradas en update, omitiéndolas...');
             delete datosLimpios.especificaciones;
             delete datosLimpios.adjuntos;
+            delete datosLimpios.estadoAprobacion;
+            delete datosLimpios.fechaInicio;
+            delete datosLimpios.fechaEntrega;
+            delete datosLimpios.tareasProyecto;
             propuesta = await prisma.propuesta.update({
               where: { id },
               data: datosLimpios,
@@ -108,6 +122,10 @@ export default async function handler(req, res) {
             // Agregar campos como null
             propuesta.especificaciones = null;
             propuesta.adjuntos = null;
+            propuesta.estadoAprobacion = datos.estadoAprobacion || 'Sin Aprobar';
+            propuesta.fechaInicio = datos.fechaInicio ? new Date(datos.fechaInicio) : null;
+            propuesta.fechaEntrega = datos.fechaEntrega ? new Date(datos.fechaEntrega) : null;
+            propuesta.tareasProyecto = datos.tareasProyecto || null;
           } else {
             throw updateError;
           }
@@ -155,6 +173,9 @@ export default async function handler(req, res) {
               servicio: true,
               estado: true,
               estadoAprobacion: true,
+              fechaInicio: true,
+              fechaEntrega: true,
+              tareasProyecto: true,
               valorTotal: true,
               descuento: true,
               valorFinal: true,
@@ -181,6 +202,9 @@ export default async function handler(req, res) {
             especificaciones: null,
             adjuntos: null,
             estadoAprobacion: 'Sin Aprobar',
+            fechaInicio: null,
+            fechaEntrega: null,
+            tareasProyecto: null,
           }));
         } else {
           throw schemaError;
@@ -268,7 +292,9 @@ export default async function handler(req, res) {
           propuesta.especificaciones = null;
           propuesta.adjuntos = null;
           propuesta.estadoAprobacion = 'Sin Aprobar';
-          propuesta.estadoAprobacion = 'Sin Aprobar';
+          propuesta.fechaInicio = null;
+          propuesta.fechaEntrega = null;
+          propuesta.tareasProyecto = null;
         } else {
           throw createError;
         }

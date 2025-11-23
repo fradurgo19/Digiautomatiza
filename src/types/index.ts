@@ -154,6 +154,19 @@ export interface AdjuntoPropuesta {
   tamaño?: number; // en bytes
 }
 
+// Tipo para tarea del proyecto (diagrama de Gantt)
+export interface TareaProyecto {
+  id: string;
+  nombre: string;
+  fechaInicio: string; // YYYY-MM-DD
+  fechaFin: string; // YYYY-MM-DD
+  duracion: number; // días
+  progreso: number; // 0-100
+  responsable?: string;
+  descripcion?: string;
+  dependencias?: string[]; // IDs de tareas de las que depende
+}
+
 // Estado de Aprobación de Propuesta
 export type EstadoAprobacion = 'Aprobada' | 'Sin Aprobar';
 
@@ -168,6 +181,9 @@ export interface Propuesta {
   servicio: ServicioTipo;
   estado: EstadoPropuesta;
   estadoAprobacion?: EstadoAprobacion; // Estado de aprobación: Aprobada o Sin Aprobar
+  fechaInicio?: Date; // Fecha de inicio del proyecto (módulo DEV)
+  fechaEntrega?: Date; // Fecha de entrega del proyecto (módulo DEV)
+  tareasProyecto?: TareaProyecto[]; // Array de tareas para diagrama de Gantt
   valorTotal: number;
   descuento?: number;
   valorFinal: number;

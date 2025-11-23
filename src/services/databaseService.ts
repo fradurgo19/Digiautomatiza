@@ -711,6 +711,11 @@ function mapPropuesta(data: any): Propuesta {
     servicio: data.servicio,
     estado: data.estado,
     estadoAprobacion: data.estadoAprobacion || 'Sin Aprobar',
+    fechaInicio: data.fechaInicio ? new Date(data.fechaInicio) : undefined,
+    fechaEntrega: data.fechaEntrega ? new Date(data.fechaEntrega) : undefined,
+    tareasProyecto: data.tareasProyecto && data.tareasProyecto !== 'null' && data.tareasProyecto.trim() !== ''
+      ? (typeof data.tareasProyecto === 'string' ? JSON.parse(data.tareasProyecto) : data.tareasProyecto)
+      : undefined,
     valorTotal: parseFloat(data.valorTotal) || 0,
     descuento: data.descuento ? parseFloat(data.descuento) : undefined,
     valorFinal: parseFloat(data.valorFinal) || 0,
