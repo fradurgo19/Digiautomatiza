@@ -623,8 +623,8 @@ export default function PropuestasPage() {
         yPosition = margin;
       }
       
-      // Caja para totales
-      const totalesHeight = propuesta.descuento && propuesta.descuento > 0 ? 50 : 40;
+      // Caja para totales - altura aumentada para asegurar que el TOTAL quepa
+      const totalesHeight = propuesta.descuento && propuesta.descuento > 0 ? 60 : 50;
       addBox(margin, yPosition, contentWidth, totalesHeight, colorLightGray);
       
       // Borde superior verde
