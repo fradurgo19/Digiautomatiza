@@ -219,15 +219,27 @@ export default async function handler(req, res) {
           });
           
           // Agregar campos opcionales con valores null si no existen
-          propuestas = propuestas.map(p => ({
-            ...p,
-            especificaciones: null,
-            adjuntos: null,
-            estadoAprobacion: 'Sin Aprobar',
-            fechaInicio: null,
-            fechaEntrega: null,
-            tareasProyecto: null,
-          }));
+          propuestas = propuestas.map(p => {
+            const propuesta = {
+              ...p,
+              especificaciones: null,
+              adjuntos: null,
+              estadoAprobacion: 'Sin Aprobar',
+              fechaInicio: null,
+              fechaEntrega: null,
+              tareasProyecto: null,
+            };
+            // Intentar parsear adjuntos si existen en algún formato
+            if (p.adjuntos && typeof p.adjuntos === 'string' && p.adjuntos !== 'null') {
+              try {
+                propuesta.adjuntos = JSON.parse(p.adjuntos);
+              } catch (e) {
+                console.error('Error al parsear adjuntos en fallback:', e);
+                propuesta.adjuntos = null;
+              }
+            }
+            return propuesta;
+          });
         } else {
           throw schemaError;
         }
