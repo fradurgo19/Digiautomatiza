@@ -48,7 +48,7 @@ export async function obtenerEventosCalendario(
     if (fechaFin) params.append('fechaFin', fechaFin);
     params.append('maxResultados', maxResultados.toString());
 
-    const response = await fetch(`${API_URL}/api/google-calendar/obtener-eventos?${params.toString()}`);
+    const response = await fetch(`${API_URL}/api/google-calendar?${params.toString()}`);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
