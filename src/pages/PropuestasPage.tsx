@@ -265,6 +265,15 @@ export default function PropuestasPage() {
   };
 
   const handleEditarPropuesta = (propuesta: Propuesta) => {
+    console.log('📥 FRONTEND - Cargando propuesta para editar:', {
+      id: propuesta.id,
+      titulo: propuesta.titulo,
+      adjuntos: propuesta.adjuntos,
+      adjuntosTipo: typeof propuesta.adjuntos,
+      adjuntosEsArray: Array.isArray(propuesta.adjuntos),
+      adjuntosLength: Array.isArray(propuesta.adjuntos) ? propuesta.adjuntos.length : 'N/A'
+    });
+    
     setPropuestaEditando(propuesta);
     setNuevaPropuesta({
       oportunidadId: propuesta.oportunidadId || '',
@@ -277,7 +286,16 @@ export default function PropuestasPage() {
       validez: propuesta.validez.toString(),
       notas: propuesta.notas || '',
     });
-    setAdjuntos(propuesta.adjuntos || []);
+    
+    // Asegurar que adjuntos sea un array válido
+    // Si es null o undefined, usar array vacío para el formulario
+    // Pero guardar el valor original en propuestaEditando para referencia
+    const adjuntosParaFormulario = Array.isArray(propuesta.adjuntos) 
+      ? propuesta.adjuntos 
+      : (propuesta.adjuntos ? [propuesta.adjuntos] : []);
+    
+    console.log('📥 FRONTEND - Adjuntos para formulario:', adjuntosParaFormulario);
+    setAdjuntos(adjuntosParaFormulario);
     setIsEditModalOpen(true);
   };
 
@@ -349,6 +367,25 @@ export default function PropuestasPage() {
         subtotal: calcularTotal().subtotal,
       };
 
+      // Log detallado ANTES de enviar
+      console.log('📤 FRONTEND - ANTES de enviar actualización:', {
+        adjuntosEstado: adjuntos,
+        adjuntosLength: adjuntos.length,
+        adjuntosEsArray: Array.isArray(adjuntos),
+        propuestaEditandoAdjuntos: propuestaEditando?.adjuntos,
+        propuestaEditandoAdjuntosTipo: typeof propuestaEditando?.adjuntos,
+        propuestaEditandoAdjuntosEsArray: Array.isArray(propuestaEditando?.adjuntos)
+      });
+
+      // Asegurar que adjuntos se envíe correctamente
+      // Si hay adjuntos en el estado local, usarlos
+      // Si no hay en el estado local pero hay en propuestaEditando, usar esos
+      let adjuntosParaEnviar = adjuntos.length > 0 ? adjuntos : null;
+      if (!adjuntosParaEnviar && propuestaEditando?.adjuntos && Array.isArray(propuestaEditando.adjuntos) && propuestaEditando.adjuntos.length > 0) {
+        console.log('⚠️ No hay adjuntos en estado local, usando adjuntos de propuestaEditando');
+        adjuntosParaEnviar = propuestaEditando.adjuntos;
+      }
+
       const propuestaData = {
         oportunidadId: nuevaPropuesta.oportunidadId || undefined,
         clienteId: nuevaPropuesta.clienteId,
@@ -361,12 +398,13 @@ export default function PropuestasPage() {
         contenido: JSON.stringify(contenido),
         items: [itemUnico],
         especificaciones: nuevaPropuesta.especificaciones,
-        adjuntos: adjuntos.length > 0 ? adjuntos : null,
+        adjuntos: adjuntosParaEnviar,
         notas: nuevaPropuesta.notas || undefined,
       };
 
-      console.log('📤 Enviando actualización con adjuntos:', adjuntos);
-      console.log('📤 Número de adjuntos:', adjuntos.length);
+      console.log('📤 FRONTEND - Enviando actualización con adjuntos:', adjuntosParaEnviar);
+      console.log('📤 FRONTEND - Número de adjuntos:', adjuntosParaEnviar ? (Array.isArray(adjuntosParaEnviar) ? adjuntosParaEnviar.length : 1) : 0);
+      console.log('📤 FRONTEND - propuestaData.adjuntos:', propuestaData.adjuntos);
       
       const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
       console.log('✅ Propuesta actualizada desde API:', actualizada);
