@@ -724,9 +724,24 @@ function mapPropuesta(data: any): Propuesta {
     contenido: typeof data.contenido === 'string' ? data.contenido : JSON.stringify(data.contenido),
     items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items || [],
     especificaciones: data.especificaciones || undefined,
-    adjuntos: data.adjuntos && data.adjuntos !== 'null' && data.adjuntos.trim() !== '' 
-      ? (typeof data.adjuntos === 'string' ? JSON.parse(data.adjuntos) : data.adjuntos) 
-      : undefined,
+    adjuntos: (() => {
+      try {
+        if (!data.adjuntos || data.adjuntos === 'null' || data.adjuntos === '') {
+          return undefined;
+        }
+        if (typeof data.adjuntos === 'string') {
+          const parsed = JSON.parse(data.adjuntos);
+          return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : undefined);
+        }
+        if (Array.isArray(data.adjuntos)) {
+          return data.adjuntos;
+        }
+        return data.adjuntos ? [data.adjuntos] : undefined;
+      } catch (error) {
+        console.error('Error al parsear adjuntos:', error, 'Datos:', data.adjuntos);
+        return undefined;
+      }
+    })(),
     notas: data.notas || undefined,
     fechaEnvio: data.fechaEnvio ? new Date(data.fechaEnvio) : undefined,
     fechaAceptacion: data.fechaAceptacion ? new Date(data.fechaAceptacion) : undefined,

@@ -71,14 +71,16 @@ export default async function handler(req, res) {
         if (datos.items && typeof datos.items !== 'string') {
           datos.items = JSON.stringify(datos.items);
         }
-        // Manejar adjuntos: si es null, undefined, string "null", o array vacío, establecer como null
+        // Manejar adjuntos: convertir a JSON si es array, mantener null si es null/undefined/vacío
         if (datos.adjuntos === null || datos.adjuntos === undefined || 
             datos.adjuntos === 'null' || datos.adjuntos === '' ||
             (Array.isArray(datos.adjuntos) && datos.adjuntos.length === 0)) {
           datos.adjuntos = null;
         } else if (typeof datos.adjuntos !== 'string') {
+          // Si es un array, convertirlo a JSON string
           datos.adjuntos = JSON.stringify(datos.adjuntos);
         }
+        // Si ya es string, dejarlo como está (puede ser JSON válido o "null")
         if (datos.contenido && typeof datos.contenido !== 'string') {
           datos.contenido = JSON.stringify(datos.contenido);
         }
@@ -91,10 +93,16 @@ export default async function handler(req, res) {
         if (datosLimpios.especificaciones === '' || datosLimpios.especificaciones === undefined) {
           datosLimpios.especificaciones = null;
         }
-        // Si adjuntos es null, undefined o string "null", establecer explícitamente como null
+        // Asegurar que adjuntos sea null o un string JSON válido
         if (datosLimpios.adjuntos === null || datosLimpios.adjuntos === undefined || 
             datosLimpios.adjuntos === 'null' || datosLimpios.adjuntos === '') {
           datosLimpios.adjuntos = null;
+        } else if (typeof datosLimpios.adjuntos === 'string') {
+          // Si ya es string, validar que sea JSON válido o "null"
+          if (datosLimpios.adjuntos.trim() === '' || datosLimpios.adjuntos.trim() === 'null') {
+            datosLimpios.adjuntos = null;
+          }
+          // Si es un string JSON válido, dejarlo como está
         }
         
         let propuesta;
