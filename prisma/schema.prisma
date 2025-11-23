@@ -59,17 +59,18 @@ model Cliente {
 
 // Modelo de Sesión Programada
 model Sesion {
-  id          String   @id @default(cuid())
-  clienteId   String
-  usuarioId   String?
-  fecha       DateTime
-  hora        String
-  servicio    String
-  estado      String   @default("programada") // programada, confirmada, completada, cancelada, reprogramada
-  notas       String?  @db.Text
-  urlReunion  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  clienteId           String
+  usuarioId           String?
+  fecha               DateTime
+  hora                String
+  servicio            String
+  estado              String   @default("programada") // programada, confirmada, completada, cancelada, reprogramada
+  notas               String?  @db.Text
+  urlReunion          String?
+  eventoId            String?  // ID del evento en Google Calendar
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   // Relaciones
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
@@ -78,6 +79,7 @@ model Sesion {
   @@index([clienteId])
   @@index([fecha])
   @@index([estado])
+  @@index([eventoId])
   @@map("sesiones")
 }
 
