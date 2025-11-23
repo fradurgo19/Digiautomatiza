@@ -379,71 +379,7 @@ export default function PropuestasPage() {
 
   const handleExportarPDF = async (propuesta: Propuesta) => {
     try {
-      // Asegurarse de que el preview esté abierto y actualizado
-      if (!propuestaPreview || propuestaPreview.id !== propuesta.id) {
-        setPropuestaPreview(propuesta);
-        // Esperar un momento para que el DOM se actualice
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      const elemento = document.getElementById('propuesta-preview');
-      if (!elemento) {
-        alert('Error: No se encontró el elemento de preview. Por favor, abre la vista previa primero.');
-        return;
-      }
-
-      // Esperar a que todas las imágenes se carguen antes de generar el PDF
-      if (propuesta.adjuntos && propuesta.adjuntos.length > 0) {
-        const imagenes = elemento.querySelectorAll('img');
-        if (imagenes.length > 0) {
-          const promesasImagenes = Array.from(imagenes).map((img) => {
-            return new Promise<void>((resolve) => {
-              // Si la imagen ya está cargada
-              if (img.complete && img.naturalHeight !== 0) {
-                resolve();
-                return;
-              }
-              
-              // Configurar listeners
-              const onLoad = () => {
-                img.removeEventListener('load', onLoad);
-                img.removeEventListener('error', onError);
-                resolve();
-              };
-              
-              const onError = () => {
-                console.warn('Error al cargar imagen para PDF:', img.src);
-                img.removeEventListener('load', onLoad);
-                img.removeEventListener('error', onError);
-                resolve(); // Continuar aunque falle una imagen
-              };
-              
-              img.addEventListener('load', onLoad);
-              img.addEventListener('error', onError);
-              
-              // Forzar recarga si la imagen ya estaba en cache pero no se cargó
-              if (img.src && !img.complete) {
-                const originalSrc = img.src;
-                img.src = '';
-                img.src = originalSrc;
-              }
-              
-              // Timeout de seguridad (10 segundos)
-              setTimeout(() => {
-                img.removeEventListener('load', onLoad);
-                img.removeEventListener('error', onError);
-                resolve();
-              }, 10000);
-            });
-          });
-          
-          await Promise.all(promesasImagenes);
-        }
-        // Esperar un poco más para asegurar que todo esté renderizado
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      console.log('Generando PDF...');
+      console.log('Generando PDF directamente desde los datos de la propuesta...');
       
       // Crear PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
