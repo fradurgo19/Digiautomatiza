@@ -401,7 +401,7 @@ export default function PropuestasPage() {
       // Función para limpiar texto y evitar problemas de codificación
       const cleanText = (text: string): string => {
         if (!text) return '';
-        // Reemplazar caracteres problemáticos comunes
+        // Reemplazar caracteres problemáticos comunes, pero mantener números, símbolos de moneda y caracteres comunes
         return String(text)
           .replace(/[^\x00-\x7F]/g, (char) => {
             // Mapeo de caracteres especiales comunes
@@ -641,7 +641,8 @@ export default function PropuestasPage() {
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
       const subtotalFormateado = formatearMoneda(propuesta.valorTotal || 0);
-      pdf.text(cleanText(subtotalFormateado), pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
+      // No usar cleanText en valores monetarios para preservar símbolos y números
+      pdf.text(subtotalFormateado, pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
       yPosition += 10;
       
       if (propuesta.descuento && propuesta.descuento > 0) {
@@ -650,7 +651,8 @@ export default function PropuestasPage() {
         pdf.text(cleanText('Descuento:'), pdfWidth - margin - 5, yPosition, { align: 'right' });
         pdf.setFont('helvetica', 'bold');
         const descuentoFormateado = formatearMoneda(propuesta.descuento);
-        pdf.text(cleanText(`-${descuentoFormateado}`), pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
+        // No usar cleanText en valores monetarios
+        pdf.text(`-${descuentoFormateado}`, pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
         yPosition += 10;
       }
       
@@ -665,9 +667,10 @@ export default function PropuestasPage() {
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-      pdf.text(cleanText('TOTAL:'), pdfWidth - margin - 5, yPosition, { align: 'right' });
+      pdf.text('TOTAL:', pdfWidth - margin - 5, yPosition, { align: 'right' });
       pdf.setFontSize(18);
-      pdf.text(cleanText(valorTotalFormateado), pdfWidth - margin - 5, yPosition + 8, { align: 'right' });
+      // No usar cleanText en valores monetarios para preservar símbolos y números
+      pdf.text(valorTotalFormateado, pdfWidth - margin - 5, yPosition + 8, { align: 'right' });
       
       yPosition += 20;
       
@@ -885,17 +888,20 @@ export default function PropuestasPage() {
         pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
         pdf.text('Digiautomatiza', margin + 3, pdfHeight - 18);
         
-        pdf.setFontSize(6);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-        pdf.text('Innovación Digital', margin + 3, pdfHeight - 13);
-        
-        // Información de contacto compacta
-        pdf.setFontSize(6);
-        pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-        pdf.text('Telefono: +57 313 368 3567', margin + 3, pdfHeight - 8);
-        pdf.text('Email: digiautomatiza1@gmail.com', margin + 45, pdfHeight - 8);
-        pdf.text('Web: www.digiautomatiza.co', margin + 3, pdfHeight - 3);
+      pdf.setFontSize(6);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      // "Innovación Digital" y URL en la misma línea
+      const innovacionText = 'Innovacion Digital';
+      const webText = 'www.digiautomatiza.co';
+      const combinedText = `${innovacionText} | ${webText}`;
+      pdf.text(cleanText(combinedText), margin + 3, pdfHeight - 13);
+      
+      // Información de contacto compacta
+      pdf.setFontSize(6);
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      pdf.text('Telefono: +57 313 368 3567', margin + 3, pdfHeight - 8);
+      pdf.text('Email: digiautomatiza1@gmail.com', margin + 45, pdfHeight - 8);
         
         // Número de página con estilo
         pdf.setFontSize(8);
