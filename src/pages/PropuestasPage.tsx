@@ -578,17 +578,28 @@ export default function PropuestasPage() {
         
         // Calcular altura necesaria para las especificaciones
         const especTextLines = pdf.splitTextToSize(cleanText(propuesta.especificaciones), contentWidth - 20);
-        const especTextHeight = especTextLines.length * 5 + 15; // Altura del texto + padding
+        const titleHeight = 12; // Altura del título
+        const titleSpacing = 15; // Espaciado después del título
+        const textHeight = especTextLines.length * 5; // Altura del texto
+        const bottomPadding = 8; // Padding inferior
+        const especTextHeight = titleHeight + titleSpacing + textHeight + bottomPadding;
+        
+        // Guardar posición inicial de la caja
+        const especBoxY = yPosition;
         
         // Caja para especificaciones
-        addBox(margin, yPosition, contentWidth, especTextHeight, colorPrimaryLight);
+        addBox(margin, especBoxY, contentWidth, especTextHeight, colorPrimaryLight);
         
+        // Título
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-        pdf.text('Especificaciones del Servicio', margin + 5, yPosition + 8);
+        pdf.text('Especificaciones del Servicio', margin + 5, especBoxY + 8);
         
-        yPosition += 10; // Espaciado después del título
+        // Posición para el contenido (después del título y espaciado)
+        yPosition = especBoxY + titleHeight + titleSpacing;
+        
+        // Contenido de las especificaciones
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
@@ -600,7 +611,9 @@ export default function PropuestasPage() {
           pdf.text(cleanText(line), margin + 5, yPosition);
           yPosition += 5;
         });
-        yPosition += 8; // Espaciado después de las especificaciones
+        
+        // Actualizar posición final después de la caja
+        yPosition = especBoxY + especTextHeight + 8; // Espaciado después de las especificaciones
       }
       
       // Totales con diseño moderno y elegante
@@ -708,33 +721,36 @@ export default function PropuestasPage() {
                     }
                     
                     // Imagen ocupa el ancho completo con márgenes del documento
-                    const maxWidth = contentWidth; // Ancho completo con márgenes
-                    const maxHeight = 200; // Altura máxima aumentada significativamente
-                    let width = img.width;
-                    let height = img.height;
+                    const maxWidthMM = contentWidth; // Ancho completo en milímetros
+                    const maxHeightMM = 250; // Altura máxima en milímetros (aumentada significativamente)
                     
-                    // Calcular proporciones manteniendo aspect ratio
-                    const aspectRatio = width / height;
+                    // Obtener dimensiones originales de la imagen
+                    let originalWidth = img.width;
+                    let originalHeight = img.height;
                     
-                    // Ajustar al ancho completo primero
-                    width = maxWidth;
-                    height = width / aspectRatio;
+                    // Calcular aspect ratio original
+                    const aspectRatio = originalWidth / originalHeight;
+                    
+                    // Calcular dimensiones finales en milímetros manteniendo aspect ratio
+                    let imgWidthMM = maxWidthMM;
+                    let imgHeightMM = imgWidthMM / aspectRatio;
                     
                     // Si la altura excede el máximo, ajustar proporcionalmente
-                    if (height > maxHeight) {
-                      height = maxHeight;
-                      width = height * aspectRatio;
+                    if (imgHeightMM > maxHeightMM) {
+                      imgHeightMM = maxHeightMM;
+                      imgWidthMM = imgHeightMM * aspectRatio;
                     }
                     
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
+                    // Convertir milímetros a píxeles para el canvas (aproximadamente 3.78 px por mm a 96 DPI)
+                    const scaleFactor = 3.779527559; // píxeles por milímetro
+                    const canvasWidth = Math.round(imgWidthMM * scaleFactor);
+                    const canvasHeight = Math.round(imgHeightMM * scaleFactor);
+                    
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
+                    ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
                     
                     const imgData = canvas.toDataURL('image/jpeg', 0.9); // Mejor calidad
-                    
-                    // Convertir a milímetros
-                    const imgWidthMM = width * 0.264583;
-                    const imgHeightMM = height * 0.264583;
                     
                     // Verificar si necesita nueva página
                     if (yPosition + imgHeightMM + 15 > pdfHeight - margin) {
