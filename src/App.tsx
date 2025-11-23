@@ -6,6 +6,7 @@ import ClientesPage from './pages/ClientesPage';
 import SesionesPage from './pages/SesionesPage';
 import CalendarioPage from './pages/CalendarioPage';
 import OportunidadesPage from './pages/OportunidadesPage';
+import PropuestasPage from './pages/PropuestasPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -54,6 +55,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <OportunidadesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/propuestas"
+            element={
+              <ProtectedRoute>
+                <PropuestasPage />
               </ProtectedRoute>
             }
           />

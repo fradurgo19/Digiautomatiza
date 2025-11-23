@@ -26,6 +26,7 @@ model Usuario {
   clientes      Cliente[]
   sesiones      Sesion[]
   oportunidades Oportunidad[]
+  propuestas    Propuesta[]
 
   @@map("usuarios")
 }
@@ -48,6 +49,7 @@ model Cliente {
   // Relaciones
   sesiones      Sesion[]
   oportunidades Oportunidad[]
+  propuestas    Propuesta[]
   usuario       Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([email])
@@ -134,8 +136,46 @@ model Oportunidad {
   // Relaciones
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  propuestas Propuesta[]
 
   @@index([clienteId])
   @@index([etapa])
   @@map("oportunidades")
+}
+
+// Modelo de Propuesta Comercial
+model Propuesta {
+  id                  String   @id @default(cuid())
+  oportunidadId       String?
+  clienteId           String
+  usuarioId           String?
+  titulo              String
+  numeroPropuesta     String   @unique // Número único de propuesta
+  servicio            String   // referencia a ServicioTipo
+  estado              String   @default("borrador") // borrador, enviada, revisada, aceptada, rechazada, vencida
+  valorTotal          Float
+  descuento           Float?   @default(0)
+  valorFinal         Float
+  validez             Int      @default(30) // días de validez
+  fechaVencimiento    DateTime?
+  contenido           String   @db.Text // JSON con el contenido de la propuesta
+  items               String   @db.Text // JSON con items de la propuesta
+  notas               String?  @db.Text
+  fechaEnvio          DateTime?
+  fechaAceptacion     DateTime?
+  fechaRechazo        DateTime?
+  motivoRechazo       String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relaciones
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  oportunidad Oportunidad? @relation(fields: [oportunidadId], references: [id], onDelete: SetNull)
+
+  @@index([clienteId])
+  @@index([oportunidadId])
+  @@index([estado])
+  @@index([fechaVencimiento])
+  @@map("propuestas")
 }

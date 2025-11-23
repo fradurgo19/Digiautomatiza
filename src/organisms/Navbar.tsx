@@ -13,6 +13,7 @@ export default function Navbar() {
     { path: '/sesiones', label: 'Sesiones', icon: '📅' },
     { path: '/calendario', label: 'Calendario', icon: '📆' },
     { path: '/oportunidades', label: 'Oportunidades', icon: '📈' },
+    { path: '/propuestas', label: 'Propuestas', icon: '📄' },
   ];
 
   const handleLogout = () => {

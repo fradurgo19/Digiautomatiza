@@ -25,6 +25,8 @@
     "@types/nodemailer": "^7.0.2",
     "dotenv": "^17.2.3",
     "googleapis": "^144.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.4",
     "lucide-react": "^0.344.0",
     "nodemailer": "^7.0.9",
     "prisma": "^6.17.1",

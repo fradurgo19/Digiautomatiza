@@ -12,6 +12,8 @@ import type {
   Contacto,
   Oportunidad,
   EtapaOportunidad,
+  Propuesta,
+  ItemPropuesta,
 } from '../types';
 
 // URL del backend que manejará las operaciones de base de datos
@@ -582,5 +584,146 @@ export async function obtenerStatsDashboard(): Promise<DashboardStats | null> {
     // Retornar null en lugar de lanzar error para que el componente pueda manejarlo
     return null;
   }
+}
+
+// ==================== PROPUESTAS ====================
+
+export async function obtenerPropuestas(): Promise<Propuesta[]> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = {};
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/propuestas`, {
+      method: 'GET',
+      headers,
+    });
+    
+    if (!response.ok) throw new Error('Error al obtener propuestas');
+    const data = await response.json();
+    return data.propuestas.map(mapPropuesta);
+  } catch (error) {
+    console.error('Error al obtener propuestas:', error);
+    throw error;
+  }
+}
+
+export async function crearPropuesta(propuestaData: Omit<Propuesta, 'id' | 'cliente' | 'createdAt' | 'updatedAt'>): Promise<Propuesta> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/propuestas`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(propuestaData),
+    });
+    
+    if (!response.ok) throw new Error('Error al crear propuesta');
+    const data = await response.json();
+    return mapPropuesta(data.propuesta);
+  } catch (error) {
+    console.error('Error al crear propuesta:', error);
+    throw error;
+  }
+}
+
+export async function actualizarPropuesta(id: string, propuestaData: Partial<Propuesta>): Promise<Propuesta> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/propuestas?id=${id}&action=update`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(propuestaData),
+    });
+    
+    if (!response.ok) throw new Error('Error al actualizar propuesta');
+    const data = await response.json();
+    return mapPropuesta(data.propuesta);
+  } catch (error) {
+    console.error('Error al actualizar propuesta:', error);
+    throw error;
+  }
+}
+
+export async function eliminarPropuesta(id: string): Promise<void> {
+  try {
+    const usuario = localStorage.getItem('usuario');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (usuario) {
+      try {
+        const parsed = JSON.parse(usuario);
+        if (parsed?.id) headers['x-usuario-id'] = String(parsed.id);
+        if (parsed?.rol) headers['x-usuario-rol'] = String(parsed.rol);
+      } catch (e) {
+        console.warn('No se pudo parsear usuario desde localStorage', e);
+      }
+    }
+
+    const response = await fetch(`${API_URL}/api/propuestas?id=${id}&action=delete`, {
+      method: 'POST',
+      headers,
+    });
+    
+    if (!response.ok) throw new Error('Error al eliminar propuesta');
+  } catch (error) {
+    console.error('Error al eliminar propuesta:', error);
+    throw error;
+  }
+}
+
+function mapPropuesta(data: any): Propuesta {
+  return {
+    id: data.id,
+    oportunidadId: data.oportunidadId || undefined,
+    clienteId: data.clienteId,
+    cliente: mapCliente(data.cliente),
+    titulo: data.titulo,
+    numeroPropuesta: data.numeroPropuesta,
+    servicio: data.servicio,
+    estado: data.estado,
+    valorTotal: parseFloat(data.valorTotal) || 0,
+    descuento: data.descuento ? parseFloat(data.descuento) : undefined,
+    valorFinal: parseFloat(data.valorFinal) || 0,
+    validez: data.validez || 30,
+    fechaVencimiento: data.fechaVencimiento ? new Date(data.fechaVencimiento) : undefined,
+    contenido: typeof data.contenido === 'string' ? data.contenido : JSON.stringify(data.contenido),
+    items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items || [],
+    notas: data.notas || undefined,
+    fechaEnvio: data.fechaEnvio ? new Date(data.fechaEnvio) : undefined,
+    fechaAceptacion: data.fechaAceptacion ? new Date(data.fechaAceptacion) : undefined,
+    fechaRechazo: data.fechaRechazo ? new Date(data.fechaRechazo) : undefined,
+    motivoRechazo: data.motivoRechazo || undefined,
+    createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
+    updatedAt: data.updatedAt ? new Date(data.updatedAt) : new Date(),
+  };
 }
 

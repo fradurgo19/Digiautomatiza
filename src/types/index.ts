@@ -128,3 +128,47 @@ export interface LoginCredentials {
   password: string;
 }
 
+// Tipo para Item de Propuesta
+export interface ItemPropuesta {
+  id: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+// Estados de Propuesta
+export type EstadoPropuesta = 
+  | 'borrador'
+  | 'enviada'
+  | 'revisada'
+  | 'aceptada'
+  | 'rechazada'
+  | 'vencida';
+
+// Tipo de Propuesta Comercial
+export interface Propuesta {
+  id: string;
+  oportunidadId?: string;
+  clienteId: string;
+  cliente: Cliente;
+  titulo: string;
+  numeroPropuesta: string;
+  servicio: ServicioTipo;
+  estado: EstadoPropuesta;
+  valorTotal: number;
+  descuento?: number;
+  valorFinal: number;
+  validez: number; // días
+  fechaVencimiento?: Date;
+  contenido: string; // JSON stringificado
+  items: ItemPropuesta[];
+  notas?: string;
+  fechaEnvio?: Date;
+  fechaAceptacion?: Date;
+  fechaRechazo?: Date;
+  motivoRechazo?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
