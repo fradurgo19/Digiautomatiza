@@ -61,8 +61,9 @@ export default async function handler(req, res) {
         if (datos.items && typeof datos.items !== 'string') {
           datos.items = JSON.stringify(datos.items);
         }
-        // Manejar adjuntos: si es null, undefined o array vacío, establecer como null
+        // Manejar adjuntos: si es null, undefined, string "null", o array vacío, establecer como null
         if (datos.adjuntos === null || datos.adjuntos === undefined || 
+            datos.adjuntos === 'null' || datos.adjuntos === '' ||
             (Array.isArray(datos.adjuntos) && datos.adjuntos.length === 0)) {
           datos.adjuntos = null;
         } else if (typeof datos.adjuntos !== 'string') {

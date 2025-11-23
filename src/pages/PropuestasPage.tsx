@@ -328,12 +328,17 @@ export default function PropuestasPage() {
       };
 
       const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
-      const propuestasActualizadas = propuestas.map(p => (p.id === actualizada.id ? actualizada : p));
-      setPropuestas(propuestasActualizadas);
+      
+      // Recargar todas las propuestas para asegurar datos actualizados
+      const todasLasPropuestas = await obtenerPropuestas();
+      setPropuestas(todasLasPropuestas);
+      
+      // Buscar la propuesta actualizada en la lista recargada
+      const propuestaActualizada = todasLasPropuestas.find(p => p.id === actualizada.id) || actualizada;
       
       // Actualizar la vista previa si está abierta
-      if (propuestaPreview && propuestaPreview.id === actualizada.id) {
-        setPropuestaPreview(actualizada);
+      if (propuestaPreview && propuestaPreview.id === propuestaActualizada.id) {
+        setPropuestaPreview(propuestaActualizada);
       }
       
       setIsEditModalOpen(false);
@@ -355,72 +360,82 @@ export default function PropuestasPage() {
 
   const handleExportarPDF = async (propuesta: Propuesta) => {
     try {
+      // Asegurarse de que el preview esté abierto y actualizado
+      if (!propuestaPreview || propuestaPreview.id !== propuesta.id) {
+        setPropuestaPreview(propuesta);
+        // Esperar un momento para que el DOM se actualice
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
       const elemento = document.getElementById('propuesta-preview');
       if (!elemento) {
-        alert('Error al generar PDF. Por favor, intenta nuevamente.');
+        alert('Error: No se encontró el elemento de preview. Por favor, abre la vista previa primero.');
         return;
       }
 
       // Esperar a que todas las imágenes se carguen antes de generar el PDF
       if (propuesta.adjuntos && propuesta.adjuntos.length > 0) {
         const imagenes = elemento.querySelectorAll('img');
-        const promesasImagenes = Array.from(imagenes).map((img) => {
-          return new Promise<void>((resolve) => {
-            // Si la imagen ya está cargada
-            if (img.complete && img.naturalHeight !== 0) {
-              resolve();
-              return;
-            }
-            
-            // Configurar listeners
-            const onLoad = () => {
-              img.removeEventListener('load', onLoad);
-              img.removeEventListener('error', onError);
-              resolve();
-            };
-            
-            const onError = () => {
-              console.warn('Error al cargar imagen para PDF:', img.src);
-              img.removeEventListener('load', onLoad);
-              img.removeEventListener('error', onError);
-              resolve(); // Continuar aunque falle una imagen
-            };
-            
-            img.addEventListener('load', onLoad);
-            img.addEventListener('error', onError);
-            
-            // Forzar recarga si la imagen ya estaba en cache pero no se cargó
-            if (img.src && !img.complete) {
-              const originalSrc = img.src;
-              img.src = '';
-              img.src = originalSrc;
-            }
-            
-            // Timeout de seguridad (10 segundos)
-            setTimeout(() => {
-              img.removeEventListener('load', onLoad);
-              img.removeEventListener('error', onError);
-              resolve();
-            }, 10000);
+        if (imagenes.length > 0) {
+          const promesasImagenes = Array.from(imagenes).map((img) => {
+            return new Promise<void>((resolve) => {
+              // Si la imagen ya está cargada
+              if (img.complete && img.naturalHeight !== 0) {
+                resolve();
+                return;
+              }
+              
+              // Configurar listeners
+              const onLoad = () => {
+                img.removeEventListener('load', onLoad);
+                img.removeEventListener('error', onError);
+                resolve();
+              };
+              
+              const onError = () => {
+                console.warn('Error al cargar imagen para PDF:', img.src);
+                img.removeEventListener('load', onLoad);
+                img.removeEventListener('error', onError);
+                resolve(); // Continuar aunque falle una imagen
+              };
+              
+              img.addEventListener('load', onLoad);
+              img.addEventListener('error', onError);
+              
+              // Forzar recarga si la imagen ya estaba en cache pero no se cargó
+              if (img.src && !img.complete) {
+                const originalSrc = img.src;
+                img.src = '';
+                img.src = originalSrc;
+              }
+              
+              // Timeout de seguridad (10 segundos)
+              setTimeout(() => {
+                img.removeEventListener('load', onLoad);
+                img.removeEventListener('error', onError);
+                resolve();
+              }, 10000);
+            });
           });
-        });
-        
-        await Promise.all(promesasImagenes);
+          
+          await Promise.all(promesasImagenes);
+        }
         // Esperar un poco más para asegurar que todo esté renderizado
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
+      console.log('Generando PDF...');
       const canvas = await html2canvas(elemento, {
         scale: 2,
         useCORS: true,
-        allowTaint: true, // Permitir imágenes de otros dominios
-        logging: true, // Habilitar logging para debug
+        allowTaint: true,
+        logging: false,
         backgroundColor: '#ffffff',
         removeContainer: false,
-        imageTimeout: 15000, // Timeout más largo para imágenes
-        proxy: undefined, // No usar proxy
+        imageTimeout: 15000,
       });
 
+      console.log('Canvas generado, creando PDF...');
       const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -441,10 +456,12 @@ export default function PropuestasPage() {
         heightLeft -= pageHeight;
       }
 
+      console.log('PDF creado, descargando...');
       pdf.save(`Propuesta-${propuesta.numeroPropuesta}.pdf`);
     } catch (error) {
-      console.error('Error al exportar PDF:', error);
-      alert('Error al exportar PDF. Por favor, intenta nuevamente.');
+      console.error('Error completo al exportar PDF:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al exportar PDF: ${errorMessage}. Por favor, intenta nuevamente.`);
     }
   };
 
