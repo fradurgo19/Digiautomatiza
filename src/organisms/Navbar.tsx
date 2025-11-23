@@ -37,18 +37,18 @@ export default function Navbar() {
           </div>
 
           {/* Navigation Links */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
             {navItems.map((item) => (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors text-sm ${
                   location.pathname === item.path
                     ? 'bg-blue-100 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <span>{item.icon}</span>
+                <span className="text-base">{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             ))}

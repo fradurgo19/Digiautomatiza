@@ -25,6 +25,8 @@ export default function SesionesPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSavingSesion, setIsSavingSesion] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [sesionEditando, setSesionEditando] = useState<Sesion | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<EstadoSesion | 'todas'>('todas');
 
   const [nuevaSesion, setNuevaSesion] = useState({
@@ -163,6 +165,48 @@ export default function SesionesPage() {
     } catch (error) {
       console.error('Error al eliminar sesión:', error);
       alert('No se pudo eliminar la sesión. Intenta nuevamente.');
+    }
+  };
+
+  const handleEditarSesion = (sesion: Sesion) => {
+    setSesionEditando(sesion);
+    setIsEditModalOpen(true);
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!sesionEditando) return;
+
+    if (!sesionEditando.fecha || !sesionEditando.hora || !sesionEditando.servicio) {
+      alert('Por favor completa todos los campos requeridos.');
+      return;
+    }
+
+    // Validar formato del enlace si se proporcionó uno manualmente
+    if (sesionEditando.urlReunion && !esEnlaceGoogleMeetValido(sesionEditando.urlReunion)) {
+      alert('El enlace de Google Meet debe tener el formato: https://meet.google.com/xxx-yyyy-zzz\n\nEjemplo: https://meet.google.com/abc-defg-hij');
+      return;
+    }
+
+    setIsSavingSesion(true);
+    try {
+      const payload = {
+        fecha: new Date(sesionEditando.fecha),
+        hora: sesionEditando.hora,
+        servicio: sesionEditando.servicio,
+        estado: sesionEditando.estado,
+        notas: sesionEditando.notas || undefined,
+        urlReunion: sesionEditando.urlReunion || undefined,
+      };
+      
+      const actualizada = await actualizarSesionApi(sesionEditando.id, payload);
+      setSesiones(prev => prev.map(s => (s.id === sesionEditando.id ? actualizada : s)));
+      setIsEditModalOpen(false);
+      setSesionEditando(null);
+    } catch (error) {
+      console.error('Error al actualizar sesión:', error);
+      alert('No se pudo actualizar la sesión. Intenta nuevamente.');
+    } finally {
+      setIsSavingSesion(false);
     }
   };
 
@@ -340,6 +384,13 @@ export default function SesionesPage() {
                       className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                     />
                     <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleEditarSesion(sesion)}
+                    >
+                      ✏️ Editar
+                    </Button>
+                    <Button
                       variant="danger"
                       size="sm"
                       onClick={() => handleEliminarSesion(sesion.id)}
@@ -493,6 +544,127 @@ export default function SesionesPage() {
               </>
             )}
           </div>
+        </Modal>
+
+        {/* Modal Editar Sesión */}
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSesionEditando(null);
+          }}
+          title="Editar Sesión"
+          size="lg"
+        >
+          {sesionEditando && (
+            <div className="space-y-4 rounded-3xl bg-gradient-to-br from-emerald-50 via-emerald-100 to-white border border-emerald-200 p-6 shadow-lg shadow-emerald-100/60">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Cliente:</strong> {sesionEditando.cliente.nombre} ({sesionEditando.cliente.email})
+                </p>
+              </div>
+
+              <Input
+                label="Fecha *"
+                type="date"
+                value={sesionEditando.fecha ? (sesionEditando.fecha instanceof Date ? sesionEditando.fecha.toISOString().split('T')[0] : new Date(sesionEditando.fecha).toISOString().split('T')[0]) : ''}
+                onChange={(e) => {
+                  const nuevaFecha = new Date(e.target.value);
+                  setSesionEditando({ ...sesionEditando, fecha: nuevaFecha });
+                }}
+                fullWidth
+                className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                textClassName="text-gray-900 placeholder:text-emerald-500"
+                labelClassName="text-emerald-800"
+              />
+              
+              <Input
+                label="Hora *"
+                type="time"
+                value={sesionEditando.hora}
+                onChange={(e) => setSesionEditando({ ...sesionEditando, hora: e.target.value })}
+                fullWidth
+                className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                textClassName="text-gray-900 placeholder:text-emerald-500"
+                labelClassName="text-emerald-800"
+              />
+              
+              <Select
+                label="Servicio *"
+                options={serviciosOptions}
+                value={sesionEditando.servicio}
+                onChange={(e) => setSesionEditando({ ...sesionEditando, servicio: e.target.value as ServicioTipo })}
+                fullWidth
+                placeholder="Selecciona un servicio"
+                className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                textClassName="!text-gray-900"
+                labelClassName="text-emerald-800"
+              />
+              
+              <Select
+                label="Estado"
+                options={estadoOptions}
+                value={sesionEditando.estado}
+                onChange={(e) => setSesionEditando({ ...sesionEditando, estado: e.target.value as EstadoSesion })}
+                fullWidth
+                className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                textClassName="!text-gray-900"
+                labelClassName="text-emerald-800"
+              />
+              
+              <div>
+                <label className="block text-sm font-medium text-emerald-800 mb-2">
+                  URL de la reunión (opcional)
+                </label>
+                <Input
+                  type="url"
+                  value={sesionEditando.urlReunion || ''}
+                  onChange={(e) => setSesionEditando({ ...sesionEditando, urlReunion: e.target.value })}
+                  fullWidth
+                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-gray-900 placeholder:text-emerald-500"
+                />
+                <p className="text-xs text-emerald-700 mt-1">
+                  💡 Puedes actualizar el enlace de Google Meet si es necesario.
+                </p>
+              </div>
+              
+              <TextArea
+                label="Notas"
+                value={sesionEditando.notas || ''}
+                onChange={(e) => setSesionEditando({ ...sesionEditando, notas: e.target.value })}
+                fullWidth
+                rows={4}
+                placeholder="Información adicional sobre la sesión..."
+                className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                textClassName="text-gray-900 placeholder:text-emerald-500"
+                labelClassName="text-emerald-800"
+              />
+              
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setSesionEditando(null);
+                  }}
+                  disabled={isSavingSesion}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={handleGuardarEdicion}
+                  disabled={!sesionEditando.fecha || !sesionEditando.hora || !sesionEditando.servicio || isSavingSesion}
+                >
+                  {isSavingSesion ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
     </div>
