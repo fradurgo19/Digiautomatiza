@@ -71,9 +71,9 @@ function App() {
           <Route
             path="/dev"
             element={
-              <AdminRoute>
+              <ProtectedRoute>
                 <DevPage />
-              </AdminRoute>
+              </ProtectedRoute>
             }
           />
           

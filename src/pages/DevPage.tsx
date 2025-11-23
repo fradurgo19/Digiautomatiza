@@ -54,13 +54,6 @@ export default function DevPage() {
     descripcion: '',
   });
 
-  // Verificar si el usuario es administrador
-  useEffect(() => {
-    if (usuario && usuario.rol !== 'admin') {
-      navigate('/dashboard');
-    }
-  }, [usuario, navigate]);
-
   useEffect(() => {
     const cargarPropuestas = async () => {
       setIsLoading(true);
@@ -77,7 +70,7 @@ export default function DevPage() {
       }
     };
 
-    if (usuario?.rol === 'admin') {
+    if (usuario) {
       cargarPropuestas();
     }
   }, [usuario]);
@@ -328,13 +321,15 @@ export default function DevPage() {
                       >
                         👁️ Ver Detalles
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditarProyecto(propuesta)}
-                      >
-                        ✏️ Gestionar Proyecto
-                      </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditarProyecto(propuesta)}
+                        >
+                          ✏️ Gestionar Proyecto
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
