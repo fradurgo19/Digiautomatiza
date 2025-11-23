@@ -69,11 +69,42 @@ export default async function handler(req, res) {
         }
 
         console.log(`🔄 Actualizando propuesta ${id} - UsuarioId: ${usuarioId}`, datos);
-        const propuesta = await prisma.propuesta.update({
-          where: { id },
-          data: datos,
-          include: { cliente: true, oportunidad: true },
-        });
+        
+        // Remover campos que pueden no existir en la BD si no están presentes
+        const datosLimpios = { ...datos };
+        if (!datosLimpios.especificaciones) {
+          delete datosLimpios.especificaciones;
+        }
+        if (!datosLimpios.adjuntos) {
+          delete datosLimpios.adjuntos;
+        }
+        
+        let propuesta;
+        try {
+          propuesta = await prisma.propuesta.update({
+            where: { id },
+            data: datosLimpios,
+            include: { cliente: true, oportunidad: true },
+          });
+        } catch (updateError) {
+          // Si falla por columnas que no existen, intentar sin esas columnas
+          if (updateError.message && updateError.message.includes('does not exist')) {
+            console.log('⚠️ Columnas nuevas no encontradas en update, omitiéndolas...');
+            delete datosLimpios.especificaciones;
+            delete datosLimpios.adjuntos;
+            propuesta = await prisma.propuesta.update({
+              where: { id },
+              data: datosLimpios,
+              include: { cliente: true, oportunidad: true },
+            });
+            // Agregar campos como null
+            propuesta.especificaciones = null;
+            propuesta.adjuntos = null;
+          } else {
+            throw updateError;
+          }
+        }
+        
         console.log(`✅ Propuesta actualizada exitosamente: ${propuesta.id}`);
         res.status(200).json({ propuesta });
         return;
@@ -92,11 +123,59 @@ export default async function handler(req, res) {
 
       console.log('📋 Obteniendo propuestas - Admin:', isAdmin, 'UsuarioId:', usuarioId);
 
-      const propuestas = await prisma.propuesta.findMany({
-        ...(where && { where }),
-        include: { cliente: true, oportunidad: true },
-        orderBy: { createdAt: 'desc' },
-      });
+      // Intentar consulta normal primero, si falla por columnas faltantes, usar select explícito
+      let propuestas;
+      try {
+        propuestas = await prisma.propuesta.findMany({
+          ...(where && { where }),
+          include: { cliente: true, oportunidad: true },
+          orderBy: { createdAt: 'desc' },
+        });
+      } catch (schemaError) {
+        // Si falla por columnas que no existen, usar select explícito sin las columnas nuevas
+        if (schemaError.message && schemaError.message.includes('does not exist')) {
+          console.log('⚠️ Columnas nuevas no encontradas, usando select explícito...');
+          propuestas = await prisma.propuesta.findMany({
+            ...(where && { where }),
+            select: {
+              id: true,
+              oportunidadId: true,
+              clienteId: true,
+              usuarioId: true,
+              titulo: true,
+              numeroPropuesta: true,
+              servicio: true,
+              estado: true,
+              valorTotal: true,
+              descuento: true,
+              valorFinal: true,
+              validez: true,
+              fechaVencimiento: true,
+              contenido: true,
+              items: true,
+              notas: true,
+              fechaEnvio: true,
+              fechaAceptacion: true,
+              fechaRechazo: true,
+              motivoRechazo: true,
+              createdAt: true,
+              updatedAt: true,
+              cliente: true,
+              oportunidad: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+          
+          // Agregar campos opcionales con valores null si no existen
+          propuestas = propuestas.map(p => ({
+            ...p,
+            especificaciones: null,
+            adjuntos: null,
+          }));
+        } else {
+          throw schemaError;
+        }
+      }
       
       console.log(`✅ Propuestas obtenidas: ${propuestas.length}`);
       
@@ -132,27 +211,54 @@ export default async function handler(req, res) {
       const fechaVencimiento = new Date();
       fechaVencimiento.setDate(fechaVencimiento.getDate() + (validez || 30));
       
-      const propuesta = await prisma.propuesta.create({
-        data: {
-          oportunidadId: oportunidadId || null,
-          clienteId,
-          titulo,
-          numeroPropuesta,
-          servicio,
-          valorTotal: parseFloat(valorTotal) || 0,
-          descuento: descuento ? parseFloat(descuento) : 0,
-          valorFinal: parseFloat(valorFinal) || 0,
-          validez: validez || 30,
-          fechaVencimiento,
-          contenido: typeof contenido === 'string' ? contenido : JSON.stringify(contenido),
-          items: typeof items === 'string' ? items : JSON.stringify(items),
-          especificaciones: especificaciones || null,
-          adjuntos: adjuntos ? (typeof adjuntos === 'string' ? adjuntos : JSON.stringify(adjuntos)) : null,
-          notas: notas || null,
-          usuarioId: usuarioId ? String(usuarioId) : null,
-        },
-        include: { cliente: true, oportunidad: true },
-      });
+      const dataToCreate = {
+        oportunidadId: oportunidadId || null,
+        clienteId,
+        titulo,
+        numeroPropuesta,
+        servicio,
+        valorTotal: parseFloat(valorTotal) || 0,
+        descuento: descuento ? parseFloat(descuento) : 0,
+        valorFinal: parseFloat(valorFinal) || 0,
+        validez: validez || 30,
+        fechaVencimiento,
+        contenido: typeof contenido === 'string' ? contenido : JSON.stringify(contenido),
+        items: typeof items === 'string' ? items : JSON.stringify(items),
+        notas: notas || null,
+        usuarioId: usuarioId ? String(usuarioId) : null,
+      };
+      
+      // Agregar campos nuevos solo si existen en el schema
+      if (especificaciones) {
+        dataToCreate.especificaciones = especificaciones;
+      }
+      if (adjuntos) {
+        dataToCreate.adjuntos = typeof adjuntos === 'string' ? adjuntos : JSON.stringify(adjuntos);
+      }
+      
+      let propuesta;
+      try {
+        propuesta = await prisma.propuesta.create({
+          data: dataToCreate,
+          include: { cliente: true, oportunidad: true },
+        });
+      } catch (createError) {
+        // Si falla por columnas que no existen, intentar sin esas columnas
+        if (createError.message && createError.message.includes('does not exist')) {
+          console.log('⚠️ Columnas nuevas no encontradas en create, omitiéndolas...');
+          delete dataToCreate.especificaciones;
+          delete dataToCreate.adjuntos;
+          propuesta = await prisma.propuesta.create({
+            data: dataToCreate,
+            include: { cliente: true, oportunidad: true },
+          });
+          // Agregar campos como null
+          propuesta.especificaciones = null;
+          propuesta.adjuntos = null;
+        } else {
+          throw createError;
+        }
+      }
       
       console.log('✅ Propuesta creada exitosamente:', propuesta.id);
       
