@@ -262,6 +262,20 @@ export default async function handler(req, res) {
       
       console.log(`✅ Propuestas obtenidas: ${propuestas.length}`);
       
+      // Log detallado ANTES de parsear para diagnosticar
+      propuestas.forEach((p, index) => {
+        console.log(`📦 Propuesta ${index + 1} (${p.id}) - ANTES de parsear:`, {
+          titulo: p.titulo,
+          adjuntosRaw: p.adjuntos,
+          tipoAdjuntos: typeof p.adjuntos,
+          esNull: p.adjuntos === null,
+          esUndefined: p.adjuntos === undefined,
+          esString: typeof p.adjuntos === 'string',
+          longitud: p.adjuntos ? (typeof p.adjuntos === 'string' ? p.adjuntos.length : 'N/A') : 'N/A',
+          primerosCaracteres: typeof p.adjuntos === 'string' ? p.adjuntos.substring(0, 100) : 'N/A'
+        });
+      });
+      
       // Parsear adjuntos y otros campos JSON para todas las propuestas
       propuestas = propuestas.map(p => {
         const propuesta = { ...p };
@@ -271,12 +285,16 @@ export default async function handler(req, res) {
           try {
             const parsed = JSON.parse(propuesta.adjuntos);
             propuesta.adjuntos = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : null);
+            console.log(`✅ Adjuntos parseados para ${p.id}:`, propuesta.adjuntos);
           } catch (e) {
-            console.error('❌ Error al parsear adjuntos:', p.id, e);
+            console.error(`❌ Error al parsear adjuntos para ${p.id}:`, e.message, 'Valor:', propuesta.adjuntos?.substring(0, 200));
             propuesta.adjuntos = null;
           }
         } else if (!propuesta.adjuntos || propuesta.adjuntos === 'null' || propuesta.adjuntos === '') {
+          console.log(`⚠️ Adjuntos vacíos o null para ${p.id}`);
           propuesta.adjuntos = null;
+        } else if (Array.isArray(propuesta.adjuntos)) {
+          console.log(`✅ Adjuntos ya es array para ${p.id}:`, propuesta.adjuntos);
         }
         
         // Asegurar valores por defecto
@@ -285,6 +303,17 @@ export default async function handler(req, res) {
         }
         
         return propuesta;
+      });
+      
+      // Log DESPUÉS de parsear
+      propuestas.forEach((p, index) => {
+        console.log(`📦 Propuesta ${index + 1} (${p.id}) - DESPUÉS de parsear:`, {
+          titulo: p.titulo,
+          adjuntos: p.adjuntos,
+          tipoAdjuntos: typeof p.adjuntos,
+          esArray: Array.isArray(p.adjuntos),
+          longitud: Array.isArray(p.adjuntos) ? p.adjuntos.length : 'N/A'
+        });
       });
       
       res.status(200).json({ propuestas });
