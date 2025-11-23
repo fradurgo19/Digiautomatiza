@@ -637,18 +637,20 @@ export default function PropuestasPage() {
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-      pdf.text(`Subtotal:`, pdfWidth - margin - 5, yPosition, { align: 'right' });
+      pdf.text(cleanText('Subtotal:'), pdfWidth - margin - 5, yPosition, { align: 'right' });
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-      pdf.text(`${formatearMoneda(propuesta.valorTotal)}`, pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
+      const subtotalFormateado = formatearMoneda(propuesta.valorTotal || 0);
+      pdf.text(cleanText(subtotalFormateado), pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
       yPosition += 10;
       
       if (propuesta.descuento && propuesta.descuento > 0) {
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(220, 38, 38); // red-600
-        pdf.text(`Descuento:`, pdfWidth - margin - 5, yPosition, { align: 'right' });
+        pdf.text(cleanText('Descuento:'), pdfWidth - margin - 5, yPosition, { align: 'right' });
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`-${formatearMoneda(propuesta.descuento)}`, pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
+        const descuentoFormateado = formatearMoneda(propuesta.descuento);
+        pdf.text(cleanText(`-${descuentoFormateado}`), pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
         yPosition += 10;
       }
       
@@ -659,12 +661,13 @@ export default function PropuestasPage() {
       yPosition += 8;
       
       // Total destacado
+      const valorTotalFormateado = formatearMoneda(propuesta.valorFinal || 0);
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-      pdf.text(`TOTAL:`, pdfWidth - margin - 5, yPosition, { align: 'right' });
+      pdf.text(cleanText('TOTAL:'), pdfWidth - margin - 5, yPosition, { align: 'right' });
       pdf.setFontSize(18);
-      pdf.text(`${formatearMoneda(propuesta.valorFinal)}`, pdfWidth - margin - 5, yPosition + 8, { align: 'right' });
+      pdf.text(cleanText(valorTotalFormateado), pdfWidth - margin - 5, yPosition + 8, { align: 'right' });
       
       yPosition += 20;
       
