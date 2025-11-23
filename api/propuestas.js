@@ -67,6 +67,19 @@ export default async function handler(req, res) {
           datos.tareasProyecto = JSON.stringify(datos.tareasProyecto);
         }
 
+        // Log detallado ANTES de procesar adjuntos
+        console.log(`📦 ADJUNTOS RECIBIDOS EN UPDATE - ANTES de procesar:`, {
+          adjuntosRaw: datos.adjuntos,
+          tipo: typeof datos.adjuntos,
+          esNull: datos.adjuntos === null,
+          esUndefined: datos.adjuntos === undefined,
+          esString: typeof datos.adjuntos === 'string',
+          esArray: Array.isArray(datos.adjuntos),
+          longitud: Array.isArray(datos.adjuntos) ? datos.adjuntos.length : (typeof datos.adjuntos === 'string' ? datos.adjuntos.length : 'N/A'),
+          primerosCaracteres: typeof datos.adjuntos === 'string' ? datos.adjuntos.substring(0, 200) : 'N/A',
+          valorCompleto: datos.adjuntos
+        });
+
         // Convertir items y adjuntos a JSON si son arrays/objetos
         if (datos.items && typeof datos.items !== 'string') {
           datos.items = JSON.stringify(datos.items);
@@ -75,10 +88,15 @@ export default async function handler(req, res) {
         if (datos.adjuntos === null || datos.adjuntos === undefined || 
             datos.adjuntos === 'null' || datos.adjuntos === '' ||
             (Array.isArray(datos.adjuntos) && datos.adjuntos.length === 0)) {
+          console.log(`⚠️ ADJUNTOS establecidos como null (vacío o inválido)`);
           datos.adjuntos = null;
         } else if (typeof datos.adjuntos !== 'string') {
           // Si es un array, convertirlo a JSON string
+          console.log(`✅ ADJUNTOS es array, convirtiendo a JSON string`);
           datos.adjuntos = JSON.stringify(datos.adjuntos);
+          console.log(`✅ ADJUNTOS convertido:`, datos.adjuntos);
+        } else {
+          console.log(`✅ ADJUNTOS ya es string, manteniendo:`, datos.adjuntos.substring(0, 200));
         }
         // Si ya es string, dejarlo como está (puede ser JSON válido o "null")
         if (datos.contenido && typeof datos.contenido !== 'string') {
@@ -93,11 +111,19 @@ export default async function handler(req, res) {
         if (datosLimpios.especificaciones === '' || datosLimpios.especificaciones === undefined) {
           datosLimpios.especificaciones = null;
         }
+        // Log ANTES de limpiar adjuntos
+        console.log(`🧹 ADJUNTOS ANTES de limpiar:`, {
+          adjuntos: datosLimpios.adjuntos,
+          tipo: typeof datosLimpios.adjuntos
+        });
+
         // Asegurar que adjuntos sea null o un string JSON válido
         if (datosLimpios.adjuntos === null || datosLimpios.adjuntos === undefined || 
             datosLimpios.adjuntos === 'null' || datosLimpios.adjuntos === '') {
+          console.log(`🧹 ADJUNTOS limpiado a null`);
           datosLimpios.adjuntos = null;
         } else if (typeof datosLimpios.adjuntos === 'string') {
+          console.log(`🧹 ADJUNTOS es string válido, manteniendo:`, datosLimpios.adjuntos.substring(0, 200));
           // Si ya es string, validar que sea JSON válido o "null"
           if (datosLimpios.adjuntos.trim() === '' || datosLimpios.adjuntos.trim() === 'null') {
             datosLimpios.adjuntos = null;
@@ -105,12 +131,33 @@ export default async function handler(req, res) {
           // Si es un string JSON válido, dejarlo como está
         }
         
+        // Log ANTES de actualizar en Prisma
+        console.log(`💾 DATOS QUE SE VAN A GUARDAR EN PRISMA:`, {
+          id,
+          adjuntos: datosLimpios.adjuntos,
+          tipoAdjuntos: typeof datosLimpios.adjuntos,
+          esNull: datosLimpios.adjuntos === null,
+          longitud: typeof datosLimpios.adjuntos === 'string' ? datosLimpios.adjuntos.length : 'N/A',
+          primerosCaracteres: typeof datosLimpios.adjuntos === 'string' ? datosLimpios.adjuntos.substring(0, 200) : 'N/A'
+        });
+
         let propuesta;
         try {
           propuesta = await prisma.propuesta.update({
             where: { id },
             data: datosLimpios,
             include: { cliente: true, oportunidad: true },
+          });
+          
+          // Log DESPUÉS de actualizar en Prisma
+          console.log(`✅ PROPUESTA ACTUALIZADA EN PRISMA:`, {
+            id: propuesta.id,
+            titulo: propuesta.titulo,
+            adjuntosRaw: propuesta.adjuntos,
+            tipoAdjuntos: typeof propuesta.adjuntos,
+            esNull: propuesta.adjuntos === null,
+            longitud: typeof propuesta.adjuntos === 'string' ? propuesta.adjuntos.length : 'N/A',
+            primerosCaracteres: typeof propuesta.adjuntos === 'string' ? propuesta.adjuntos.substring(0, 200) : 'N/A'
           });
         } catch (updateError) {
           // Si falla por columnas que no existen, intentar sin esas columnas
