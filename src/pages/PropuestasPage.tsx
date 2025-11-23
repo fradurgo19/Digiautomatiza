@@ -387,14 +387,22 @@ export default function PropuestasPage() {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
+      const margin = 15;
       let yPosition = margin;
       const contentWidth = pdfWidth - (2 * margin);
       
+      // Colores corporativos
+      const colorPrimary = [16, 185, 129]; // emerald-600
+      const colorPrimaryLight = [209, 250, 229]; // emerald-100
+      const colorDark = [17, 24, 39]; // gray-900
+      const colorGray = [107, 114, 128]; // gray-500
+      const colorLightGray = [243, 244, 246]; // gray-100
+      
       // Función para agregar texto con salto de página automático
-      const addText = (text: string, fontSize: number, isBold: boolean = false) => {
+      const addText = (text: string, fontSize: number, isBold: boolean = false, color: number[] = [0, 0, 0]) => {
         pdf.setFontSize(fontSize);
         pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+        pdf.setTextColor(color[0], color[1], color[2]);
         const lines = pdf.splitTextToSize(text, contentWidth);
         
         lines.forEach((line: string) => {
@@ -408,7 +416,17 @@ export default function PropuestasPage() {
         yPosition += 5;
       };
       
-      // Header con logo y colores corporativos
+      // Función para agregar caja con fondo
+      const addBox = (x: number, y: number, width: number, height: number, color: number[]) => {
+        pdf.setFillColor(color[0], color[1], color[2]);
+        pdf.roundedRect(x, y, width, height, 2, 2, 'F');
+      };
+      
+      // Header moderno con fondo degradado
+      const headerHeight = 35;
+      addBox(margin, yPosition, contentWidth, headerHeight, colorPrimaryLight);
+      
+      // Logo
       try {
         const logoUrl = 'https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png';
         const logoImg = new Image();
@@ -424,9 +442,9 @@ export default function PropuestasPage() {
                 canvas.height = logoImg.height;
                 ctx.drawImage(logoImg, 0, 0);
                 const logoData = canvas.toDataURL('image/png');
-                const logoHeight = 20;
+                const logoHeight = 18;
                 const logoWidth = (logoHeight * logoImg.width) / logoImg.height;
-                pdf.addImage(logoData, 'PNG', margin, yPosition, logoWidth, logoHeight);
+                pdf.addImage(logoData, 'PNG', margin + 5, yPosition + 8, logoWidth, logoHeight);
               }
             } catch (e) {
               console.warn('Error al agregar logo:', e);
@@ -441,44 +459,62 @@ export default function PropuestasPage() {
         console.warn('Error al cargar logo:', e);
       }
       
-      // Línea decorativa verde
-      pdf.setDrawColor(16, 185, 129); // emerald-600
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPosition + 22, pdfWidth - margin, yPosition + 22);
-      
-      pdf.setFontSize(20);
+      // Título de la empresa
+      pdf.setFontSize(22);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.text('Digiautomatiza', margin + 35, yPosition + 8);
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.text('Digiautomatiza', margin + 30, yPosition + 12);
+      
+      pdf.setFontSize(9);
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Innovación Digital | Transformando Ideas en Soluciones', margin + 30, yPosition + 18);
+      
+      // Número de propuesta y fecha en el header
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+      pdf.text(`Propuesta N° ${propuesta.numeroPropuesta}`, pdfWidth - margin - 5, yPosition + 12, { align: 'right' });
+      
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      pdf.text(`Fecha: ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}`, pdfWidth - margin - 5, yPosition + 18, { align: 'right' });
+      
+      yPosition += headerHeight + 10;
+      
+      // Caja de información del cliente (diseño moderno)
+      const clienteBoxHeight = propuesta.cliente.empresa ? 35 : 30;
+      addBox(margin, yPosition, contentWidth, clienteBoxHeight, colorLightGray);
       
       pdf.setFontSize(10);
-      pdf.setTextColor(107, 114, 128); // gray-500
-      pdf.text('Innovación Digital', margin + 35, yPosition + 13);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      pdf.text('CLIENTE', margin + 8, yPosition + 7);
       
-      yPosition += 20;
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+      pdf.text(propuesta.cliente.nombre, margin + 8, yPosition + 15);
       
-      pdf.setFontSize(14);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(`Propuesta N° ${propuesta.numeroPropuesta}`, pdfWidth - margin, yPosition, { align: 'right' });
-      yPosition += 10;
-      
-      pdf.setFontSize(10);
-      pdf.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, pdfWidth - margin, yPosition, { align: 'right' });
-      yPosition += 15;
-      
-      // Cliente
-      addText(`Para: ${propuesta.cliente.nombre}`, 12, true);
       if (propuesta.cliente.empresa) {
-        addText(propuesta.cliente.empresa, 10);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+        pdf.text(propuesta.cliente.empresa, margin + 8, yPosition + 22);
       }
-      addText(propuesta.cliente.email, 10);
-      addText(propuesta.cliente.telefono, 10);
-      yPosition += 5;
       
-      // Título con estilo corporativo
-      pdf.setFontSize(16);
+      pdf.setFontSize(9);
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      pdf.text(`📧 ${propuesta.cliente.email}`, margin + 8, yPosition + (propuesta.cliente.empresa ? 29 : 22));
+      pdf.text(`📱 ${propuesta.cliente.telefono}`, margin + 8, yPosition + (propuesta.cliente.empresa ? 33 : 26));
+      
+      yPosition += clienteBoxHeight + 12;
+      
+      // Título con estilo moderno
+      pdf.setFontSize(18);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(16, 185, 129); // emerald-600
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
       const tituloLines = pdf.splitTextToSize(propuesta.titulo, contentWidth);
       tituloLines.forEach((line: string) => {
         if (yPosition + 10 > pdfHeight - margin) {
@@ -486,9 +522,14 @@ export default function PropuestasPage() {
           yPosition = margin;
         }
         pdf.text(line, margin, yPosition);
-        yPosition += 8;
+        yPosition += 9;
       });
-      yPosition += 5;
+      
+      // Línea decorativa bajo el título
+      pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.setLineWidth(2);
+      pdf.line(margin, yPosition, margin + 50, yPosition);
+      yPosition += 10;
       
       // Contenido
       try {
@@ -496,65 +537,120 @@ export default function PropuestasPage() {
           ? JSON.parse(propuesta.contenido) 
           : propuesta.contenido;
         if (contenido.introduccion) {
-          addText(contenido.introduccion, 10);
+          addText(contenido.introduccion, 10, false, colorDark);
         }
         if (contenido.descripcionServicio) {
-          addText(contenido.descripcionServicio, 10);
+          yPosition += 3;
+          addText(contenido.descripcionServicio, 10, false, colorDark);
         }
       } catch (e) {
         console.warn('Error al parsear contenido:', e);
       }
       
-      // Especificaciones
+      // Especificaciones con diseño mejorado
       if (propuesta.especificaciones) {
+        yPosition += 10;
+        if (yPosition + 30 > pdfHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        
+        // Caja para especificaciones
+        const especHeight = Math.min(30, propuesta.especificaciones.length / 3);
+        addBox(margin, yPosition, contentWidth, especHeight + 10, colorPrimaryLight);
+        
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+        pdf.text('📋 Especificaciones del Servicio', margin + 5, yPosition + 8);
+        
+        yPosition += 8;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+        const especLines = pdf.splitTextToSize(propuesta.especificaciones, contentWidth - 10);
+        especLines.forEach((line: string) => {
+          if (yPosition + 6 > pdfHeight - margin - 5) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          pdf.text(line, margin + 5, yPosition);
+          yPosition += 5;
+        });
         yPosition += 5;
-        addText('Especificaciones del Servicio:', 12, true);
-        addText(propuesta.especificaciones, 10);
       }
       
-      // Totales con diseño mejorado
-      yPosition += 10;
+      // Totales con diseño moderno y elegante
+      yPosition += 15;
+      if (yPosition + 50 > pdfHeight - margin) {
+        pdf.addPage();
+        yPosition = margin;
+      }
       
-      // Línea separadora
-      pdf.setDrawColor(16, 185, 129); // emerald-600
-      pdf.setLineWidth(0.3);
+      // Caja para totales
+      const totalesHeight = propuesta.descuento && propuesta.descuento > 0 ? 50 : 40;
+      addBox(margin, yPosition, contentWidth, totalesHeight, colorLightGray);
+      
+      // Borde superior verde
+      pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.setLineWidth(3);
       pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
-      yPosition += 7;
       
-      pdf.setFontSize(12);
+      yPosition += 8;
+      
+      pdf.setFontSize(11);
       pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(`Subtotal:`, pdfWidth - margin - 60, yPosition, { align: 'right' });
+      pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+      pdf.text(`Subtotal:`, pdfWidth - margin - 5, yPosition, { align: 'right' });
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`${formatearMoneda(propuesta.valorTotal)}`, pdfWidth - margin, yPosition, { align: 'right' });
-      yPosition += 7;
+      pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+      pdf.text(`${formatearMoneda(propuesta.valorTotal)}`, pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
+      yPosition += 10;
       
       if (propuesta.descuento && propuesta.descuento > 0) {
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(220, 38, 38); // red-600
-        pdf.text(`Descuento:`, pdfWidth - margin - 60, yPosition, { align: 'right' });
+        pdf.text(`Descuento:`, pdfWidth - margin - 5, yPosition, { align: 'right' });
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`-${formatearMoneda(propuesta.descuento)}`, pdfWidth - margin, yPosition, { align: 'right' });
-        yPosition += 7;
+        pdf.text(`-${formatearMoneda(propuesta.descuento)}`, pdfWidth - margin - 5, yPosition + 5, { align: 'right' });
+        yPosition += 10;
       }
       
-      // Línea final antes del total
-      pdf.setDrawColor(16, 185, 129); // emerald-600
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
-      yPosition += 7;
+      // Línea separadora antes del total
+      pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.setLineWidth(1);
+      pdf.line(margin + 5, yPosition, pdfWidth - margin - 5, yPosition);
+      yPosition += 8;
       
-      pdf.setTextColor(16, 185, 129); // emerald-600
+      // Total destacado
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`Total:`, pdfWidth - margin - 60, yPosition, { align: 'right' });
-      pdf.text(`${formatearMoneda(propuesta.valorFinal)}`, pdfWidth - margin, yPosition, { align: 'right' });
-      yPosition += 15;
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.text(`TOTAL:`, pdfWidth - margin - 5, yPosition, { align: 'right' });
+      pdf.setFontSize(18);
+      pdf.text(`${formatearMoneda(propuesta.valorFinal)}`, pdfWidth - margin - 5, yPosition + 8, { align: 'right' });
       
-      // Adjuntos - Agregar imágenes directamente al PDF
+      yPosition += 20;
+      
+      // Adjuntos - Agregar imágenes directamente al PDF con diseño mejorado
       if (propuesta.adjuntos && propuesta.adjuntos.length > 0) {
-        pdf.setTextColor(0, 0, 0);
-        addText('Archivos Adjuntos:', 12, true);
+        yPosition += 5;
+        if (yPosition + 20 > pdfHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        
+        pdf.setFontSize(13);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+        pdf.text('📎 Archivos Adjuntos', margin, yPosition);
+        yPosition += 8;
+        
+        // Línea decorativa
+        pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+        pdf.setLineWidth(1);
+        pdf.line(margin, yPosition, margin + 40, yPosition);
+        yPosition += 10;
         
         for (const adjunto of propuesta.adjuntos) {
           if (yPosition + 50 > pdfHeight - margin) {
@@ -562,7 +658,13 @@ export default function PropuestasPage() {
             yPosition = margin;
           }
           
-          addText(adjunto.nombre, 10, true);
+          // Caja para cada adjunto
+          addBox(margin, yPosition, contentWidth, 8, colorLightGray);
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+          pdf.text(adjunto.nombre, margin + 3, yPosition + 6);
+          yPosition += 10;
           
           // Si es imagen, intentar agregarla al PDF
           if (adjunto.tipo === 'imagen' || adjunto.url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
@@ -582,8 +684,8 @@ export default function PropuestasPage() {
                       return;
                     }
                     
-                    const maxWidth = contentWidth;
-                    const maxHeight = 100; // Altura máxima por imagen
+                    const maxWidth = contentWidth - 10;
+                    const maxHeight = 120; // Altura máxima por imagen (aumentada)
                     let width = img.width;
                     let height = img.height;
                     
@@ -600,15 +702,22 @@ export default function PropuestasPage() {
                     canvas.height = height;
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.85);
                     
-                    if (yPosition + (height * 0.264583) > pdfHeight - margin) {
+                    if (yPosition + (height * 0.264583) + 10 > pdfHeight - margin) {
                       pdf.addPage();
                       yPosition = margin;
                     }
                     
-                    pdf.addImage(imgData, 'JPEG', margin, yPosition, width * 0.264583, height * 0.264583);
-                    yPosition += (height * 0.264583) + 5;
+                    // Borde decorativo alrededor de la imagen
+                    pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+                    pdf.setLineWidth(1);
+                    const imgWidthMM = width * 0.264583;
+                    const imgHeightMM = height * 0.264583;
+                    pdf.roundedRect(margin + 2, yPosition - 1, imgWidthMM + 4, imgHeightMM + 2, 2, 2, 'S');
+                    
+                    pdf.addImage(imgData, 'JPEG', margin + 4, yPosition + 1, imgWidthMM, imgHeightMM);
+                    yPosition += imgHeightMM + 8;
                     resolve();
                   } catch (error) {
                     console.error('Error al agregar imagen al PDF:', error);
@@ -642,89 +751,108 @@ export default function PropuestasPage() {
         }
       }
       
-      // Sección de contacto antes del footer
-      yPosition += 10;
-      if (yPosition + 40 > pdfHeight - margin) {
+      // Sección de contacto con diseño moderno
+      yPosition += 15;
+      if (yPosition + 50 > pdfHeight - margin) {
         pdf.addPage();
         yPosition = margin;
       }
       
-      // Línea separadora verde
-      pdf.setDrawColor(16, 185, 129); // emerald-600
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
-      yPosition += 10;
+      // Caja de contacto con fondo verde claro
+      const contactoHeight = usuario?.nombre ? 45 : 38;
+      addBox(margin, yPosition, contentWidth, contactoHeight, colorPrimaryLight);
       
-      // Título de contacto
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.text('Información de Contacto', margin, yPosition);
+      // Borde superior verde
+      pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.setLineWidth(3);
+      pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
+      
       yPosition += 8;
       
+      // Título de contacto
+      pdf.setFontSize(13);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.text('💼 Información de Contacto', margin + 5, yPosition);
+      yPosition += 10;
+      
       // Información del comercial
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(0, 0, 0);
       if (usuario?.nombre) {
+        pdf.setFontSize(10);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Comercial:', margin, yPosition);
+        pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+        pdf.text('Comercial:', margin + 5, yPosition);
         pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
         pdf.text(usuario.nombre, margin + 30, yPosition);
-        yPosition += 6;
+        yPosition += 7;
       }
       
-      // Información de contacto de la empresa
+      // Información de contacto de la empresa en dos columnas
+      const col1X = margin + 5;
+      const col2X = margin + contentWidth / 2 + 5;
+      
+      pdf.setFontSize(9);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Teléfono:', margin, yPosition);
+      pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+      pdf.text('📱 Teléfono:', col1X, yPosition);
       pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.text('+57 313 368 3567', margin + 30, yPosition);
-      yPosition += 6;
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.text('+57 313 368 3567', col1X + 25, yPosition);
       
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0);
-      pdf.text('Email:', margin, yPosition);
+      pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+      pdf.text('🌐 Web:', col2X, yPosition);
       pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.text('digiautomatiza1@gmail.com', margin + 30, yPosition);
-      yPosition += 6;
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.text('www.digiautomatiza.co', col2X + 20, yPosition);
+      yPosition += 7;
       
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(0, 0, 0);
-      pdf.text('Web:', margin, yPosition);
+      pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+      pdf.text('📧 Email:', col1X, yPosition);
       pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.text('https://www.digiautomatiza.co/', margin + 30, yPosition);
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+      pdf.text('digiautomatiza1@gmail.com', col1X + 25, yPosition);
       
-      // Footer en todas las páginas
+      // Footer elegante en todas las páginas
       const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         
-        // Línea decorativa en el footer
-        pdf.setDrawColor(16, 185, 129); // emerald-600
-        pdf.setLineWidth(0.3);
-        pdf.line(margin, pdfHeight - 20, pdfWidth - margin, pdfHeight - 20);
+        // Fondo del footer
+        addBox(margin, pdfHeight - 25, contentWidth, 20, colorPrimaryLight);
         
-        // Información de contacto en el footer (compacta en todas las páginas)
-        pdf.setFontSize(7);
-        pdf.setTextColor(16, 185, 129); // emerald-600
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Digiautomatiza - Innovación Digital', margin, pdfHeight - 15);
+        // Línea superior verde
+        pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+        pdf.setLineWidth(2);
+        pdf.line(margin, pdfHeight - 25, pdfWidth - margin, pdfHeight - 25);
         
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(107, 114, 128); // gray-500
-        pdf.text('+57 313 368 3567', margin, pdfHeight - 11);
-        pdf.text('digiautomatiza1@gmail.com', margin, pdfHeight - 7);
-        pdf.text('www.digiautomatiza.co', margin, pdfHeight - 3);
-        
-        // Número de página
+        // Logo pequeño en el footer (opcional, solo texto por ahora)
         pdf.setFontSize(8);
-        pdf.setTextColor(128, 128, 128);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
+        pdf.text('Digiautomatiza', margin + 3, pdfHeight - 18);
+        
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+        pdf.text('Innovación Digital', margin + 3, pdfHeight - 13);
+        
+        // Información de contacto compacta
+        pdf.setFontSize(6);
+        pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
+        pdf.text('📱 +57 313 368 3567', margin + 3, pdfHeight - 8);
+        pdf.text('📧 digiautomatiza1@gmail.com', margin + 45, pdfHeight - 8);
+        pdf.text('🌐 www.digiautomatiza.co', margin + 3, pdfHeight - 3);
+        
+        // Número de página con estilo
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
         pdf.text(
-          `Página ${i} de ${totalPages}`,
-          pdfWidth - margin,
+          `${i} / ${totalPages}`,
+          pdfWidth - margin - 3,
           pdfHeight - 10,
           { align: 'right' }
         );
