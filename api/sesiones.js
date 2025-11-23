@@ -273,8 +273,9 @@ export default async function handler(req, res) {
 
               console.log('📅 Actualizando evento en Google Calendar...', {
                 eventoId: eventoIdParaActualizar,
-                nuevaFecha: fechaSesion.toISOString(),
-                nuevaHora: sesion.hora
+                nuevaFecha: fechaSesionISO,
+                nuevaHora: sesion.hora,
+                fechaCompleta: `${fechaStr} ${horas}:${minutos}`
               });
               
               await calendar.events.update({

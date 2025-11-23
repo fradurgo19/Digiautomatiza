@@ -162,6 +162,11 @@ export default function SesionesPage() {
     try {
       await eliminarSesionApi(sesionId);
       setSesiones(prev => prev.filter(s => s.id !== sesionId));
+      
+      // Notificar a otros módulos (como CalendarioPage) que se eliminó una sesión
+      window.dispatchEvent(new Event('sesionEliminada'));
+      // También actualizar localStorage para trigger storage event
+      localStorage.setItem('sesiones_updated', Date.now().toString());
     } catch (error) {
       console.error('Error al eliminar sesión:', error);
       alert('No se pudo eliminar la sesión. Intenta nuevamente.');
@@ -194,6 +199,13 @@ export default function SesionesPage() {
       
       const actualizada = await actualizarSesionApi(sesionEditando.id, payload);
       setSesiones(prev => prev.map(s => (s.id === sesionEditando.id ? actualizada : s)));
+      
+      // Notificar a otros módulos (como CalendarioPage) que se actualizó una sesión
+      window.dispatchEvent(new Event('sesionActualizada'));
+      // También actualizar localStorage para trigger storage event
+      const sesionesActualizadas = await obtenerSesiones();
+      localStorage.setItem('sesiones_updated', Date.now().toString());
+      
       setIsEditModalOpen(false);
       setSesionEditando(null);
     } catch (error) {

@@ -21,6 +21,33 @@ export default function CalendarioPage() {
     cargarEventos();
   }, [fechaActual, vista]);
 
+  // Escuchar cambios en sesiones para refrescar eventos
+  useEffect(() => {
+    const handleSesionChange = () => {
+      // Recargar eventos cuando se detecta un cambio en sesiones
+      cargarEventos();
+    };
+
+    // Escuchar eventos de storage (cuando se actualiza una sesión desde otra pestaña)
+    window.addEventListener('storage', handleSesionChange);
+    
+    // Escuchar eventos personalizados (cuando se actualiza una sesión en la misma pestaña)
+    window.addEventListener('sesionActualizada', handleSesionChange);
+    window.addEventListener('sesionEliminada', handleSesionChange);
+
+    // También recargar periódicamente cada 30 segundos para asegurar sincronización
+    const interval = setInterval(() => {
+      cargarEventos();
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('storage', handleSesionChange);
+      window.removeEventListener('sesionActualizada', handleSesionChange);
+      window.removeEventListener('sesionEliminada', handleSesionChange);
+      clearInterval(interval);
+    };
+  }, [fechaActual, vista]); // Incluir dependencias para que cargarEventos tenga acceso a las variables actuales
+
   const cargarEventos = async () => {
     setIsLoading(true);
     setError(null);
