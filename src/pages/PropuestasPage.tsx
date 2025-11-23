@@ -664,13 +664,19 @@ export default function PropuestasPage() {
       
       // Total destacado
       const valorTotalFormateado = formatearMoneda(propuesta.valorFinal || 0);
+      console.log('Valor Total formateado:', valorTotalFormateado, 'Valor original:', propuesta.valorFinal);
+      
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
       pdf.text('TOTAL:', pdfWidth - margin - 5, yPosition, { align: 'right' });
+      
+      // Valor del total con color y tamaño destacado
       pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]); // Verde corporativo
       // No usar cleanText en valores monetarios para preservar símbolos y números
-      pdf.text(valorTotalFormateado, pdfWidth - margin - 5, yPosition + 8, { align: 'right' });
+      pdf.text(valorTotalFormateado, pdfWidth - margin - 5, yPosition + 7, { align: 'right' });
       
       yPosition += 20;
       
