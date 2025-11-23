@@ -191,14 +191,19 @@ export default async function handler(req, res) {
             
             // Si tenemos un eventoId (ya sea del campo o encontrado), actualizar el evento
             if (eventoIdParaActualizar) {
-              // Preparar fechas para el evento
-              const fechaSesion = new Date(sesion.fecha);
+              // Preparar fechas para el evento en zona horaria de Colombia (America/Bogota)
+              const fechaDate = new Date(sesion.fecha);
               const [horas, minutos] = sesion.hora.split(':');
-              fechaSesion.setHours(parseInt(horas), parseInt(minutos), 0, 0);
               
-              // Duración de 1 hora por defecto
-              const fechaFin = new Date(fechaSesion);
-              fechaFin.setHours(fechaFin.getHours() + 1);
+              // Crear string de fecha en formato ISO para Colombia (UTC-5)
+              // Formato: YYYY-MM-DDTHH:mm:ss-05:00 (Colombia es UTC-5)
+              const fechaStr = fechaDate.toISOString().split('T')[0]; // YYYY-MM-DD
+              const fechaSesionISO = `${fechaStr}T${horas.padStart(2, '0')}:${minutos.padStart(2, '0')}:00-05:00`;
+              
+              // Para la fecha de fin, sumar 1 hora
+              const fechaFinDate = new Date(fechaSesionISO);
+              fechaFinDate.setHours(fechaFinDate.getHours() + 1);
+              const fechaFinISO = fechaFinDate.toISOString().replace('Z', '-05:00');
               
               // Nombres de servicios
               const nombresServicios = {
@@ -236,11 +241,11 @@ export default async function handler(req, res) {
                 summary: titulo,
                 description: descripcion,
                 start: {
-                  dateTime: fechaSesion.toISOString(),
+                  dateTime: fechaSesionISO,
                   timeZone: 'America/Bogota',
                 },
                 end: {
-                  dateTime: fechaFin.toISOString(),
+                  dateTime: fechaFinISO,
                   timeZone: 'America/Bogota',
                 },
                 reminders: {
@@ -357,14 +362,20 @@ export default async function handler(req, res) {
             // Importar googleapis dinámicamente
             const { google } = await import('googleapis');
             
-            // Preparar fechas para el evento
-            const fechaSesion = new Date(fecha);
+            // Preparar fechas para el evento en zona horaria de Colombia (America/Bogota)
+            // Construir la fecha/hora correctamente para evitar problemas de zona horaria
+            const fechaDate = new Date(fecha);
             const [horas, minutos] = hora.split(':');
-            fechaSesion.setHours(parseInt(horas), parseInt(minutos), 0, 0);
             
-            // Duración de 1 hora por defecto
-            const fechaFin = new Date(fechaSesion);
-            fechaFin.setHours(fechaFin.getHours() + 1);
+            // Crear string de fecha en formato ISO para Colombia (UTC-5)
+            // Formato: YYYY-MM-DDTHH:mm:ss-05:00 (Colombia es UTC-5)
+            const fechaStr = fechaDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            const fechaSesionISO = `${fechaStr}T${horas.padStart(2, '0')}:${minutos.padStart(2, '0')}:00-05:00`;
+            
+            // Para la fecha de fin, sumar 1 hora
+            const fechaFinDate = new Date(fechaSesionISO);
+            fechaFinDate.setHours(fechaFinDate.getHours() + 1);
+            const fechaFinISO = fechaFinDate.toISOString().replace('Z', '-05:00');
             
             // Nombres de servicios
             const nombresServicios = {
@@ -403,11 +414,11 @@ export default async function handler(req, res) {
               summary: titulo,
               description: descripcion,
               start: {
-                dateTime: fechaSesion.toISOString(),
+                dateTime: fechaSesionISO,
                 timeZone: 'America/Bogota',
               },
               end: {
-                dateTime: fechaFin.toISOString(),
+                dateTime: fechaFinISO,
                 timeZone: 'America/Bogota',
               },
               // Habilitar Google Meet en el evento
