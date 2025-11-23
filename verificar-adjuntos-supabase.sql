@@ -13,20 +13,21 @@ SELECT
   END as estado_adjuntos,
   LENGTH(adjuntos::text) as longitud_adjuntos,
   LEFT(adjuntos::text, 200) as primeros_caracteres,
-  created_at,
-  updated_at
+  "createdAt",
+  "updatedAt"
 FROM public.propuestas
-ORDER BY updated_at DESC;
+ORDER BY "updatedAt" DESC;
 
 -- Ver específicamente la propuesta problemática
 SELECT 
   id,
   titulo,
   adjuntos,
-  typeof(adjuntos) as tipo_dato,
+  pg_typeof(adjuntos) as tipo_dato,
   adjuntos IS NULL as es_null,
   adjuntos = '' as es_vacio,
-  LENGTH(COALESCE(adjuntos, '')) as longitud
+  LENGTH(COALESCE(adjuntos, '')) as longitud,
+  LEFT(adjuntos::text, 500) as contenido_completo
 FROM public.propuestas
 WHERE id = 'cmib10f5f0001l8040v1rwwdk';
 
