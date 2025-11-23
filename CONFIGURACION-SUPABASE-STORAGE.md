@@ -25,36 +25,43 @@ Este documento explica cómo configurar Supabase Storage para almacenar los arch
 
 ### 2. Configurar Políticas de Seguridad (RLS)
 
-Para que los usuarios puedan subir archivos, necesitas configurar las políticas:
+**IMPORTANTE:** Si estás usando la `anon key` (clave pública) en tu aplicación, necesitas permitir que usuarios anónimos suban archivos.
+
+#### Opción A: Usar el Script SQL (Recomendado)
+
+1. Ve a **SQL Editor** en Supabase
+2. Ejecuta el script `supabase-storage-policies.sql` que incluye todas las políticas necesarias
+3. Esto creará automáticamente las políticas para INSERT, SELECT, DELETE y UPDATE
+
+#### Opción B: Configurar Manualmente desde la UI
 
 1. Ve a **Storage** → **Policies** → Selecciona el bucket `propuestas`
 2. Haz clic en **"New Policy"**
 3. Crea una política para **INSERT** (subir archivos):
-   - **Policy name**: `Allow authenticated users to upload`
+   - **Policy name**: `Permitir subir archivos a usuarios anónimos`
    - **Allowed operation**: `INSERT`
+   - **Target roles**: `anon` (si usas anon key) o `authenticated` (si usas autenticación)
    - **Policy definition**: 
-     ```sql
-     (bucket_id = 'propuestas'::text) AND (auth.role() = 'authenticated'::text)
-     ```
-   - O si quieres permitir a todos (menos seguro pero más simple para desarrollo):
      ```sql
      bucket_id = 'propuestas'::text
      ```
 
 4. Crea una política para **SELECT** (leer archivos):
-   - **Policy name**: `Allow public read access`
+   - **Policy name**: `Permitir lectura pública de archivos`
    - **Allowed operation**: `SELECT`
+   - **Target roles**: `public`
    - **Policy definition**: 
      ```sql
      bucket_id = 'propuestas'::text
      ```
 
 5. (Opcional) Crea una política para **DELETE** (eliminar archivos):
-   - **Policy name**: `Allow authenticated users to delete`
+   - **Policy name**: `Permitir eliminar archivos a usuarios anónimos`
    - **Allowed operation**: `DELETE`
+   - **Target roles**: `anon` (si usas anon key)
    - **Policy definition**: 
      ```sql
-     (bucket_id = 'propuestas'::text) AND (auth.role() = 'authenticated'::text)
+     bucket_id = 'propuestas'::text
      ```
 
 ### 3. Configurar Variables de Entorno

@@ -609,13 +609,12 @@ export default function PropuestasPage() {
                     <input
                       type="file"
                       className="hidden"
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                       onChange={handleSubirArchivo}
                       disabled={subiendoArchivo}
                     />
                   </label>
                   <span className="text-sm text-gray-600">
-                    Imágenes o documentos (PDF, Word, Excel) - Máx. 10MB
+                    Cualquier tipo de archivo - Máx. 10MB
                   </span>
                 </div>
 
@@ -823,13 +822,12 @@ export default function PropuestasPage() {
                     <input
                       type="file"
                       className="hidden"
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                       onChange={handleSubirArchivo}
                       disabled={subiendoArchivo}
                     />
                   </label>
                   <span className="text-sm text-gray-600">
-                    Imágenes o documentos (PDF, Word, Excel) - Máx. 10MB
+                    Cualquier tipo de archivo - Máx. 10MB
                   </span>
                 </div>
 

@@ -28,18 +28,8 @@ export async function subirArchivoPropuesta(
     throw new Error('Supabase no está configurado. Verifica las variables de entorno.');
   }
 
-  // Validar tipo de archivo
-  const allowedTypes = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-    'application/pdf', 'application/msword', 
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  ];
-
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error('Tipo de archivo no permitido. Solo se permiten imágenes y documentos (PDF, Word, Excel)');
-  }
+  // Permitir cualquier tipo de archivo
+  // La validación de tipo se ha removido para permitir todos los archivos
 
   // Validar tamaño (máximo 10MB)
   const maxSize = 10 * 1024 * 1024; // 10MB
