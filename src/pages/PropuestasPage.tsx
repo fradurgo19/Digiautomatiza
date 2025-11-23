@@ -327,6 +327,7 @@ export default function PropuestasPage() {
         notas: nuevaPropuesta.notas || undefined,
       };
 
+      console.log('📤 Enviando actualización con adjuntos:', adjuntos.length > 0 ? adjuntos : null);
       const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
       
       // Recargar todas las propuestas para asegurar datos actualizados
@@ -336,9 +337,17 @@ export default function PropuestasPage() {
       // Buscar la propuesta actualizada en la lista recargada
       const propuestaActualizada = todasLasPropuestas.find(p => p.id === actualizada.id) || actualizada;
       
+      console.log('📥 Propuesta recargada con adjuntos:', propuestaActualizada.adjuntos);
+      
       // Actualizar la vista previa si está abierta
       if (propuestaPreview && propuestaPreview.id === propuestaActualizada.id) {
         setPropuestaPreview(propuestaActualizada);
+      }
+      
+      // Si el modal de edición está abierto, actualizar también el estado local
+      if (isEditModalOpen && propuestaEditando && propuestaEditando.id === propuestaActualizada.id) {
+        setPropuestaEditando(propuestaActualizada);
+        setAdjuntos(propuestaActualizada.adjuntos || []);
       }
       
       setIsEditModalOpen(false);
@@ -461,12 +470,54 @@ export default function PropuestasPage() {
         yPosition += 5;
       };
       
-      // Header
+      // Header con logo y colores corporativos
+      try {
+        const logoUrl = 'https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png';
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        
+        await new Promise<void>((resolve) => {
+          logoImg.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                canvas.width = logoImg.width;
+                canvas.height = logoImg.height;
+                ctx.drawImage(logoImg, 0, 0);
+                const logoData = canvas.toDataURL('image/png');
+                const logoHeight = 20;
+                const logoWidth = (logoHeight * logoImg.width) / logoImg.height;
+                pdf.addImage(logoData, 'PNG', margin, yPosition, logoWidth, logoHeight);
+              }
+            } catch (e) {
+              console.warn('Error al agregar logo:', e);
+            }
+            resolve();
+          };
+          logoImg.onerror = () => resolve();
+          logoImg.src = logoUrl;
+          setTimeout(() => resolve(), 3000);
+        });
+      } catch (e) {
+        console.warn('Error al cargar logo:', e);
+      }
+      
+      // Línea decorativa verde
+      pdf.setDrawColor(16, 185, 129); // emerald-600
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition + 22, pdfWidth - margin, yPosition + 22);
+      
       pdf.setFontSize(20);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.text('Digiautomatiza', margin, yPosition);
-      yPosition += 10;
+      pdf.text('Digiautomatiza', margin + 35, yPosition + 8);
+      
+      pdf.setFontSize(10);
+      pdf.setTextColor(107, 114, 128); // gray-500
+      pdf.text('Innovación Digital', margin + 35, yPosition + 13);
+      
+      yPosition += 20;
       
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
@@ -486,8 +537,19 @@ export default function PropuestasPage() {
       addText(propuesta.cliente.telefono, 10);
       yPosition += 5;
       
-      // Título
-      addText(propuesta.titulo, 16, true);
+      // Título con estilo corporativo
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(16, 185, 129); // emerald-600
+      const tituloLines = pdf.splitTextToSize(propuesta.titulo, contentWidth);
+      tituloLines.forEach((line: string) => {
+        if (yPosition + 10 > pdfHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        pdf.text(line, margin, yPosition);
+        yPosition += 8;
+      });
       yPosition += 5;
       
       // Contenido
@@ -512,20 +574,43 @@ export default function PropuestasPage() {
         addText(propuesta.especificaciones, 10);
       }
       
-      // Totales
+      // Totales con diseño mejorado
       yPosition += 10;
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(`Subtotal: ${formatearMoneda(propuesta.valorTotal)}`, pdfWidth - margin, yPosition, { align: 'right' });
+      
+      // Línea separadora
+      pdf.setDrawColor(16, 185, 129); // emerald-600
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
       yPosition += 7;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Subtotal:`, pdfWidth - margin - 60, yPosition, { align: 'right' });
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`${formatearMoneda(propuesta.valorTotal)}`, pdfWidth - margin, yPosition, { align: 'right' });
+      yPosition += 7;
+      
       if (propuesta.descuento && propuesta.descuento > 0) {
+        pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(220, 38, 38); // red-600
-        pdf.text(`Descuento: -${formatearMoneda(propuesta.descuento)}`, pdfWidth - margin, yPosition, { align: 'right' });
+        pdf.text(`Descuento:`, pdfWidth - margin - 60, yPosition, { align: 'right' });
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`-${formatearMoneda(propuesta.descuento)}`, pdfWidth - margin, yPosition, { align: 'right' });
         yPosition += 7;
       }
+      
+      // Línea final antes del total
+      pdf.setDrawColor(16, 185, 129); // emerald-600
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
+      yPosition += 7;
+      
       pdf.setTextColor(16, 185, 129); // emerald-600
-      pdf.setFontSize(14);
-      pdf.text(`Total: ${formatearMoneda(propuesta.valorFinal)}`, pdfWidth - margin, yPosition, { align: 'right' });
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`Total:`, pdfWidth - margin - 60, yPosition, { align: 'right' });
+      pdf.text(`${formatearMoneda(propuesta.valorFinal)}`, pdfWidth - margin, yPosition, { align: 'right' });
       yPosition += 15;
       
       // Adjuntos - Agregar imágenes directamente al PDF
@@ -1360,12 +1445,50 @@ export default function PropuestasPage() {
                             
                             {esPDF ? (
                               <div>
-                                <iframe
-                                  src={`${adjunto.url}#toolbar=0`}
-                                  className="w-full border border-gray-300 rounded"
-                                  style={{ height: '600px' }}
-                                  title={adjunto.nombre}
-                                />
+                                <div className="bg-white p-4 rounded border border-gray-300 mb-2" style={{ height: '600px', overflow: 'auto' }}>
+                                  {/* Verificar que la URL sea válida antes de cargar el iframe */}
+                                  {adjunto.url && !adjunto.url.includes(']') && adjunto.url.startsWith('http') ? (
+                                    <iframe
+                                      src={`${adjunto.url}#toolbar=0&navpanes=0`}
+                                      className="w-full h-full border-0"
+                                      title={adjunto.nombre}
+                                      onLoad={() => {
+                                        console.log('PDF cargado exitosamente:', adjunto.url);
+                                      }}
+                                      onError={(e) => {
+                                        console.error('Error al cargar PDF:', adjunto.url);
+                                        const iframe = e.target as HTMLIFrameElement;
+                                        iframe.style.display = 'none';
+                                        const parent = iframe.parentElement;
+                                        if (parent) {
+                                          parent.innerHTML = `
+                                            <div class="text-center p-4">
+                                              <p class="text-red-600 mb-2">⚠️ No se pudo cargar el PDF en el visor</p>
+                                              <a href="${adjunto.url}" target="_blank" rel="noopener noreferrer" 
+                                                 class="text-emerald-600 hover:text-emerald-800 text-sm underline font-semibold">
+                                                Abrir PDF completo en nueva pestaña: ${adjunto.nombre}
+                                              </a>
+                                            </div>
+                                          `;
+                                        }
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="text-center p-4">
+                                      <p className="text-red-600 mb-2">⚠️ URL de PDF inválida</p>
+                                      {adjunto.url && (
+                                        <a 
+                                          href={adjunto.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-emerald-600 hover:text-emerald-800 text-sm underline font-semibold"
+                                        >
+                                          Intentar abrir PDF: {adjunto.nombre}
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="text-center mt-2">
                                   <a 
                                     href={adjunto.url} 

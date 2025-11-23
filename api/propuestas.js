@@ -75,13 +75,16 @@ export default async function handler(req, res) {
 
         console.log(`🔄 Actualizando propuesta ${id} - UsuarioId: ${usuarioId}`, datos);
         
-        // Remover campos que pueden no existir en la BD si no están presentes
+        // Manejar campos opcionales correctamente
         const datosLimpios = { ...datos };
-        if (!datosLimpios.especificaciones) {
-          delete datosLimpios.especificaciones;
+        // Si especificaciones está vacío, establecer como null
+        if (datosLimpios.especificaciones === '' || datosLimpios.especificaciones === undefined) {
+          datosLimpios.especificaciones = null;
         }
-        if (!datosLimpios.adjuntos) {
-          delete datosLimpios.adjuntos;
+        // Si adjuntos es null, undefined o string "null", establecer explícitamente como null
+        if (datosLimpios.adjuntos === null || datosLimpios.adjuntos === undefined || 
+            datosLimpios.adjuntos === 'null' || datosLimpios.adjuntos === '') {
+          datosLimpios.adjuntos = null;
         }
         
         let propuesta;
