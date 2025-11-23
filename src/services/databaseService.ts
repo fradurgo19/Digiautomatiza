@@ -718,7 +718,9 @@ function mapPropuesta(data: any): Propuesta {
     contenido: typeof data.contenido === 'string' ? data.contenido : JSON.stringify(data.contenido),
     items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items || [],
     especificaciones: data.especificaciones || undefined,
-    adjuntos: data.adjuntos ? (typeof data.adjuntos === 'string' ? JSON.parse(data.adjuntos) : data.adjuntos) : undefined,
+    adjuntos: data.adjuntos && data.adjuntos !== 'null' && data.adjuntos.trim() !== '' 
+      ? (typeof data.adjuntos === 'string' ? JSON.parse(data.adjuntos) : data.adjuntos) 
+      : undefined,
     notas: data.notas || undefined,
     fechaEnvio: data.fechaEnvio ? new Date(data.fechaEnvio) : undefined,
     fechaAceptacion: data.fechaAceptacion ? new Date(data.fechaAceptacion) : undefined,

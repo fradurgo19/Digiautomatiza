@@ -210,7 +210,7 @@ export default function PropuestasPage() {
         contenido: JSON.stringify(contenido),
         items: [itemUnico],
         especificaciones: nuevaPropuesta.especificaciones,
-        adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
+        adjuntos: adjuntos.length > 0 ? adjuntos : null,
         notas: nuevaPropuesta.notas || undefined,
       };
 
@@ -323,12 +323,19 @@ export default function PropuestasPage() {
         contenido: JSON.stringify(contenido),
         items: [itemUnico],
         especificaciones: nuevaPropuesta.especificaciones,
-        adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
+        adjuntos: adjuntos.length > 0 ? adjuntos : null,
         notas: nuevaPropuesta.notas || undefined,
       };
 
       const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
-      setPropuestas(propuestas.map(p => (p.id === actualizada.id ? actualizada : p)));
+      const propuestasActualizadas = propuestas.map(p => (p.id === actualizada.id ? actualizada : p));
+      setPropuestas(propuestasActualizadas);
+      
+      // Actualizar la vista previa si está abierta
+      if (propuestaPreview && propuestaPreview.id === actualizada.id) {
+        setPropuestaPreview(actualizada);
+      }
+      
       setIsEditModalOpen(false);
       resetFormulario();
       
@@ -358,31 +365,60 @@ export default function PropuestasPage() {
       if (propuesta.adjuntos && propuesta.adjuntos.length > 0) {
         const imagenes = elemento.querySelectorAll('img');
         const promesasImagenes = Array.from(imagenes).map((img) => {
-          return new Promise<void>((resolve, reject) => {
-            if (img.complete) {
+          return new Promise<void>((resolve) => {
+            // Si la imagen ya está cargada
+            if (img.complete && img.naturalHeight !== 0) {
               resolve();
-            } else {
-              img.onload = () => resolve();
-              img.onerror = () => {
-                console.warn('Error al cargar imagen para PDF:', img.src);
-                resolve(); // Continuar aunque falle una imagen
-              };
-              // Timeout de seguridad
-              setTimeout(() => resolve(), 5000);
+              return;
             }
+            
+            // Configurar listeners
+            const onLoad = () => {
+              img.removeEventListener('load', onLoad);
+              img.removeEventListener('error', onError);
+              resolve();
+            };
+            
+            const onError = () => {
+              console.warn('Error al cargar imagen para PDF:', img.src);
+              img.removeEventListener('load', onLoad);
+              img.removeEventListener('error', onError);
+              resolve(); // Continuar aunque falle una imagen
+            };
+            
+            img.addEventListener('load', onLoad);
+            img.addEventListener('error', onError);
+            
+            // Forzar recarga si la imagen ya estaba en cache pero no se cargó
+            if (img.src && !img.complete) {
+              const originalSrc = img.src;
+              img.src = '';
+              img.src = originalSrc;
+            }
+            
+            // Timeout de seguridad (10 segundos)
+            setTimeout(() => {
+              img.removeEventListener('load', onLoad);
+              img.removeEventListener('error', onError);
+              resolve();
+            }, 10000);
           });
         });
         
         await Promise.all(promesasImagenes);
+        // Esperar un poco más para asegurar que todo esté renderizado
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       const canvas = await html2canvas(elemento, {
         scale: 2,
         useCORS: true,
-        allowTaint: false,
-        logging: false,
+        allowTaint: true, // Permitir imágenes de otros dominios
+        logging: true, // Habilitar logging para debug
         backgroundColor: '#ffffff',
         removeContainer: false,
+        imageTimeout: 15000, // Timeout más largo para imágenes
+        proxy: undefined, // No usar proxy
       });
 
       const imgData = canvas.toDataURL('image/png', 1.0);
@@ -509,6 +545,11 @@ export default function PropuestasPage() {
                         <Badge variant={estadoInfo?.color || 'info'}>
                           {estadoInfo?.label || propuesta.estado}
                         </Badge>
+                        {propuesta.adjuntos && propuesta.adjuntos.length > 0 && (
+                          <span className="text-emerald-600" title={`${propuesta.adjuntos.length} archivo(s) adjunto(s)`}>
+                            📎 {propuesta.adjuntos.length}
+                          </span>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-700 mb-3">
@@ -1119,7 +1160,7 @@ export default function PropuestasPage() {
                           {adjunto.tipo === 'imagen' ? (
                             <div>
                               <p className="text-sm font-semibold text-gray-700 mb-2">{adjunto.nombre}</p>
-                              <div className="flex justify-center bg-white p-2 rounded">
+                              <div className="flex justify-center bg-white p-2 rounded mb-2">
                                 <img 
                                   src={adjunto.url} 
                                   alt={adjunto.nombre}
@@ -1128,11 +1169,32 @@ export default function PropuestasPage() {
                                   crossOrigin="anonymous"
                                   onError={(e) => {
                                     console.error('Error al cargar imagen:', adjunto.url);
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.innerHTML = 
-                                      `<p class="text-red-600 text-center p-4">Error al cargar imagen: ${adjunto.nombre}</p>`;
+                                    const imgElement = e.target as HTMLImageElement;
+                                    imgElement.style.display = 'none';
+                                    const parent = imgElement.parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = `
+                                        <div class="text-center p-4">
+                                          <p class="text-red-600 mb-2">⚠️ No se pudo cargar la imagen en el PDF</p>
+                                          <a href="${adjunto.url}" target="_blank" rel="noopener noreferrer" 
+                                             class="text-emerald-600 hover:text-emerald-800 text-sm underline font-semibold">
+                                            Ver imagen en línea: ${adjunto.nombre}
+                                          </a>
+                                        </div>
+                                      `;
+                                    }
                                   }}
                                 />
+                              </div>
+                              <div className="text-center">
+                                <a 
+                                  href={adjunto.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-600 hover:text-emerald-800 text-xs underline"
+                                >
+                                  Ver imagen completa en línea
+                                </a>
                               </div>
                             </div>
                           ) : (
@@ -1148,9 +1210,9 @@ export default function PropuestasPage() {
                                 href={adjunto.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-emerald-600 hover:text-emerald-800 text-sm underline"
+                                className="text-emerald-600 hover:text-emerald-800 text-sm underline font-semibold"
                               >
-                                Ver documento completo
+                                Ver documento completo en línea
                               </a>
                             </div>
                           )}
