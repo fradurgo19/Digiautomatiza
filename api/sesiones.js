@@ -162,6 +162,8 @@ export default async function handler(req, res) {
             const calendar = google.calendar({ version: 'v3', auth });
 
             // Preparar el evento con Google Meet
+            // NOTA: Las Service Accounts no pueden invitar attendees sin Domain-Wide Delegation
+            // Por lo tanto, no agregamos attendees, pero incluimos la info del cliente en la descripción
             const evento = {
               summary: titulo,
               description: descripcion,
@@ -181,11 +183,8 @@ export default async function handler(req, res) {
                   }
                 }
               },
-              ...(cliente?.email && {
-                attendees: [
-                  { email: cliente.email }
-                ]
-              }),
+              // NO agregamos attendees porque las Service Accounts no pueden hacerlo sin Domain-Wide Delegation
+              // El cliente puede unirse usando el enlace de Google Meet que se generará
               reminders: {
                 useDefault: false,
                 overrides: [

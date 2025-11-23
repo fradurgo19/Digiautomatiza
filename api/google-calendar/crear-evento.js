@@ -85,12 +85,9 @@ export default async function handler(req, res) {
           }
         }
       },
-      // Agregar el cliente como invitado si se proporciona email
-      ...(emailCliente && {
-        attendees: [
-          { email: emailCliente }
-        ]
-      }),
+      // NOTA: Las Service Accounts no pueden invitar attendees sin Domain-Wide Delegation
+      // Por lo tanto, no agregamos attendees. El cliente puede unirse usando el enlace de Google Meet
+      // La información del cliente ya está incluida en la descripción del evento
       // Configuración adicional
       reminders: {
         useDefault: false,
