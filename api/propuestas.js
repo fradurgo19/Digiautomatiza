@@ -171,14 +171,24 @@ export default async function handler(req, res) {
 
       console.log('📋 Obteniendo propuestas - Admin:', isAdmin, 'UsuarioId:', usuarioId);
 
-      // Intentar consulta normal primero, si falla por columnas faltantes, usar select explícito
+      // Usar select explícito para asegurar que adjuntos se incluyan siempre
       let propuestas;
       try {
+        // Intentar consulta normal primero
         propuestas = await prisma.propuesta.findMany({
           ...(where && { where }),
           include: { cliente: true, oportunidad: true },
           orderBy: { createdAt: 'desc' },
         });
+        
+        // Verificar si adjuntos está presente en los resultados
+        const tieneAdjuntos = propuestas.length > 0 && propuestas[0].hasOwnProperty('adjuntos');
+        console.log('🔍 Verificando si adjuntos está presente en consulta normal:', tieneAdjuntos);
+        
+        if (!tieneAdjuntos) {
+          console.log('⚠️ Adjuntos no está presente, usando select explícito...');
+          throw new Error('adjuntos field missing');
+        }
         
         // Log para diagnosticar adjuntos en consulta normal
         console.log('📋 Propuestas obtenidas (consulta normal):', propuestas.length);
