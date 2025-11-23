@@ -398,12 +398,31 @@ export default function PropuestasPage() {
       const colorGray = [107, 114, 128]; // gray-500
       const colorLightGray = [243, 244, 246]; // gray-100
       
+      // Función para limpiar texto y evitar problemas de codificación
+      const cleanText = (text: string): string => {
+        if (!text) return '';
+        // Reemplazar caracteres problemáticos comunes
+        return String(text)
+          .replace(/[^\x00-\x7F]/g, (char) => {
+            // Mapeo de caracteres especiales comunes
+            const map: { [key: string]: string } = {
+              'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+              'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+              'ñ': 'n', 'Ñ': 'N',
+              'ü': 'u', 'Ü': 'U',
+              'ç': 'c', 'Ç': 'C',
+            };
+            return map[char] || char;
+          });
+      };
+      
       // Función para agregar texto con salto de página automático
       const addText = (text: string, fontSize: number, isBold: boolean = false, color: number[] = [0, 0, 0]) => {
         pdf.setFontSize(fontSize);
         pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
         pdf.setTextColor(color[0], color[1], color[2]);
-        const lines = pdf.splitTextToSize(text, contentWidth);
+        const cleanedText = cleanText(text);
+        const lines = pdf.splitTextToSize(cleanedText, contentWidth);
         
         lines.forEach((line: string) => {
           if (yPosition + 10 > pdfHeight - margin) {
@@ -423,10 +442,11 @@ export default function PropuestasPage() {
       };
       
       // Header moderno con fondo degradado
-      const headerHeight = 35;
+      const headerHeight = 40;
       addBox(margin, yPosition, contentWidth, headerHeight, colorPrimaryLight);
       
-      // Logo
+      // Logo - posicionado a la izquierda
+      let logoWidth = 0;
       try {
         const logoUrl = 'https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png';
         const logoImg = new Image();
@@ -442,9 +462,9 @@ export default function PropuestasPage() {
                 canvas.height = logoImg.height;
                 ctx.drawImage(logoImg, 0, 0);
                 const logoData = canvas.toDataURL('image/png');
-                const logoHeight = 18;
-                const logoWidth = (logoHeight * logoImg.width) / logoImg.height;
-                pdf.addImage(logoData, 'PNG', margin + 5, yPosition + 8, logoWidth, logoHeight);
+                const logoHeight = 22;
+                logoWidth = (logoHeight * logoImg.width) / logoImg.height;
+                pdf.addImage(logoData, 'PNG', margin + 5, yPosition + 9, logoWidth, logoHeight);
               }
             } catch (e) {
               console.warn('Error al agregar logo:', e);
@@ -459,16 +479,17 @@ export default function PropuestasPage() {
         console.warn('Error al cargar logo:', e);
       }
       
-      // Título de la empresa
+      // Título de la empresa - posicionado después del logo con espacio adecuado
+      const logoEndX = margin + 5 + (logoWidth || 0) + 8;
       pdf.setFontSize(22);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-      pdf.text('Digiautomatiza', margin + 30, yPosition + 12);
+      pdf.text(cleanText('Digiautomatiza'), logoEndX, yPosition + 14);
       
       pdf.setFontSize(9);
       pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
       pdf.setFont('helvetica', 'normal');
-      pdf.text('Innovación Digital | Transformando Ideas en Soluciones', margin + 30, yPosition + 18);
+      pdf.text(cleanText('Innovacion Digital | Transformando Ideas en Soluciones'), logoEndX, yPosition + 21);
       
       // Número de propuesta y fecha en el header
       pdf.setFontSize(11);
@@ -495,19 +516,19 @@ export default function PropuestasPage() {
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-      pdf.text(propuesta.cliente.nombre, margin + 8, yPosition + 15);
+      pdf.text(cleanText(propuesta.cliente.nombre), margin + 8, yPosition + 15);
       
       if (propuesta.cliente.empresa) {
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-        pdf.text(propuesta.cliente.empresa, margin + 8, yPosition + 22);
+        pdf.text(cleanText(propuesta.cliente.empresa), margin + 8, yPosition + 22);
       }
       
       pdf.setFontSize(9);
       pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-      pdf.text(`📧 ${propuesta.cliente.email}`, margin + 8, yPosition + (propuesta.cliente.empresa ? 29 : 22));
-      pdf.text(`📱 ${propuesta.cliente.telefono}`, margin + 8, yPosition + (propuesta.cliente.empresa ? 33 : 26));
+      pdf.text(cleanText(`Email: ${propuesta.cliente.email}`), margin + 8, yPosition + (propuesta.cliente.empresa ? 29 : 22));
+      pdf.text(cleanText(`Telefono: ${propuesta.cliente.telefono}`), margin + 8, yPosition + (propuesta.cliente.empresa ? 33 : 26));
       
       yPosition += clienteBoxHeight + 12;
       
@@ -515,7 +536,7 @@ export default function PropuestasPage() {
       pdf.setFontSize(18);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-      const tituloLines = pdf.splitTextToSize(propuesta.titulo, contentWidth);
+      const tituloLines = pdf.splitTextToSize(cleanText(propuesta.titulo), contentWidth);
       tituloLines.forEach((line: string) => {
         if (yPosition + 10 > pdfHeight - margin) {
           pdf.addPage();
@@ -562,7 +583,7 @@ export default function PropuestasPage() {
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-        pdf.text('📋 Especificaciones del Servicio', margin + 5, yPosition + 8);
+        pdf.text('Especificaciones del Servicio', margin + 5, yPosition + 8);
         
         yPosition += 8;
         pdf.setFontSize(10);
@@ -643,7 +664,7 @@ export default function PropuestasPage() {
         pdf.setFontSize(13);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-        pdf.text('📎 Archivos Adjuntos', margin, yPosition);
+        pdf.text('Archivos Adjuntos', margin, yPosition);
         yPosition += 8;
         
         // Línea decorativa
@@ -660,10 +681,10 @@ export default function PropuestasPage() {
           
           // Caja para cada adjunto
           addBox(margin, yPosition, contentWidth, 8, colorLightGray);
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-          pdf.text(adjunto.nombre, margin + 3, yPosition + 6);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
+        pdf.text(cleanText(adjunto.nombre), margin + 3, yPosition + 6);
           yPosition += 10;
           
           // Si es imagen, intentar agregarla al PDF
@@ -685,17 +706,19 @@ export default function PropuestasPage() {
                     }
                     
                     const maxWidth = contentWidth - 10;
-                    const maxHeight = 120; // Altura máxima por imagen (aumentada)
+                    const maxHeight = 150; // Altura máxima por imagen (aumentada significativamente)
                     let width = img.width;
                     let height = img.height;
                     
+                    // Calcular proporciones manteniendo aspect ratio
+                    const aspectRatio = width / height;
                     if (width > maxWidth) {
-                      height = (height * maxWidth) / width;
                       width = maxWidth;
+                      height = width / aspectRatio;
                     }
                     if (height > maxHeight) {
-                      width = (width * maxHeight) / height;
                       height = maxHeight;
+                      width = height * aspectRatio;
                     }
                     
                     canvas.width = width;
@@ -773,7 +796,7 @@ export default function PropuestasPage() {
       pdf.setFontSize(13);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-      pdf.text('💼 Información de Contacto', margin + 5, yPosition);
+      pdf.text('Informacion de Contacto', margin + 5, yPosition);
       yPosition += 10;
       
       // Información del comercial
@@ -784,7 +807,7 @@ export default function PropuestasPage() {
         pdf.text('Comercial:', margin + 5, yPosition);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-        pdf.text(usuario.nombre, margin + 30, yPosition);
+        pdf.text(cleanText(usuario.nombre), margin + 30, yPosition);
         yPosition += 7;
       }
       
@@ -795,14 +818,14 @@ export default function PropuestasPage() {
       pdf.setFontSize(9);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-      pdf.text('📱 Teléfono:', col1X, yPosition);
+      pdf.text('Telefono:', col1X, yPosition);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
       pdf.text('+57 313 368 3567', col1X + 25, yPosition);
       
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-      pdf.text('🌐 Web:', col2X, yPosition);
+      pdf.text('Web:', col2X, yPosition);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
       pdf.text('www.digiautomatiza.co', col2X + 20, yPosition);
@@ -810,7 +833,7 @@ export default function PropuestasPage() {
       
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-      pdf.text('📧 Email:', col1X, yPosition);
+      pdf.text('Email:', col1X, yPosition);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
       pdf.text('digiautomatiza1@gmail.com', col1X + 25, yPosition);
@@ -842,9 +865,9 @@ export default function PropuestasPage() {
         // Información de contacto compacta
         pdf.setFontSize(6);
         pdf.setTextColor(colorGray[0], colorGray[1], colorGray[2]);
-        pdf.text('📱 +57 313 368 3567', margin + 3, pdfHeight - 8);
-        pdf.text('📧 digiautomatiza1@gmail.com', margin + 45, pdfHeight - 8);
-        pdf.text('🌐 www.digiautomatiza.co', margin + 3, pdfHeight - 3);
+        pdf.text('Telefono: +57 313 368 3567', margin + 3, pdfHeight - 8);
+        pdf.text('Email: digiautomatiza1@gmail.com', margin + 45, pdfHeight - 8);
+        pdf.text('Web: www.digiautomatiza.co', margin + 3, pdfHeight - 3);
         
         // Número de página con estilo
         pdf.setFontSize(8);
