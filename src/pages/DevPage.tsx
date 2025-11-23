@@ -59,6 +59,20 @@ export default function DevPage() {
       setIsLoading(true);
       try {
         const todasLasPropuestas = await obtenerPropuestas();
+        
+        // Log para diagnosticar adjuntos
+        console.log('📋 Propuestas cargadas en DEV:', todasLasPropuestas.length);
+        todasLasPropuestas.forEach((p, index) => {
+          console.log(`📎 Propuesta ${index + 1} (${p.id}):`, {
+            titulo: p.titulo,
+            estadoAprobacion: p.estadoAprobacion,
+            adjuntos: p.adjuntos,
+            tipoAdjuntos: typeof p.adjuntos,
+            esArray: Array.isArray(p.adjuntos),
+            longitud: p.adjuntos ? p.adjuntos.length : 0
+          });
+        });
+        
         const propuestasAprobadas = todasLasPropuestas.filter(
           p => p.estadoAprobacion === 'Aprobada'
         );

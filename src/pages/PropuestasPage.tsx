@@ -111,6 +111,19 @@ export default function PropuestasPage() {
         obtenerClientes(),
         obtenerOportunidades(),
       ]);
+      
+      // Log para diagnosticar adjuntos
+      console.log('📋 Propuestas cargadas:', propuestasData.length);
+      propuestasData.forEach((p, index) => {
+        console.log(`📎 Propuesta ${index + 1} (${p.id}):`, {
+          titulo: p.titulo,
+          adjuntos: p.adjuntos,
+          tipoAdjuntos: typeof p.adjuntos,
+          esArray: Array.isArray(p.adjuntos),
+          longitud: p.adjuntos ? p.adjuntos.length : 0
+        });
+      });
+      
       setPropuestas(propuestasData);
       setClientes(clientesData);
       setOportunidades(oportunidadesData);
