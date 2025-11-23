@@ -253,13 +253,20 @@ export default async function handler(req, res) {
       
       // Asegurar que adjuntos se parseen correctamente en todas las propuestas
       propuestas = propuestas.map(p => {
-        if (p.adjuntos && typeof p.adjuntos === 'string') {
+        if (p.adjuntos && typeof p.adjuntos === 'string' && p.adjuntos !== 'null' && p.adjuntos.trim() !== '') {
           try {
-            p.adjuntos = JSON.parse(p.adjuntos);
+            const parsed = JSON.parse(p.adjuntos);
+            p.adjuntos = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : null);
+            console.log('✅ Adjuntos parseados en GET (normal):', p.id, p.adjuntos);
           } catch (e) {
-            console.error('Error al parsear adjuntos en propuesta:', p.id, e);
+            console.error('❌ Error al parsear adjuntos en propuesta:', p.id, e, 'Valor:', p.adjuntos);
             p.adjuntos = null;
           }
+        } else if (!p.adjuntos || p.adjuntos === 'null' || p.adjuntos === '') {
+          p.adjuntos = null;
+        } else if (Array.isArray(p.adjuntos)) {
+          // Ya es un array, dejarlo como está
+          console.log('✅ Adjuntos ya es array en propuesta:', p.id);
         }
         return p;
       });
