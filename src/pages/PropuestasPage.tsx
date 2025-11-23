@@ -378,12 +378,31 @@ export default function PropuestasPage() {
       });
 
       // Asegurar que adjuntos se envíe correctamente
-      // Si hay adjuntos en el estado local, usarlos
-      // Si no hay en el estado local pero hay en propuestaEditando, usar esos
-      let adjuntosParaEnviar = adjuntos.length > 0 ? adjuntos : null;
-      if (!adjuntosParaEnviar && propuestaEditando?.adjuntos && Array.isArray(propuestaEditando.adjuntos) && propuestaEditando.adjuntos.length > 0) {
-        console.log('⚠️ No hay adjuntos en estado local, usando adjuntos de propuestaEditando');
-        adjuntosParaEnviar = propuestaEditando.adjuntos;
+      // PRIORIDAD 1: Si hay adjuntos en el estado local (nuevos o modificados), usarlos
+      // PRIORIDAD 2: Si no hay en el estado local pero hay en propuestaEditando (originales), usar esos
+      // PRIORIDAD 3: Si no hay ninguno, enviar null
+      let adjuntosParaEnviar = null;
+      
+      if (adjuntos.length > 0) {
+        // Hay adjuntos en el estado local (pueden ser nuevos o los originales cargados)
+        adjuntosParaEnviar = adjuntos;
+        console.log('✅ Usando adjuntos del estado local:', adjuntosParaEnviar);
+      } else if (propuestaEditando?.adjuntos) {
+        // No hay adjuntos en el estado local, pero hay en la propuesta original
+        const adjuntosOriginales = Array.isArray(propuestaEditando.adjuntos) 
+          ? propuestaEditando.adjuntos 
+          : (propuestaEditando.adjuntos ? [propuestaEditando.adjuntos] : []);
+        
+        if (adjuntosOriginales.length > 0) {
+          adjuntosParaEnviar = adjuntosOriginales;
+          console.log('⚠️ No hay adjuntos en estado local, usando adjuntos originales de propuestaEditando:', adjuntosParaEnviar);
+        } else {
+          console.log('⚠️ No hay adjuntos ni en estado local ni en propuestaEditando');
+          adjuntosParaEnviar = null;
+        }
+      } else {
+        console.log('⚠️ No hay adjuntos disponibles');
+        adjuntosParaEnviar = null;
       }
 
       const propuestaData = {

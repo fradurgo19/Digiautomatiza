@@ -118,17 +118,27 @@ export default async function handler(req, res) {
         });
 
         // Asegurar que adjuntos sea null o un string JSON válido
+        // IMPORTANTE: Si adjuntos es null/undefined/vacío, NO lo eliminemos del objeto datosLimpios
+        // porque Prisma necesita saber que debe mantener el valor existente o establecerlo como null
         if (datosLimpios.adjuntos === null || datosLimpios.adjuntos === undefined || 
             datosLimpios.adjuntos === 'null' || datosLimpios.adjuntos === '') {
-          console.log(`🧹 ADJUNTOS limpiado a null`);
+          console.log(`🧹 ADJUNTOS limpiado a null - se establecerá como null en BD`);
           datosLimpios.adjuntos = null;
         } else if (typeof datosLimpios.adjuntos === 'string') {
           console.log(`🧹 ADJUNTOS es string válido, manteniendo:`, datosLimpios.adjuntos.substring(0, 200));
           // Si ya es string, validar que sea JSON válido o "null"
           if (datosLimpios.adjuntos.trim() === '' || datosLimpios.adjuntos.trim() === 'null') {
             datosLimpios.adjuntos = null;
+          } else {
+            // Validar que sea JSON válido
+            try {
+              JSON.parse(datosLimpios.adjuntos);
+              console.log(`✅ ADJUNTOS es JSON válido`);
+            } catch (e) {
+              console.error(`❌ ADJUNTOS no es JSON válido, estableciendo como null`);
+              datosLimpios.adjuntos = null;
+            }
           }
-          // Si es un string JSON válido, dejarlo como está
         }
         
         // Log ANTES de actualizar en Prisma
