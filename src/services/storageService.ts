@@ -31,10 +31,10 @@ export async function subirArchivoPropuesta(
   // Permitir cualquier tipo de archivo
   // La validación de tipo se ha removido para permitir todos los archivos
 
-  // Validar tamaño (máximo 10MB)
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  // Validar tamaño (máximo 50MB)
+  const maxSize = 50 * 1024 * 1024; // 50MB
   if (file.size > maxSize) {
-    throw new Error('El archivo es demasiado grande. Máximo 10MB');
+    throw new Error('El archivo es demasiado grande. Máximo 50MB');
   }
 
   // Generar nombre único para el archivo

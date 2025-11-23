@@ -354,18 +354,57 @@ export default function PropuestasPage() {
         return;
       }
 
+      // Esperar a que todas las imágenes se carguen antes de generar el PDF
+      if (propuesta.adjuntos && propuesta.adjuntos.length > 0) {
+        const imagenes = elemento.querySelectorAll('img');
+        const promesasImagenes = Array.from(imagenes).map((img) => {
+          return new Promise<void>((resolve, reject) => {
+            if (img.complete) {
+              resolve();
+            } else {
+              img.onload = () => resolve();
+              img.onerror = () => {
+                console.warn('Error al cargar imagen para PDF:', img.src);
+                resolve(); // Continuar aunque falle una imagen
+              };
+              // Timeout de seguridad
+              setTimeout(() => resolve(), 5000);
+            }
+          });
+        });
+        
+        await Promise.all(promesasImagenes);
+      }
+
       const canvas = await html2canvas(elemento, {
         scale: 2,
         useCORS: true,
+        allowTaint: false,
         logging: false,
+        backgroundColor: '#ffffff',
+        removeContainer: false,
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Si el contenido es muy largo, dividirlo en múltiples páginas
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
       pdf.save(`Propuesta-${propuesta.numeroPropuesta}.pdf`);
     } catch (error) {
       console.error('Error al exportar PDF:', error);
@@ -614,7 +653,7 @@ export default function PropuestasPage() {
                     />
                   </label>
                   <span className="text-sm text-gray-600">
-                    Cualquier tipo de archivo - Máx. 10MB
+                    Cualquier tipo de archivo - Máx. 50MB
                   </span>
                 </div>
 
@@ -827,7 +866,7 @@ export default function PropuestasPage() {
                     />
                   </label>
                   <span className="text-sm text-gray-600">
-                    Cualquier tipo de archivo - Máx. 10MB
+                    Cualquier tipo de archivo - Máx. 50MB
                   </span>
                 </div>
 
@@ -1073,24 +1112,46 @@ export default function PropuestasPage() {
                 {/* Adjuntos */}
                 {propuestaPreview.adjuntos && propuestaPreview.adjuntos.length > 0 && (
                   <div className="mb-6 border-t pt-6">
-                    <h3 className="font-semibold text-gray-800 mb-4">Archivos Adjuntos</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <h3 className="font-semibold text-gray-800 mb-4 text-lg">Archivos Adjuntos</h3>
+                    <div className="space-y-6">
                       {propuestaPreview.adjuntos.map((adjunto, index) => (
-                        <div key={index} className="border border-gray-300 rounded-lg p-3">
+                        <div key={index} className="border-2 border-emerald-200 rounded-lg p-4 bg-gray-50">
                           {adjunto.tipo === 'imagen' ? (
                             <div>
-                              <img 
-                                src={adjunto.url} 
-                                alt={adjunto.nombre}
-                                className="w-full h-auto rounded mb-2"
-                                style={{ maxHeight: '300px', objectFit: 'contain' }}
-                              />
-                              <p className="text-sm text-gray-600 text-center">{adjunto.nombre}</p>
+                              <p className="text-sm font-semibold text-gray-700 mb-2">{adjunto.nombre}</p>
+                              <div className="flex justify-center bg-white p-2 rounded">
+                                <img 
+                                  src={adjunto.url} 
+                                  alt={adjunto.nombre}
+                                  className="max-w-full h-auto rounded"
+                                  style={{ maxHeight: '500px', objectFit: 'contain' }}
+                                  crossOrigin="anonymous"
+                                  onError={(e) => {
+                                    console.error('Error al cargar imagen:', adjunto.url);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.innerHTML = 
+                                      `<p class="text-red-600 text-center p-4">Error al cargar imagen: ${adjunto.nombre}</p>`;
+                                  }}
+                                />
+                              </div>
                             </div>
                           ) : (
-                            <div className="text-center">
-                              <span className="text-4xl block mb-2">📄</span>
-                              <p className="text-sm text-gray-600">{adjunto.nombre}</p>
+                            <div className="text-center py-4">
+                              <div className="bg-emerald-100 rounded-lg p-6 mb-3">
+                                <span className="text-6xl block mb-2">📄</span>
+                                <p className="text-sm font-semibold text-gray-700">{adjunto.nombre}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {(adjunto.tamaño ? (adjunto.tamaño / 1024).toFixed(2) : 'N/A')} KB
+                                </p>
+                              </div>
+                              <a 
+                                href={adjunto.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-emerald-600 hover:text-emerald-800 text-sm underline"
+                              >
+                                Ver documento completo
+                              </a>
                             </div>
                           )}
                         </div>
