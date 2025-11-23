@@ -558,11 +558,11 @@ export default function PropuestasPage() {
           ? JSON.parse(propuesta.contenido) 
           : propuesta.contenido;
         if (contenido.introduccion) {
-          addText(contenido.introduccion, 10, false, colorDark);
+          addText(cleanText(contenido.introduccion), 10, false, colorDark);
         }
         if (contenido.descripcionServicio) {
           yPosition += 3;
-          addText(contenido.descripcionServicio, 10, false, colorDark);
+          addText(cleanText(contenido.descripcionServicio), 10, false, colorDark);
         }
       } catch (e) {
         console.warn('Error al parsear contenido:', e);
@@ -570,35 +570,37 @@ export default function PropuestasPage() {
       
       // Especificaciones con diseño mejorado
       if (propuesta.especificaciones) {
-        yPosition += 10;
-        if (yPosition + 30 > pdfHeight - margin) {
+        yPosition += 15; // Aumentado el espaciado antes de las especificaciones
+        if (yPosition + 40 > pdfHeight - margin) {
           pdf.addPage();
           yPosition = margin;
         }
         
+        // Calcular altura necesaria para las especificaciones
+        const especTextLines = pdf.splitTextToSize(cleanText(propuesta.especificaciones), contentWidth - 20);
+        const especTextHeight = especTextLines.length * 5 + 15; // Altura del texto + padding
+        
         // Caja para especificaciones
-        const especHeight = Math.min(30, propuesta.especificaciones.length / 3);
-        addBox(margin, yPosition, contentWidth, especHeight + 10, colorPrimaryLight);
+        addBox(margin, yPosition, contentWidth, especTextHeight, colorPrimaryLight);
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
         pdf.text('Especificaciones del Servicio', margin + 5, yPosition + 8);
         
-        yPosition += 8;
+        yPosition += 10; // Espaciado después del título
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(colorDark[0], colorDark[1], colorDark[2]);
-        const especLines = pdf.splitTextToSize(propuesta.especificaciones, contentWidth - 10);
-        especLines.forEach((line: string) => {
+        especTextLines.forEach((line: string) => {
           if (yPosition + 6 > pdfHeight - margin - 5) {
             pdf.addPage();
             yPosition = margin;
           }
-          pdf.text(line, margin + 5, yPosition);
+          pdf.text(cleanText(line), margin + 5, yPosition);
           yPosition += 5;
         });
-        yPosition += 5;
+        yPosition += 8; // Espaciado después de las especificaciones
       }
       
       // Totales con diseño moderno y elegante
@@ -705,17 +707,20 @@ export default function PropuestasPage() {
                       return;
                     }
                     
-                    const maxWidth = contentWidth - 10;
-                    const maxHeight = 150; // Altura máxima por imagen (aumentada significativamente)
+                    // Imagen ocupa el ancho completo con márgenes del documento
+                    const maxWidth = contentWidth; // Ancho completo con márgenes
+                    const maxHeight = 200; // Altura máxima aumentada significativamente
                     let width = img.width;
                     let height = img.height;
                     
                     // Calcular proporciones manteniendo aspect ratio
                     const aspectRatio = width / height;
-                    if (width > maxWidth) {
-                      width = maxWidth;
-                      height = width / aspectRatio;
-                    }
+                    
+                    // Ajustar al ancho completo primero
+                    width = maxWidth;
+                    height = width / aspectRatio;
+                    
+                    // Si la altura excede el máximo, ajustar proporcionalmente
                     if (height > maxHeight) {
                       height = maxHeight;
                       width = height * aspectRatio;
@@ -725,22 +730,26 @@ export default function PropuestasPage() {
                     canvas.height = height;
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.9); // Mejor calidad
                     
-                    if (yPosition + (height * 0.264583) + 10 > pdfHeight - margin) {
+                    // Convertir a milímetros
+                    const imgWidthMM = width * 0.264583;
+                    const imgHeightMM = height * 0.264583;
+                    
+                    // Verificar si necesita nueva página
+                    if (yPosition + imgHeightMM + 15 > pdfHeight - margin) {
                       pdf.addPage();
                       yPosition = margin;
                     }
                     
                     // Borde decorativo alrededor de la imagen
                     pdf.setDrawColor(colorPrimary[0], colorPrimary[1], colorPrimary[2]);
-                    pdf.setLineWidth(1);
-                    const imgWidthMM = width * 0.264583;
-                    const imgHeightMM = height * 0.264583;
-                    pdf.roundedRect(margin + 2, yPosition - 1, imgWidthMM + 4, imgHeightMM + 2, 2, 2, 'S');
+                    pdf.setLineWidth(1.5);
+                    pdf.roundedRect(margin, yPosition, imgWidthMM, imgHeightMM + 4, 3, 3, 'S');
                     
-                    pdf.addImage(imgData, 'JPEG', margin + 4, yPosition + 1, imgWidthMM, imgHeightMM);
-                    yPosition += imgHeightMM + 8;
+                    // Agregar imagen centrada en el ancho disponible
+                    pdf.addImage(imgData, 'JPEG', margin, yPosition + 2, imgWidthMM, imgHeightMM);
+                    yPosition += imgHeightMM + 12; // Espaciado después de la imagen
                     resolve();
                   } catch (error) {
                     console.error('Error al agregar imagen al PDF:', error);
