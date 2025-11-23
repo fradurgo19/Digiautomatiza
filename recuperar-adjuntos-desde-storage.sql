@@ -17,17 +17,13 @@ FROM public.propuestas
 WHERE adjuntos IS NULL
 ORDER BY "createdAt" DESC;
 
--- Paso 2: ACTUALIZAR MANUALMENTE con la URL del archivo desde Storage
--- Reemplaza:
--- - 'TU_URL_AQUI' con la URL pública del archivo desde Storage
--- - 'NOMBRE_ARCHIVO.pdf' con el nombre real del archivo
--- - 'cmib10f5f0001l8040v1rwwdk' con el ID de la propuesta
-
--- Ejemplo de URL de Storage:
--- https://kixlndfaipkgkhxqbdao.supabase.co/storage/v1/object/public/propuestas/propuestas/1763862011383-02nixnazfpur.pdf
+-- Paso 2: ACTUALIZAR con la URL real del archivo desde Storage
+-- URL del archivo: https://kixlndfaipkgkhxqbdao.supabase.co/storage/v1/object/public/propuestas/propuestas/1763922361122-w7ihz9284f8.png
+-- Nombre del archivo: 1763922361122-w7ihz9284f8.png
+-- Tipo: imagen (PNG)
 
 UPDATE public.propuestas
-SET adjuntos = '[{"url":"TU_URL_AQUI","nombre":"NOMBRE_ARCHIVO.pdf","tipo":"documento","tamaño":0}]'
+SET adjuntos = '[{"url":"https://kixlndfaipkgkhxqbdao.supabase.co/storage/v1/object/public/propuestas/propuestas/1763922361122-w7ihz9284f8.png","nombre":"1763922361122-w7ihz9284f8.png","tipo":"imagen","tamaño":0}]'
 WHERE id = 'cmib10f5f0001l8040v1rwwdk';
 
 -- Paso 3: Verificar que se actualizó correctamente
