@@ -284,6 +284,30 @@ export default function DevPage() {
                         </div>
                       </div>
 
+                      {/* Archivos Adjuntos en la Lista */}
+                      {propuesta.adjuntos && propuesta.adjuntos.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-sm font-semibold text-gray-700 mb-2">📎 Archivos Adjuntos:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {propuesta.adjuntos.map((adjunto, index) => (
+                              <a
+                                key={index}
+                                href={adjunto.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors border border-emerald-300"
+                                title={`Descargar: ${adjunto.nombre}`}
+                              >
+                                <span>{adjunto.tipo === 'imagen' ? '🖼️' : '📄'}</span>
+                                <span className="text-sm font-medium">{adjunto.nombre}</span>
+                                <span className="text-xs">⬇️</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Diagrama de Gantt */}
                       {propuesta.tareasProyecto && propuesta.tareasProyecto.length > 0 && (
                         <div className="mt-4">
@@ -382,6 +406,38 @@ export default function DevPage() {
                   </div>
                 </div>
               )}
+
+              {propuestaSeleccionada.adjuntos && propuestaSeleccionada.adjuntos.length > 0 && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">📎 Archivos Adjuntos ({propuestaSeleccionada.adjuntos.length}):</p>
+                  <div className="space-y-2">
+                    {propuestaSeleccionada.adjuntos.map((adjunto, index) => (
+                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                        <span className="text-2xl">{adjunto.tipo === 'imagen' ? '🖼️' : '📄'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{adjunto.nombre}</p>
+                          <p className="text-sm text-gray-600">
+                            {adjunto.tamaño ? `${(adjunto.tamaño / 1024).toFixed(2)} KB` : 'Tamaño desconocido'}
+                            {' • '}
+                            {adjunto.tipo === 'imagen' ? 'Imagen' : 'Documento'}
+                          </p>
+                        </div>
+                        <a
+                          href={adjunto.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium text-sm flex items-center gap-2"
+                          title={`Descargar: ${adjunto.nombre}`}
+                        >
+                          <span>⬇️</span>
+                          <span>Descargar</span>
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Modal>
@@ -406,7 +462,8 @@ export default function DevPage() {
                   value={fechaInicio}
                   onChange={(e) => setFechaInicio(e.target.value)}
                   fullWidth
-                  className="bg-white"
+                  className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-emerald-900 placeholder:text-emerald-500"
                 />
                 <Input
                   label="Fecha de Entrega del Proyecto *"
@@ -414,7 +471,8 @@ export default function DevPage() {
                   value={fechaEntrega}
                   onChange={(e) => setFechaEntrega(e.target.value)}
                   fullWidth
-                  className="bg-white"
+                  className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-emerald-900 placeholder:text-emerald-500"
                 />
               </div>
 
@@ -428,7 +486,8 @@ export default function DevPage() {
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, nombre: e.target.value })}
                     placeholder="Ej: Diseño de interfaz"
                     fullWidth
-                    className="bg-white"
+                    className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
                   />
                   <Input
                     label="Responsable (Opcional)"
@@ -436,7 +495,8 @@ export default function DevPage() {
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, responsable: e.target.value })}
                     placeholder="Nombre del desarrollador"
                     fullWidth
-                    className="bg-white"
+                    className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
                   />
                   <Input
                     label="Fecha de Inicio *"
@@ -444,7 +504,8 @@ export default function DevPage() {
                     value={nuevaTarea.fechaInicio}
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, fechaInicio: e.target.value })}
                     fullWidth
-                    className="bg-white"
+                    className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
                   />
                   <Input
                     label="Fecha de Fin *"
@@ -452,7 +513,8 @@ export default function DevPage() {
                     value={nuevaTarea.fechaFin}
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, fechaFin: e.target.value })}
                     fullWidth
-                    className="bg-white"
+                    className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
                   />
                   <Input
                     label="Progreso (%)"
@@ -462,7 +524,8 @@ export default function DevPage() {
                     value={nuevaTarea.progreso.toString()}
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, progreso: parseInt(e.target.value) || 0 })}
                     fullWidth
-                    className="bg-white"
+                    className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
                   />
                   <div className="flex items-end">
                     <Button
@@ -497,7 +560,8 @@ export default function DevPage() {
                             max="100"
                             value={tarea.progreso.toString()}
                             onChange={(e) => handleActualizarProgreso(tarea.id, parseInt(e.target.value) || 0)}
-                            className="w-20 bg-white"
+                            className="w-20 bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                            textClassName="text-emerald-900 placeholder:text-emerald-500"
                           />
                           <span className="text-sm text-gray-600">%</span>
                           <Button
