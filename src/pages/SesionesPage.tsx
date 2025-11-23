@@ -354,7 +354,15 @@ export default function SesionesPage() {
                         <p><strong>📱 Teléfono:</strong> {sesion.cliente.telefono}</p>
                       </div>
                       <div>
-                        <p><strong>📅 Fecha:</strong> {new Date(sesion.fecha).toLocaleDateString('es-ES')}</p>
+                        <p><strong>📅 Fecha:</strong> {(() => {
+                          // Formatear fecha correctamente evitando problemas de zona horaria
+                          const fecha = new Date(sesion.fecha);
+                          // Usar UTC para obtener el día correcto sin conversión de zona horaria
+                          const año = fecha.getUTCFullYear();
+                          const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+                          const dia = String(fecha.getUTCDate()).padStart(2, '0');
+                          return `${dia}/${mes}/${año}`;
+                        })()}</p>
                         <p><strong>⏰ Hora:</strong> {sesion.hora}</p>
                         <p><strong>💼 Servicio:</strong> {serviciosOptions.find(s => s.value === sesion.servicio)?.label}</p>
                       </div>
