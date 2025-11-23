@@ -726,19 +726,48 @@ function mapPropuesta(data: any): Propuesta {
     especificaciones: data.especificaciones || undefined,
     adjuntos: (() => {
       try {
-        if (!data.adjuntos || data.adjuntos === 'null' || data.adjuntos === '') {
+        console.log('🔍 mapPropuesta - Parseando adjuntos:', {
+          adjuntos: data.adjuntos,
+          tipo: typeof data.adjuntos,
+          esArray: Array.isArray(data.adjuntos),
+          esNull: data.adjuntos === null,
+          esUndefined: data.adjuntos === undefined,
+          esStringNull: data.adjuntos === 'null',
+          esStringVacio: data.adjuntos === ''
+        });
+        
+        if (!data.adjuntos || data.adjuntos === 'null' || data.adjuntos === '' || data.adjuntos === null || data.adjuntos === undefined) {
+          console.log('⚠️ mapPropuesta - Adjuntos vacíos o null, retornando undefined');
           return undefined;
         }
+        
         if (typeof data.adjuntos === 'string') {
-          const parsed = JSON.parse(data.adjuntos);
-          return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : undefined);
+          try {
+            const parsed = JSON.parse(data.adjuntos);
+            const result = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : undefined);
+            console.log('✅ mapPropuesta - Adjuntos parseados desde string:', result);
+            return result;
+          } catch (parseError) {
+            console.error('❌ mapPropuesta - Error al parsear JSON string:', parseError, 'Valor:', data.adjuntos);
+            return undefined;
+          }
         }
+        
         if (Array.isArray(data.adjuntos)) {
+          console.log('✅ mapPropuesta - Adjuntos ya es array:', data.adjuntos);
           return data.adjuntos;
         }
-        return data.adjuntos ? [data.adjuntos] : undefined;
+        
+        // Si es un objeto, convertirlo a array
+        if (typeof data.adjuntos === 'object' && data.adjuntos !== null) {
+          console.log('✅ mapPropuesta - Adjuntos es objeto, convirtiendo a array:', [data.adjuntos]);
+          return [data.adjuntos];
+        }
+        
+        console.log('⚠️ mapPropuesta - Tipo de adjuntos no reconocido:', typeof data.adjuntos);
+        return undefined;
       } catch (error) {
-        console.error('Error al parsear adjuntos:', error, 'Datos:', data.adjuntos);
+        console.error('❌ mapPropuesta - Error al parsear adjuntos:', error, 'Datos:', data.adjuntos);
         return undefined;
       }
     })(),
