@@ -617,14 +617,18 @@ export default function PropuestasPage() {
       }
       
       // Totales con diseño moderno y elegante
-      yPosition += 15;
-      if (yPosition + 50 > pdfHeight - margin) {
+      yPosition += 8; // Reducido el espaciado entre especificaciones y costos
+      
+      // Verificar que el cuadro de costos no quede tapado por el footer (footer empieza en pdfHeight - 25)
+      const totalesHeight = propuesta.descuento && propuesta.descuento > 0 ? 60 : 50;
+      const espacioNecesario = totalesHeight + 10; // Altura del cuadro + margen de seguridad
+      
+      if (yPosition + espacioNecesario > pdfHeight - 30) { // 30mm de margen para el footer
         pdf.addPage();
         yPosition = margin;
       }
       
       // Caja para totales - altura aumentada para asegurar que el TOTAL quepa
-      const totalesHeight = propuesta.descuento && propuesta.descuento > 0 ? 60 : 50;
       addBox(margin, yPosition, contentWidth, totalesHeight, colorLightGray);
       
       // Borde superior verde
