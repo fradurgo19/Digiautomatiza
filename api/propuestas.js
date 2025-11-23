@@ -171,51 +171,49 @@ export default async function handler(req, res) {
 
       console.log('📋 Obteniendo propuestas - Admin:', isAdmin, 'UsuarioId:', usuarioId);
 
-      // Usar select explícito para asegurar que adjuntos se incluyan siempre
+      // SOLUCIÓN DEFINITIVA: Usar select explícito SIEMPRE para asegurar que adjuntos se incluya
       let propuestas;
       try {
-        // Intentar consulta normal primero
         propuestas = await prisma.propuesta.findMany({
           ...(where && { where }),
-          include: { cliente: true, oportunidad: true },
+          select: {
+            id: true,
+            oportunidadId: true,
+            clienteId: true,
+            usuarioId: true,
+            titulo: true,
+            numeroPropuesta: true,
+            servicio: true,
+            estado: true,
+            estadoAprobacion: true,
+            fechaInicio: true,
+            fechaEntrega: true,
+            tareasProyecto: true,
+            valorTotal: true,
+            descuento: true,
+            valorFinal: true,
+            validez: true,
+            fechaVencimiento: true,
+            contenido: true,
+            items: true,
+            especificaciones: true,
+            adjuntos: true, // Asegurar que adjuntos se incluya siempre
+            notas: true,
+            fechaEnvio: true,
+            fechaAceptacion: true,
+            fechaRechazo: true,
+            motivoRechazo: true,
+            createdAt: true,
+            updatedAt: true,
+            cliente: true,
+            oportunidad: true,
+          },
           orderBy: { createdAt: 'desc' },
         });
-        
-        // Verificar si adjuntos está presente y tiene valor
-        const primeraPropuesta = propuestas[0];
-        const tieneAdjuntosCampo = primeraPropuesta && primeraPropuesta.hasOwnProperty('adjuntos');
-        // Si adjuntos es null pero el campo existe, puede ser válido (propuesta sin adjuntos)
-        // Pero si el campo no existe, necesitamos usar select explícito
-        console.log('🔍 Verificando adjuntos en consulta normal:', {
-          tieneCampo: tieneAdjuntosCampo,
-          valor: primeraPropuesta?.adjuntos,
-          tipo: typeof primeraPropuesta?.adjuntos,
-          esNull: primeraPropuesta?.adjuntos === null
-        });
-        
-        // Si no tiene el campo adjuntos, forzar select explícito
-        if (!tieneAdjuntosCampo) {
-          console.log('⚠️ Campo adjuntos no existe, usando select explícito...');
-          throw new Error('adjuntos field missing');
-        }
-        
-        // Log para diagnosticar adjuntos en consulta normal
-        console.log('📋 Propuestas obtenidas (consulta normal):', propuestas.length);
-        propuestas.forEach((p, index) => {
-          console.log(`📎 Propuesta ${index + 1} (${p.id}):`, {
-            titulo: p.titulo,
-            adjuntos: p.adjuntos,
-            tipoAdjuntos: typeof p.adjuntos,
-            esNull: p.adjuntos === null,
-            esUndefined: p.adjuntos === undefined,
-            esString: typeof p.adjuntos === 'string',
-            valorRaw: p.adjuntos
-          });
-        });
       } catch (schemaError) {
-        // Si falla por columnas que no existen, usar select explícito sin las columnas nuevas
+        // Si falla por columnas que no existen, intentar sin las columnas nuevas
         if (schemaError.message && schemaError.message.includes('does not exist')) {
-          console.log('⚠️ Columnas nuevas no encontradas, usando select explícito...');
+          console.log('⚠️ Algunas columnas no encontradas, usando select sin columnas nuevas...');
           propuestas = await prisma.propuesta.findMany({
             ...(where && { where }),
             select: {
@@ -227,10 +225,6 @@ export default async function handler(req, res) {
               numeroPropuesta: true,
               servicio: true,
               estado: true,
-              estadoAprobacion: true,
-              fechaInicio: true,
-              fechaEntrega: true,
-              tareasProyecto: true,
               valorTotal: true,
               descuento: true,
               valorFinal: true,
@@ -238,8 +232,6 @@ export default async function handler(req, res) {
               fechaVencimiento: true,
               contenido: true,
               items: true,
-              especificaciones: true,
-              adjuntos: true,
               notas: true,
               fechaEnvio: true,
               fechaAceptacion: true,
@@ -253,45 +245,16 @@ export default async function handler(req, res) {
             orderBy: { createdAt: 'desc' },
           });
           
-          // Log para diagnosticar adjuntos antes de parsear (fallback)
-          console.log('📋 Propuestas obtenidas (fallback):', propuestas.length);
-          propuestas.forEach((p, index) => {
-            console.log(`📎 Propuesta ${index + 1} (${p.id}) ANTES de parsear:`, {
-              titulo: p.titulo,
-              adjuntos: p.adjuntos,
-              tipoAdjuntos: typeof p.adjuntos,
-              esNull: p.adjuntos === null,
-              esUndefined: p.adjuntos === undefined,
-              esString: typeof p.adjuntos === 'string',
-              valorRaw: p.adjuntos
-            });
-          });
-          
-          // Parsear adjuntos y otros campos JSON para todas las propuestas
-          propuestas = propuestas.map(p => {
-            const propuesta = { ...p };
-            
-            // Parsear adjuntos si existe
-            if (propuesta.adjuntos && typeof propuesta.adjuntos === 'string' && propuesta.adjuntos !== 'null' && propuesta.adjuntos.trim() !== '') {
-              try {
-                propuesta.adjuntos = JSON.parse(propuesta.adjuntos);
-                console.log('✅ Adjuntos parseados en GET (fallback):', propuesta.id, propuesta.adjuntos);
-              } catch (e) {
-                console.error('❌ Error al parsear adjuntos en GET (fallback):', e, 'Valor:', propuesta.adjuntos);
-                propuesta.adjuntos = null;
-              }
-            } else if (!propuesta.adjuntos || propuesta.adjuntos === 'null' || propuesta.adjuntos === '') {
-              console.log('⚠️ Adjuntos vacíos o null en fallback:', propuesta.id);
-              propuesta.adjuntos = null;
-            }
-            
-            // Asegurar valores por defecto para campos opcionales
-            if (!propuesta.estadoAprobacion) {
-              propuesta.estadoAprobacion = 'Sin Aprobar';
-            }
-            
-            return propuesta;
-          });
+          // Agregar campos opcionales como null si no existen
+          propuestas = propuestas.map(p => ({
+            ...p,
+            especificaciones: null,
+            adjuntos: null,
+            estadoAprobacion: 'Sin Aprobar',
+            fechaInicio: null,
+            fechaEntrega: null,
+            tareasProyecto: null,
+          }));
         } else {
           throw schemaError;
         }
@@ -299,48 +262,29 @@ export default async function handler(req, res) {
       
       console.log(`✅ Propuestas obtenidas: ${propuestas.length}`);
       
-      // Log antes de parsear adjuntos (consulta normal)
-      propuestas.forEach((p, index) => {
-        console.log(`📎 Propuesta ${index + 1} (${p.id}) ANTES de parsear final:`, {
-          titulo: p.titulo,
-          adjuntos: p.adjuntos,
-          tipoAdjuntos: typeof p.adjuntos,
-          esNull: p.adjuntos === null,
-          esUndefined: p.adjuntos === undefined,
-          esString: typeof p.adjuntos === 'string',
-          valorRaw: p.adjuntos
-        });
-      });
-      
-      // Asegurar que adjuntos se parseen correctamente en todas las propuestas
+      // Parsear adjuntos y otros campos JSON para todas las propuestas
       propuestas = propuestas.map(p => {
-        if (p.adjuntos && typeof p.adjuntos === 'string' && p.adjuntos !== 'null' && p.adjuntos.trim() !== '') {
+        const propuesta = { ...p };
+        
+        // Parsear adjuntos si existe
+        if (propuesta.adjuntos && typeof propuesta.adjuntos === 'string' && propuesta.adjuntos !== 'null' && propuesta.adjuntos.trim() !== '') {
           try {
-            const parsed = JSON.parse(p.adjuntos);
-            p.adjuntos = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : null);
-            console.log('✅ Adjuntos parseados en GET (normal):', p.id, p.adjuntos);
+            const parsed = JSON.parse(propuesta.adjuntos);
+            propuesta.adjuntos = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : null);
           } catch (e) {
-            console.error('❌ Error al parsear adjuntos en propuesta:', p.id, e, 'Valor:', p.adjuntos);
-            p.adjuntos = null;
+            console.error('❌ Error al parsear adjuntos:', p.id, e);
+            propuesta.adjuntos = null;
           }
-        } else if (!p.adjuntos || p.adjuntos === 'null' || p.adjuntos === '') {
-          console.log('⚠️ Adjuntos vacíos o null en parseo final:', p.id);
-          p.adjuntos = null;
-        } else if (Array.isArray(p.adjuntos)) {
-          // Ya es un array, dejarlo como está
-          console.log('✅ Adjuntos ya es array en propuesta:', p.id, p.adjuntos);
+        } else if (!propuesta.adjuntos || propuesta.adjuntos === 'null' || propuesta.adjuntos === '') {
+          propuesta.adjuntos = null;
         }
-        return p;
-      });
-      
-      // Log después de parsear
-      propuestas.forEach((p, index) => {
-        console.log(`📎 Propuesta ${index + 1} (${p.id}) DESPUÉS de parsear:`, {
-          titulo: p.titulo,
-          adjuntos: p.adjuntos,
-          tipoAdjuntos: typeof p.adjuntos,
-          esArray: Array.isArray(p.adjuntos)
-        });
+        
+        // Asegurar valores por defecto
+        if (!propuesta.estadoAprobacion) {
+          propuesta.estadoAprobacion = 'Sin Aprobar';
+        }
+        
+        return propuesta;
       });
       
       res.status(200).json({ propuestas });
@@ -359,79 +303,60 @@ export default async function handler(req, res) {
         items,
         especificaciones,
         adjuntos,
-        notas 
+        notas
       } = req.body;
-      
+
       console.log('➕ Creando propuesta - UsuarioId:', usuarioId, 'ClienteId:', clienteId);
-      
-      // Generar número único de propuesta
-      const fecha = new Date();
-      const año = fecha.getFullYear();
-      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-      const numeroAleatorio = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-      const numeroPropuesta = `PROP-${año}${mes}-${numeroAleatorio}`;
-      
-      // Calcular fecha de vencimiento
-      const fechaVencimiento = new Date();
-      fechaVencimiento.setDate(fechaVencimiento.getDate() + (validez || 30));
-      
-      const dataToCreate = {
-        oportunidadId: oportunidadId || null,
-        clienteId,
-        titulo,
-        numeroPropuesta,
-        servicio,
-        valorTotal: parseFloat(valorTotal) || 0,
-        descuento: descuento ? parseFloat(descuento) : 0,
-        valorFinal: parseFloat(valorFinal) || 0,
-        validez: validez || 30,
-        fechaVencimiento,
-        contenido: typeof contenido === 'string' ? contenido : JSON.stringify(contenido),
-        items: typeof items === 'string' ? items : JSON.stringify(items),
-        notas: notas || null,
-        usuarioId: usuarioId ? String(usuarioId) : null,
-        estadoAprobacion: 'Sin Aprobar', // Inicializar estado de aprobación
-      };
-      
-      // Agregar campos nuevos solo si existen en el schema
-      if (especificaciones) {
-        dataToCreate.especificaciones = especificaciones;
+
+      // Generar número de propuesta único
+      const timestamp = Date.now();
+      const numeroPropuesta = `PROP-${timestamp}`;
+
+      // Convertir items y adjuntos a JSON si son arrays/objetos
+      const itemsJson = typeof items === 'string' ? items : JSON.stringify(items || []);
+      let adjuntosJson = null;
+      if (adjuntos && Array.isArray(adjuntos) && adjuntos.length > 0) {
+        adjuntosJson = JSON.stringify(adjuntos);
+      } else if (adjuntos && typeof adjuntos === 'string' && adjuntos !== 'null' && adjuntos.trim() !== '') {
+        adjuntosJson = adjuntos;
       }
-      if (adjuntos) {
-        dataToCreate.adjuntos = typeof adjuntos === 'string' ? adjuntos : JSON.stringify(adjuntos);
-      }
-      
-      let propuesta;
-      try {
-        propuesta = await prisma.propuesta.create({
-          data: dataToCreate,
-          include: { cliente: true, oportunidad: true },
-        });
-      } catch (createError) {
-        // Si falla por columnas que no existen, intentar sin esas columnas
-        if (createError.message && createError.message.includes('does not exist')) {
-          console.log('⚠️ Columnas nuevas no encontradas en create, omitiéndolas...');
-          delete dataToCreate.especificaciones;
-          delete dataToCreate.adjuntos;
-          delete dataToCreate.estadoAprobacion;
-          propuesta = await prisma.propuesta.create({
-            data: dataToCreate,
-            include: { cliente: true, oportunidad: true },
-          });
-          // Agregar campos como null
-          propuesta.especificaciones = null;
+
+      const propuesta = await prisma.propuesta.create({
+        data: {
+          oportunidadId: oportunidadId || null,
+          clienteId,
+          usuarioId: usuarioId ? String(usuarioId) : null,
+          titulo,
+          numeroPropuesta,
+          servicio,
+          estado: 'borrador',
+          estadoAprobacion: 'Sin Aprobar',
+          valorTotal: parseFloat(valorTotal) || 0,
+          descuento: descuento ? parseFloat(descuento) : 0,
+          valorFinal: parseFloat(valorFinal) || parseFloat(valorTotal) || 0,
+          validez: parseInt(validez) || 30,
+          contenido: typeof contenido === 'string' ? contenido : JSON.stringify(contenido || {}),
+          items: itemsJson,
+          especificaciones: especificaciones || null,
+          adjuntos: adjuntosJson,
+          notas: notas || null,
+        },
+        include: { cliente: true, oportunidad: true },
+      });
+
+      console.log('✅ Propuesta creada exitosamente:', propuesta.id);
+      console.log('📦 Adjuntos guardados:', propuesta.adjuntos);
+
+      // Parsear adjuntos en la respuesta
+      if (propuesta.adjuntos && typeof propuesta.adjuntos === 'string') {
+        try {
+          propuesta.adjuntos = JSON.parse(propuesta.adjuntos);
+        } catch (e) {
+          console.error('❌ Error al parsear adjuntos en respuesta:', e);
           propuesta.adjuntos = null;
-          propuesta.estadoAprobacion = 'Sin Aprobar';
-          propuesta.fechaInicio = null;
-          propuesta.fechaEntrega = null;
-          propuesta.tareasProyecto = null;
-        } else {
-          throw createError;
         }
       }
-      
-      console.log('✅ Propuesta creada exitosamente:', propuesta.id);
-      
+
       res.status(201).json({ propuesta });
     } else {
       res.status(405).json({ error: 'Method not allowed' });
@@ -460,4 +385,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
