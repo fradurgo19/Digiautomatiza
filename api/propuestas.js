@@ -205,6 +205,8 @@ export default async function handler(req, res) {
               fechaVencimiento: true,
               contenido: true,
               items: true,
+              especificaciones: true,
+              adjuntos: true,
               notas: true,
               fechaEnvio: true,
               fechaAceptacion: true,
@@ -218,26 +220,28 @@ export default async function handler(req, res) {
             orderBy: { createdAt: 'desc' },
           });
           
-          // Agregar campos opcionales con valores null si no existen
+          // Parsear adjuntos y otros campos JSON para todas las propuestas
           propuestas = propuestas.map(p => {
-            const propuesta = {
-              ...p,
-              especificaciones: null,
-              adjuntos: null,
-              estadoAprobacion: 'Sin Aprobar',
-              fechaInicio: null,
-              fechaEntrega: null,
-              tareasProyecto: null,
-            };
-            // Intentar parsear adjuntos si existen en algún formato
-            if (p.adjuntos && typeof p.adjuntos === 'string' && p.adjuntos !== 'null') {
+            const propuesta = { ...p };
+            
+            // Parsear adjuntos si existe
+            if (propuesta.adjuntos && typeof propuesta.adjuntos === 'string' && propuesta.adjuntos !== 'null' && propuesta.adjuntos.trim() !== '') {
               try {
-                propuesta.adjuntos = JSON.parse(p.adjuntos);
+                propuesta.adjuntos = JSON.parse(propuesta.adjuntos);
+                console.log('✅ Adjuntos parseados en GET:', propuesta.adjuntos);
               } catch (e) {
-                console.error('Error al parsear adjuntos en fallback:', e);
+                console.error('❌ Error al parsear adjuntos en GET:', e, 'Valor:', propuesta.adjuntos);
                 propuesta.adjuntos = null;
               }
+            } else if (!propuesta.adjuntos || propuesta.adjuntos === 'null' || propuesta.adjuntos === '') {
+              propuesta.adjuntos = null;
             }
+            
+            // Asegurar valores por defecto para campos opcionales
+            if (!propuesta.estadoAprobacion) {
+              propuesta.estadoAprobacion = 'Sin Aprobar';
+            }
+            
             return propuesta;
           });
         } else {
