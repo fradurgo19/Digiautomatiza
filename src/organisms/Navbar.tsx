@@ -56,10 +56,10 @@ export default function Navbar() {
           </div>
 
           {/* User Info & Logout */}
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-gray-700">{usuario?.nombre}</p>
-              <p className="text-xs text-gray-500">{usuario?.email}</p>
+          <div className="flex items-center gap-2">
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-semibold text-gray-700 leading-tight">{usuario?.nombre}</p>
+              <p className="text-xs text-gray-500 leading-tight truncate max-w-[120px]">{usuario?.email}</p>
             </div>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               Cerrar Sesión
