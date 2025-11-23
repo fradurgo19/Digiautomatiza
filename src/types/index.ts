@@ -146,6 +146,14 @@ export type EstadoPropuesta =
   | 'rechazada'
   | 'vencida';
 
+// Tipo para archivo adjunto de propuesta
+export interface AdjuntoPropuesta {
+  url: string;
+  nombre: string;
+  tipo: 'imagen' | 'documento';
+  tamaño?: number; // en bytes
+}
+
 // Tipo de Propuesta Comercial
 export interface Propuesta {
   id: string;
@@ -163,6 +171,8 @@ export interface Propuesta {
   fechaVencimiento?: Date;
   contenido: string; // JSON stringificado
   items: ItemPropuesta[];
+  especificaciones?: string; // Especificaciones del servicio
+  adjuntos?: AdjuntoPropuesta[]; // Array de archivos adjuntos
   notas?: string;
   fechaEnvio?: Date;
   fechaAceptacion?: Date;

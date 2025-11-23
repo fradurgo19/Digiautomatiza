@@ -8,7 +8,7 @@ import TextArea from '../atoms/TextArea';
 import Modal from '../molecules/Modal';
 import Badge from '../atoms/Badge';
 import Loading from '../atoms/Loading';
-import { Propuesta, Cliente, Oportunidad, ServicioTipo, ItemPropuesta, EstadoPropuesta } from '../types';
+import { Propuesta, Cliente, Oportunidad, ServicioTipo, ItemPropuesta, EstadoPropuesta, AdjuntoPropuesta } from '../types';
 import {
   obtenerPropuestas,
   crearPropuesta,
@@ -17,6 +17,7 @@ import {
   obtenerClientes,
   obtenerOportunidades,
 } from '../services/databaseService';
+import { subirArchivoPropuesta } from '../services/storageService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -75,8 +76,10 @@ export default function PropuestasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [propuestaPreview, setPropuestaPreview] = useState<Propuesta | null>(null);
+  const [propuestaEditando, setPropuestaEditando] = useState<Propuesta | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<EstadoPropuesta | 'todos'>('todos');
 
   const [nuevaPropuesta, setNuevaPropuesta] = useState({
@@ -84,13 +87,15 @@ export default function PropuestasPage() {
     clienteId: '',
     titulo: '',
     servicio: '' as ServicioTipo,
+    especificaciones: '',
     valorTotal: '',
     descuento: '',
     validez: '30',
     notas: '',
   });
 
-  const [items, setItems] = useState<ItemPropuesta[]>([]);
+  const [adjuntos, setAdjuntos] = useState<AdjuntoPropuesta[]>([]);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -116,7 +121,7 @@ export default function PropuestasPage() {
   };
 
   const calcularTotal = () => {
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const subtotal = parseFloat(nuevaPropuesta.valorTotal) || 0;
     const descuento = parseFloat(nuevaPropuesta.descuento) || 0;
     return {
       subtotal,
@@ -125,32 +130,29 @@ export default function PropuestasPage() {
     };
   };
 
-  const agregarItem = () => {
-    const nuevoItem: ItemPropuesta = {
-      id: Date.now().toString(),
-      descripcion: '',
-      cantidad: 1,
-      precioUnitario: 0,
-      subtotal: 0,
-    };
-    setItems([...items, nuevoItem]);
-  };
+  const handleSubirArchivo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const actualizarItem = (id: string, campo: keyof ItemPropuesta, valor: any) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        const actualizado = { ...item, [campo]: valor };
-        if (campo === 'cantidad' || campo === 'precioUnitario') {
-          actualizado.subtotal = actualizado.cantidad * actualizado.precioUnitario;
-        }
-        return actualizado;
+    setSubiendoArchivo(true);
+    try {
+      const resultado = await subirArchivoPropuesta(file);
+      setAdjuntos([...adjuntos, resultado]);
+      alert('✅ Archivo subido exitosamente');
+    } catch (error: any) {
+      console.error('Error al subir archivo:', error);
+      alert(`Error al subir archivo: ${error.message}`);
+    } finally {
+      setSubiendoArchivo(false);
+      // Resetear el input
+      if (event.target) {
+        event.target.value = '';
       }
-      return item;
-    }));
+    }
   };
 
-  const eliminarItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const eliminarAdjunto = (index: number) => {
+    setAdjuntos(adjuntos.filter((_, i) => i !== index));
   };
 
   const handleGuardarPropuesta = async () => {
@@ -159,8 +161,8 @@ export default function PropuestasPage() {
       return;
     }
 
-    if (items.length === 0) {
-      alert('Por favor agrega al menos un item a la propuesta.');
+    if (!nuevaPropuesta.especificaciones || nuevaPropuesta.especificaciones.trim() === '') {
+      alert('Por favor ingresa las especificaciones del servicio.');
       return;
     }
 
@@ -187,6 +189,15 @@ export default function PropuestasPage() {
         conclusion: 'Estamos comprometidos con su éxito y esperamos poder trabajar juntos en este proyecto.',
       };
 
+      // Crear un item único con las especificaciones
+      const itemUnico: ItemPropuesta = {
+        id: '1',
+        descripcion: nuevaPropuesta.especificaciones,
+        cantidad: 1,
+        precioUnitario: calcularTotal().subtotal,
+        subtotal: calcularTotal().subtotal,
+      };
+
       const propuestaData = {
         oportunidadId: nuevaPropuesta.oportunidadId || undefined,
         clienteId: nuevaPropuesta.clienteId,
@@ -197,7 +208,9 @@ export default function PropuestasPage() {
         valorFinal: total,
         validez: parseInt(nuevaPropuesta.validez) || 30,
         contenido: JSON.stringify(contenido),
-        items: items,
+        items: [itemUnico],
+        especificaciones: nuevaPropuesta.especificaciones,
+        adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
         notas: nuevaPropuesta.notas || undefined,
       };
 
@@ -226,12 +239,106 @@ export default function PropuestasPage() {
       clienteId: '',
       titulo: '',
       servicio: '' as ServicioTipo,
+      especificaciones: '',
       valorTotal: '',
       descuento: '',
       validez: '30',
       notas: '',
     });
-    setItems([]);
+    setAdjuntos([]);
+    setPropuestaEditando(null);
+  };
+
+  const handleEditarPropuesta = (propuesta: Propuesta) => {
+    setPropuestaEditando(propuesta);
+    setNuevaPropuesta({
+      oportunidadId: propuesta.oportunidadId || '',
+      clienteId: propuesta.clienteId,
+      titulo: propuesta.titulo,
+      servicio: propuesta.servicio,
+      especificaciones: propuesta.especificaciones || '',
+      valorTotal: propuesta.valorTotal.toString(),
+      descuento: (propuesta.descuento || 0).toString(),
+      validez: propuesta.validez.toString(),
+      notas: propuesta.notas || '',
+    });
+    setAdjuntos(propuesta.adjuntos || []);
+    setIsEditModalOpen(true);
+  };
+
+  const handleActualizarPropuesta = async () => {
+    if (!propuestaEditando) return;
+
+    if (!nuevaPropuesta.clienteId || !nuevaPropuesta.titulo || !nuevaPropuesta.servicio) {
+      alert('Por favor completa todos los campos requeridos.');
+      return;
+    }
+
+    if (!nuevaPropuesta.especificaciones || nuevaPropuesta.especificaciones.trim() === '') {
+      alert('Por favor ingresa las especificaciones del servicio.');
+      return;
+    }
+
+    const { total } = calcularTotal();
+    if (total <= 0) {
+      alert('El valor total debe ser mayor a cero.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const servicioInfo = serviciosOptions.find(s => s.value === nuevaPropuesta.servicio);
+      
+      const contenido = {
+        introduccion: `Estimado/a ${clientes.find(c => c.id === nuevaPropuesta.clienteId)?.nombre || 'Cliente'},`,
+        servicio: servicioInfo?.label || nuevaPropuesta.servicio,
+        descripcionServicio: servicioInfo?.descripcion || '',
+        beneficios: [
+          'Solución personalizada según sus necesidades',
+          'Soporte técnico especializado',
+          'Implementación rápida y eficiente',
+          'Resultados medibles y garantizados',
+        ],
+        conclusion: 'Estamos comprometidos con su éxito y esperamos poder trabajar juntos en este proyecto.',
+      };
+
+      // Crear un item único con las especificaciones
+      const itemUnico: ItemPropuesta = {
+        id: '1',
+        descripcion: nuevaPropuesta.especificaciones,
+        cantidad: 1,
+        precioUnitario: calcularTotal().subtotal,
+        subtotal: calcularTotal().subtotal,
+      };
+
+      const propuestaData = {
+        oportunidadId: nuevaPropuesta.oportunidadId || undefined,
+        clienteId: nuevaPropuesta.clienteId,
+        titulo: nuevaPropuesta.titulo,
+        servicio: nuevaPropuesta.servicio,
+        valorTotal: calcularTotal().subtotal,
+        descuento: calcularTotal().descuento,
+        valorFinal: total,
+        validez: parseInt(nuevaPropuesta.validez) || 30,
+        contenido: JSON.stringify(contenido),
+        items: [itemUnico],
+        especificaciones: nuevaPropuesta.especificaciones,
+        adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
+        notas: nuevaPropuesta.notas || undefined,
+      };
+
+      const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
+      setPropuestas(propuestas.map(p => (p.id === actualizada.id ? actualizada : p)));
+      setIsEditModalOpen(false);
+      resetFormulario();
+      
+      alert('✅ Propuesta actualizada exitosamente');
+    } catch (error) {
+      console.error('Error al actualizar propuesta:', error);
+      alert('Error al actualizar la propuesta. Intenta nuevamente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleVerPropuesta = (propuesta: Propuesta) => {
@@ -392,6 +499,13 @@ export default function PropuestasPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleEditarPropuesta(propuesta)}
+                      >
+                        ✏️ Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleExportarPDF(propuesta)}
                       >
                         📥 PDF
@@ -474,93 +588,103 @@ export default function PropuestasPage() {
               textClassName="text-emerald-900"
             />
 
+            <TextArea
+              label="Especificaciones del Servicio *"
+              value={nuevaPropuesta.especificaciones}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, especificaciones: e.target.value })}
+              fullWidth
+              rows={6}
+              placeholder="Describe detalladamente las características, funcionalidades y especificaciones del servicio que se ofrecerá..."
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
+            />
+
             <div className="border-t pt-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-emerald-800">Items de la Propuesta</h3>
-                <Button variant="outline" size="sm" onClick={agregarItem}>
-                  + Agregar Item
-                </Button>
-              </div>
-
+              <h3 className="font-semibold text-emerald-800 mb-3">Archivos Adjuntos (Opcional)</h3>
               <div className="space-y-3">
-                {items.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-2 items-center p-3 bg-emerald-50 rounded-lg">
-                    <div className="col-span-5">
-                      <Input
-                        value={item.descripcion}
-                        onChange={(e) => actualizarItem(item.id, 'descripcion', e.target.value)}
-                        placeholder="Descripción del item"
-                        className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                        textClassName="text-emerald-900 placeholder:text-emerald-500"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        value={item.cantidad}
-                        onChange={(e) => actualizarItem(item.id, 'cantidad', parseInt(e.target.value) || 0)}
-                        placeholder="Cant."
-                        className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                        textClassName="text-emerald-900 placeholder:text-emerald-500"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        value={item.precioUnitario}
-                        onChange={(e) => actualizarItem(item.id, 'precioUnitario', parseFloat(e.target.value) || 0)}
-                        placeholder="Precio Unit."
-                        className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                        textClassName="text-emerald-900 placeholder:text-emerald-500"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Input
-                        value={formatearMoneda(item.subtotal)}
-                        disabled
-                        className="bg-gray-100 border-emerald-300"
-                        textClassName="text-emerald-900"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => eliminarItem(item.id)}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg cursor-pointer hover:bg-emerald-700 transition-colors">
+                    <span>📎</span>
+                    <span>{subiendoArchivo ? 'Subiendo...' : 'Seleccionar Archivo'}</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleSubirArchivo}
+                      disabled={subiendoArchivo}
+                    />
+                  </label>
+                  <span className="text-sm text-gray-600">
+                    Imágenes o documentos (PDF, Word, Excel) - Máx. 10MB
+                  </span>
+                </div>
 
-              {items.length > 0 && (
-                <div className="mt-4 p-4 bg-emerald-100 rounded-lg">
-                  <div className="flex justify-between mb-2">
-                    <span className="font-semibold">Subtotal:</span>
-                    <span>{formatearMoneda(calcularTotal().subtotal)}</span>
+                {adjuntos.length > 0 && (
+                  <div className="space-y-2">
+                    {adjuntos.map((adjunto, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {adjunto.tipo === 'imagen' ? (
+                            <img 
+                              src={adjunto.url} 
+                              alt={adjunto.nombre}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          ) : (
+                            <span className="text-3xl">📄</span>
+                          )}
+                          <div>
+                            <p className="font-medium text-emerald-900">{adjunto.nombre}</p>
+                            <p className="text-sm text-gray-600">
+                              {(adjunto.tamaño / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => eliminarAdjunto(index)}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Descuento:</span>
-                      <Input
-                        type="number"
-                        value={nuevaPropuesta.descuento}
-                        onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, descuento: e.target.value })}
-                        className="w-24 bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                        placeholder="0"
-                        textClassName="text-emerald-900 placeholder:text-emerald-500"
-                      />
-                    </div>
-                    <span>{formatearMoneda(calcularTotal().descuento)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold text-emerald-800 border-t pt-2">
+                )}
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-emerald-800 mb-3">Valores</h3>
+              <div className="space-y-3">
+                <Input
+                  label="Valor Total *"
+                  type="number"
+                  value={nuevaPropuesta.valorTotal}
+                  onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, valorTotal: e.target.value })}
+                  fullWidth
+                  placeholder="0"
+                  className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    label="Descuento (Opcional)"
+                    type="number"
+                    value={nuevaPropuesta.descuento}
+                    onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, descuento: e.target.value })}
+                    className="flex-1 bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    placeholder="0"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  />
+                </div>
+                <div className="p-4 bg-emerald-100 rounded-lg">
+                  <div className="flex justify-between text-lg font-bold text-emerald-800">
                     <span>Total:</span>
                     <span>{formatearMoneda(calcularTotal().total)}</span>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             <Input
@@ -600,9 +724,223 @@ export default function PropuestasPage() {
                 variant="primary"
                 fullWidth
                 onClick={handleGuardarPropuesta}
-                disabled={isSaving || !nuevaPropuesta.clienteId || !nuevaPropuesta.titulo || !nuevaPropuesta.servicio || items.length === 0}
+                disabled={isSaving || !nuevaPropuesta.clienteId || !nuevaPropuesta.titulo || !nuevaPropuesta.servicio || !nuevaPropuesta.especificaciones || !nuevaPropuesta.valorTotal}
               >
                 {isSaving ? 'Guardando...' : 'Guardar Propuesta'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal Editar Propuesta */}
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            resetFormulario();
+          }}
+          title="Editar Propuesta"
+          size="xl"
+        >
+          <div className="space-y-4 max-h-[80vh] overflow-y-auto">
+            <Select
+              label="Oportunidad (Opcional)"
+              options={[
+                { value: '', label: 'Sin oportunidad asociada' },
+                ...oportunidades.map(o => ({ 
+                  value: o.id, 
+                  label: `${o.titulo} - ${o.cliente.nombre} (${formatearMoneda(o.valorEstimado || 0)})` 
+                }))
+              ]}
+              value={nuevaPropuesta.oportunidadId}
+              onChange={(e) => {
+                setNuevaPropuesta({ ...nuevaPropuesta, oportunidadId: e.target.value });
+                if (e.target.value) {
+                  const oportunidad = oportunidades.find(o => o.id === e.target.value);
+                  if (oportunidad) {
+                    setNuevaPropuesta(prev => ({
+                      ...prev,
+                      clienteId: oportunidad.clienteId,
+                      servicio: oportunidad.servicioPrincipal,
+                      titulo: oportunidad.titulo,
+                    }));
+                  }
+                }
+              }}
+              fullWidth
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900"
+            />
+
+            <Select
+              label="Cliente *"
+              options={clientes.map(c => ({ value: c.id, label: `${c.nombre} - ${c.empresa || c.email}` }))}
+              value={nuevaPropuesta.clienteId}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, clienteId: e.target.value })}
+              fullWidth
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900"
+            />
+
+            <Input
+              label="Título de la Propuesta *"
+              value={nuevaPropuesta.titulo}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, titulo: e.target.value })}
+              fullWidth
+              placeholder="Ej: Desarrollo de Página Web Corporativa"
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
+            />
+
+            <Select
+              label="Servicio *"
+              options={serviciosOptions.map(s => ({ value: s.value, label: `${s.icon} ${s.label}` }))}
+              value={nuevaPropuesta.servicio}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, servicio: e.target.value as ServicioTipo })}
+              fullWidth
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900"
+            />
+
+            <TextArea
+              label="Especificaciones del Servicio *"
+              value={nuevaPropuesta.especificaciones}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, especificaciones: e.target.value })}
+              fullWidth
+              rows={6}
+              placeholder="Describe detalladamente las características, funcionalidades y especificaciones del servicio que se ofrecerá..."
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
+            />
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-emerald-800 mb-3">Archivos Adjuntos (Opcional)</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg cursor-pointer hover:bg-emerald-700 transition-colors">
+                    <span>📎</span>
+                    <span>{subiendoArchivo ? 'Subiendo...' : 'Agregar Archivo'}</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleSubirArchivo}
+                      disabled={subiendoArchivo}
+                    />
+                  </label>
+                  <span className="text-sm text-gray-600">
+                    Imágenes o documentos (PDF, Word, Excel) - Máx. 10MB
+                  </span>
+                </div>
+
+                {adjuntos.length > 0 && (
+                  <div className="space-y-2">
+                    {adjuntos.map((adjunto, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {adjunto.tipo === 'imagen' ? (
+                            <img 
+                              src={adjunto.url} 
+                              alt={adjunto.nombre}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          ) : (
+                            <span className="text-3xl">📄</span>
+                          )}
+                          <div>
+                            <p className="font-medium text-emerald-900">{adjunto.nombre}</p>
+                            <p className="text-sm text-gray-600">
+                              {(adjunto.tamaño / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => eliminarAdjunto(index)}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-emerald-800 mb-3">Valores</h3>
+              <div className="space-y-3">
+                <Input
+                  label="Valor Total *"
+                  type="number"
+                  value={nuevaPropuesta.valorTotal}
+                  onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, valorTotal: e.target.value })}
+                  fullWidth
+                  placeholder="0"
+                  className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                  textClassName="text-emerald-900 placeholder:text-emerald-500"
+                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    label="Descuento (Opcional)"
+                    type="number"
+                    value={nuevaPropuesta.descuento}
+                    onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, descuento: e.target.value })}
+                    className="flex-1 bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                    placeholder="0"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  />
+                </div>
+                <div className="p-4 bg-emerald-100 rounded-lg">
+                  <div className="flex justify-between text-lg font-bold text-emerald-800">
+                    <span>Total:</span>
+                    <span>{formatearMoneda(calcularTotal().total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Input
+              label="Validez (días)"
+              type="number"
+              value={nuevaPropuesta.validez}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, validez: e.target.value })}
+              fullWidth
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
+            />
+
+            <TextArea
+              label="Notas Internas (Opcional)"
+              value={nuevaPropuesta.notas}
+              onChange={(e) => setNuevaPropuesta({ ...nuevaPropuesta, notas: e.target.value })}
+              fullWidth
+              rows={3}
+              placeholder="Notas adicionales sobre esta propuesta..."
+              className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+              textClassName="text-emerald-900 placeholder:text-emerald-500"
+            />
+
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  resetFormulario();
+                }}
+                disabled={isSaving}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={handleActualizarPropuesta}
+                disabled={isSaving || !nuevaPropuesta.clienteId || !nuevaPropuesta.titulo || !nuevaPropuesta.servicio || !nuevaPropuesta.especificaciones || !nuevaPropuesta.valorTotal}
+              >
+                {isSaving ? 'Guardando...' : 'Actualizar Propuesta'}
               </Button>
             </div>
           </div>
@@ -701,29 +1039,17 @@ export default function PropuestasPage() {
                   })()}
                 </div>
 
-                {/* Items */}
+                {/* Especificaciones */}
                 <div className="mb-6">
-                  <h3 className="font-semibold text-gray-800 mb-3">Detalle de Servicios:</h3>
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-emerald-600 text-white">
-                        <th className="border border-emerald-700 p-2 text-left">Descripción</th>
-                        <th className="border border-emerald-700 p-2 text-center">Cantidad</th>
-                        <th className="border border-emerald-700 p-2 text-right">Precio Unit.</th>
-                        <th className="border border-emerald-700 p-2 text-right">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {propuestaPreview.items.map((item, index) => (
-                        <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                          <td className="border border-gray-300 p-2">{item.descripcion}</td>
-                          <td className="border border-gray-300 p-2 text-center">{item.cantidad}</td>
-                          <td className="border border-gray-300 p-2 text-right">{formatearMoneda(item.precioUnitario)}</td>
-                          <td className="border border-gray-300 p-2 text-right font-semibold">{formatearMoneda(item.subtotal)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <h3 className="font-semibold text-gray-800 mb-3">Especificaciones del Servicio:</h3>
+                  <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                    <p className="text-gray-700 whitespace-pre-wrap">
+                      {propuestaPreview.especificaciones || 
+                       (propuestaPreview.items && propuestaPreview.items.length > 0 
+                         ? propuestaPreview.items[0].descripcion 
+                         : 'No hay especificaciones disponibles')}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Totales */}
@@ -745,6 +1071,35 @@ export default function PropuestasPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Adjuntos */}
+                {propuestaPreview.adjuntos && propuestaPreview.adjuntos.length > 0 && (
+                  <div className="mb-6 border-t pt-6">
+                    <h3 className="font-semibold text-gray-800 mb-4">Archivos Adjuntos</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {propuestaPreview.adjuntos.map((adjunto, index) => (
+                        <div key={index} className="border border-gray-300 rounded-lg p-3">
+                          {adjunto.tipo === 'imagen' ? (
+                            <div>
+                              <img 
+                                src={adjunto.url} 
+                                alt={adjunto.nombre}
+                                className="w-full h-auto rounded mb-2"
+                                style={{ maxHeight: '300px', objectFit: 'contain' }}
+                              />
+                              <p className="text-sm text-gray-600 text-center">{adjunto.nombre}</p>
+                            </div>
+                          ) : (
+                            <div className="text-center">
+                              <span className="text-4xl block mb-2">📄</span>
+                              <p className="text-sm text-gray-600">{adjunto.nombre}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Footer */}
                 <div className="border-t pt-4 text-center text-sm text-gray-600">

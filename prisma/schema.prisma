@@ -160,6 +160,8 @@ model Propuesta {
   fechaVencimiento    DateTime?
   contenido           String   @db.Text // JSON con el contenido de la propuesta
   items               String   @db.Text // JSON con items de la propuesta
+  especificaciones    String?  @db.Text // Especificaciones del servicio (texto libre)
+  adjuntos            String?  @db.Text // JSON array de URLs de archivos adjuntos
   notas               String?  @db.Text
   fechaEnvio          DateTime?
   fechaAceptacion     DateTime?

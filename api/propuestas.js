@@ -57,6 +57,17 @@ export default async function handler(req, res) {
           datos.fechaRechazo = new Date(datos.fechaRechazo);
         }
 
+        // Convertir items y adjuntos a JSON si son arrays/objetos
+        if (datos.items && typeof datos.items !== 'string') {
+          datos.items = JSON.stringify(datos.items);
+        }
+        if (datos.adjuntos && typeof datos.adjuntos !== 'string') {
+          datos.adjuntos = JSON.stringify(datos.adjuntos);
+        }
+        if (datos.contenido && typeof datos.contenido !== 'string') {
+          datos.contenido = JSON.stringify(datos.contenido);
+        }
+
         console.log(`🔄 Actualizando propuesta ${id} - UsuarioId: ${usuarioId}`, datos);
         const propuesta = await prisma.propuesta.update({
           where: { id },
@@ -103,6 +114,8 @@ export default async function handler(req, res) {
         validez,
         contenido,
         items,
+        especificaciones,
+        adjuntos,
         notas 
       } = req.body;
       
@@ -133,6 +146,8 @@ export default async function handler(req, res) {
           fechaVencimiento,
           contenido: typeof contenido === 'string' ? contenido : JSON.stringify(contenido),
           items: typeof items === 'string' ? items : JSON.stringify(items),
+          especificaciones: especificaciones || null,
+          adjuntos: adjuntos ? (typeof adjuntos === 'string' ? adjuntos : JSON.stringify(adjuntos)) : null,
           notas: notas || null,
           usuarioId: usuarioId ? String(usuarioId) : null,
         },
