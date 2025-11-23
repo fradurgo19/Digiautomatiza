@@ -77,12 +77,10 @@ export default async function handler(req, res) {
         timeZone: 'America/Bogota',
       },
       // Habilitar Google Meet en el evento
+      // Usamos solo el requestId - Google determinará automáticamente el tipo de conferencia
       conferenceData: {
         createRequest: {
-          requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          conferenceSolutionKey: {
-            type: 'hangoutsMeet'
-          }
+          requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(7)}`
         }
       },
       // NOTA: Las Service Accounts no pueden invitar attendees sin Domain-Wide Delegation
