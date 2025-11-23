@@ -100,6 +100,8 @@ export default async function handler(req, res) {
           include: { cliente: true }
         });
         
+        console.log(`📋 Sesión actual - eventoId: ${sesionActual?.eventoId || 'NO TIENE'}`);
+        
         // Actualizar la sesión en la base de datos
         const sesion = await prisma.sesion.update({
           where: { id },
@@ -107,16 +109,88 @@ export default async function handler(req, res) {
           include: { cliente: true },
         });
         
-        // Si la sesión tiene un eventoId, actualizar el evento en Google Calendar
-        if (sesionActual?.eventoId) {
+        // Intentar actualizar el evento en Google Calendar
+        const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+        const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+        const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'digiautomatiza1@gmail.com';
+        
+        if (GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY) {
           try {
-            const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-            const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-            const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'digiautomatiza1@gmail.com';
+            const { google } = await import('googleapis');
             
-            if (GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY) {
-              const { google } = await import('googleapis');
+            // Configurar autenticación con Service Account
+            const auth = new google.auth.JWT(
+              GOOGLE_SERVICE_ACCOUNT_EMAIL,
+              null,
+              GOOGLE_PRIVATE_KEY,
+              ['https://www.googleapis.com/auth/calendar'],
+              null
+            );
+
+            const calendar = google.calendar({ version: 'v3', auth });
+            
+            let eventoIdParaActualizar = sesionActual?.eventoId;
+            
+            // Si no tiene eventoId, intentar buscar el evento por título y fecha
+            if (!eventoIdParaActualizar) {
+              console.log('🔍 Sesión no tiene eventoId, buscando evento en Google Calendar...');
               
+              // Preparar fechas para búsqueda
+              const fechaSesionOriginal = new Date(sesionActual.fecha);
+              const [horasOriginal, minutosOriginal] = sesionActual.hora.split(':');
+              fechaSesionOriginal.setHours(parseInt(horasOriginal), parseInt(minutosOriginal), 0, 0);
+              
+              const fechaInicioBusqueda = new Date(fechaSesionOriginal);
+              fechaInicioBusqueda.setHours(0, 0, 0, 0);
+              
+              const fechaFinBusqueda = new Date(fechaSesionOriginal);
+              fechaFinBusqueda.setHours(23, 59, 59, 999);
+              
+              // Nombres de servicios
+              const nombresServicios = {
+                'paginas-web': 'Páginas Web',
+                'aplicaciones-web': 'Aplicaciones Web',
+                'chatbot-ia': 'Chatbot con IA',
+                'automatizacion': 'Automatización',
+                'analisis-datos': 'Análisis de Datos',
+                'sap-hana': 'Soporte SAP ERP & HANA'
+              };
+              
+              const nombreServicio = nombresServicios[sesionActual.servicio] || sesionActual.servicio;
+              const tituloBusqueda = `Sesión: ${nombreServicio} - ${sesionActual.cliente?.nombre || 'Cliente'}`;
+              
+              // Buscar eventos en el rango de fechas
+              const eventosEncontrados = await calendar.events.list({
+                calendarId: GOOGLE_CALENDAR_ID,
+                timeMin: fechaInicioBusqueda.toISOString(),
+                timeMax: fechaFinBusqueda.toISOString(),
+                maxResults: 50,
+                singleEvents: true,
+                orderBy: 'startTime',
+              });
+              
+              // Buscar el evento que coincida con el título
+              const eventoEncontrado = eventosEncontrados.data.items?.find(
+                evento => evento.summary === tituloBusqueda
+              );
+              
+              if (eventoEncontrado) {
+                eventoIdParaActualizar = eventoEncontrado.id;
+                console.log(`✅ Evento encontrado en Google Calendar: ${eventoIdParaActualizar}`);
+                
+                // Actualizar la sesión con el eventoId encontrado
+                await prisma.sesion.update({
+                  where: { id },
+                  data: { eventoId: eventoIdParaActualizar }
+                });
+                console.log(`💾 eventoId guardado en sesión: ${eventoIdParaActualizar}`);
+              } else {
+                console.log('⚠️ No se encontró evento en Google Calendar para esta sesión');
+              }
+            }
+            
+            // Si tenemos un eventoId (ya sea del campo o encontrado), actualizar el evento
+            if (eventoIdParaActualizar) {
               // Preparar fechas para el evento
               const fechaSesion = new Date(sesion.fecha);
               const [horas, minutos] = sesion.hora.split(':');
@@ -144,27 +218,17 @@ export default async function handler(req, res) {
                 `Email: ${sesion.cliente?.email || 'N/A'}\n` +
                 `Teléfono: ${sesion.cliente?.telefono || 'N/A'}\n` +
                 (sesion.notas ? `\nNotas: ${sesion.notas}` : '');
-              
-              // Configurar autenticación con Service Account
-              const auth = new google.auth.JWT(
-                GOOGLE_SERVICE_ACCOUNT_EMAIL,
-                null,
-                GOOGLE_PRIVATE_KEY,
-                ['https://www.googleapis.com/auth/calendar'],
-                null
-              );
-
-              const calendar = google.calendar({ version: 'v3', auth });
 
               // Obtener el evento existente para preservar el enlace de Meet
               let eventoExistente;
               try {
                 eventoExistente = await calendar.events.get({
                   calendarId: GOOGLE_CALENDAR_ID,
-                  eventId: sesionActual.eventoId
+                  eventId: eventoIdParaActualizar
                 });
+                console.log('✅ Evento existente obtenido de Google Calendar');
               } catch (error) {
-                console.warn('⚠️ No se pudo obtener el evento existente, se creará uno nuevo:', error.message);
+                console.warn('⚠️ No se pudo obtener el evento existente:', error.message);
               }
 
               // Preparar el evento actualizado
@@ -191,6 +255,7 @@ export default async function handler(req, res) {
               // Preservar el enlace de Meet si existe
               if (eventoExistente?.data?.conferenceData) {
                 eventoActualizado.conferenceData = eventoExistente.data.conferenceData;
+                console.log('✅ Enlace de Meet preservado del evento existente');
               } else if (sesion.urlReunion) {
                 // Si hay un enlace de reunión pero no está en el evento, intentar agregarlo
                 eventoActualizado.conferenceData = {
@@ -198,21 +263,32 @@ export default async function handler(req, res) {
                     requestId: `meet-${sesion.id}-${Date.now()}`
                   }
                 };
+                console.log('📝 Agregando nuevo enlace de Meet al evento');
               }
 
-              console.log('📅 Actualizando evento en Google Calendar...');
+              console.log('📅 Actualizando evento en Google Calendar...', {
+                eventoId: eventoIdParaActualizar,
+                nuevaFecha: fechaSesion.toISOString(),
+                nuevaHora: sesion.hora
+              });
+              
               await calendar.events.update({
                 calendarId: GOOGLE_CALENDAR_ID,
-                eventId: sesionActual.eventoId,
+                eventId: eventoIdParaActualizar,
                 requestBody: eventoActualizado,
               });
               
-              console.log('✅ Evento actualizado en Google Calendar:', sesionActual.eventoId);
+              console.log('✅ Evento actualizado exitosamente en Google Calendar:', eventoIdParaActualizar);
+            } else {
+              console.log('⚠️ No se pudo encontrar o crear eventoId, el evento no se actualizará en Google Calendar');
             }
           } catch (calendarError) {
             console.error('⚠️ Error al actualizar evento en Google Calendar (sesión actualizada):', calendarError);
+            console.error('Detalles del error:', calendarError.message);
             // No fallar la actualización de la sesión si falla el calendario
           }
+        } else {
+          console.log('⚠️ Google Calendar no configurado, saltando actualización de evento');
         }
         
         console.log(`✅ Sesión actualizada exitosamente: ${sesion.id}`);
