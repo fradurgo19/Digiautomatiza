@@ -181,12 +181,21 @@ export default async function handler(req, res) {
           orderBy: { createdAt: 'desc' },
         });
         
-        // Verificar si adjuntos está presente en los resultados
-        const tieneAdjuntos = propuestas.length > 0 && propuestas[0].hasOwnProperty('adjuntos');
-        console.log('🔍 Verificando si adjuntos está presente en consulta normal:', tieneAdjuntos);
+        // Verificar si adjuntos está presente y tiene valor
+        const primeraPropuesta = propuestas[0];
+        const tieneAdjuntosCampo = primeraPropuesta && primeraPropuesta.hasOwnProperty('adjuntos');
+        // Si adjuntos es null pero el campo existe, puede ser válido (propuesta sin adjuntos)
+        // Pero si el campo no existe, necesitamos usar select explícito
+        console.log('🔍 Verificando adjuntos en consulta normal:', {
+          tieneCampo: tieneAdjuntosCampo,
+          valor: primeraPropuesta?.adjuntos,
+          tipo: typeof primeraPropuesta?.adjuntos,
+          esNull: primeraPropuesta?.adjuntos === null
+        });
         
-        if (!tieneAdjuntos) {
-          console.log('⚠️ Adjuntos no está presente, usando select explícito...');
+        // Si no tiene el campo adjuntos, forzar select explícito
+        if (!tieneAdjuntosCampo) {
+          console.log('⚠️ Campo adjuntos no existe, usando select explícito...');
           throw new Error('adjuntos field missing');
         }
         
