@@ -178,7 +178,8 @@ export default function DevPage() {
     });
   };
 
-  if (usuario?.rol !== 'admin') {
+  // Verificar autenticación
+  if (!usuario) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50">
         <Navbar />
@@ -188,6 +189,8 @@ export default function DevPage() {
       </div>
     );
   }
+
+  const isAdmin = usuario.rol === 'admin';
 
   if (isLoading) {
     return (
