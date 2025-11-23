@@ -153,6 +153,7 @@ model Propuesta {
   numeroPropuesta     String   @unique // Número único de propuesta
   servicio            String   // referencia a ServicioTipo
   estado              String   @default("borrador") // borrador, enviada, revisada, aceptada, rechazada, vencida
+  estadoAprobacion    String?  @default("Sin Aprobar") // Aprobada, Sin Aprobar
   valorTotal          Float
   descuento           Float?   @default(0)
   valorFinal         Float
@@ -178,6 +179,7 @@ model Propuesta {
   @@index([clienteId])
   @@index([oportunidadId])
   @@index([estado])
+  @@index([estadoAprobacion])
   @@index([fechaVencimiento])
   @@map("propuestas")
 }

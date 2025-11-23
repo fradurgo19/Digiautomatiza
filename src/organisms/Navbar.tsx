@@ -14,6 +14,7 @@ export default function Navbar() {
     { path: '/calendario', label: 'Calendario', icon: '📆' },
     { path: '/oportunidades', label: 'Oportunidades', icon: '📈' },
     { path: '/propuestas', label: 'Propuestas', icon: '📄' },
+    ...(usuario?.rol === 'admin' ? [{ path: '/dev', label: 'DEV', icon: '💻' }] : []),
   ];
 
   const handleLogout = () => {

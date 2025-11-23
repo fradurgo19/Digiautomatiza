@@ -710,6 +710,7 @@ function mapPropuesta(data: any): Propuesta {
     numeroPropuesta: data.numeroPropuesta,
     servicio: data.servicio,
     estado: data.estado,
+    estadoAprobacion: data.estadoAprobacion || 'Sin Aprobar',
     valorTotal: parseFloat(data.valorTotal) || 0,
     descuento: data.descuento ? parseFloat(data.descuento) : undefined,
     valorFinal: parseFloat(data.valorFinal) || 0,

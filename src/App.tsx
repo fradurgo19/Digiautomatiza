@@ -7,7 +7,9 @@ import SesionesPage from './pages/SesionesPage';
 import CalendarioPage from './pages/CalendarioPage';
 import OportunidadesPage from './pages/OportunidadesPage';
 import PropuestasPage from './pages/PropuestasPage';
+import DevPage from './pages/DevPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -64,6 +66,14 @@ function App() {
               <ProtectedRoute>
                 <PropuestasPage />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dev"
+            element={
+              <AdminRoute>
+                <DevPage />
+              </AdminRoute>
             }
           />
           

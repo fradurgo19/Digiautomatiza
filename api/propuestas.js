@@ -154,6 +154,7 @@ export default async function handler(req, res) {
               numeroPropuesta: true,
               servicio: true,
               estado: true,
+              estadoAprobacion: true,
               valorTotal: true,
               descuento: true,
               valorFinal: true,
@@ -179,6 +180,7 @@ export default async function handler(req, res) {
             ...p,
             especificaciones: null,
             adjuntos: null,
+            estadoAprobacion: 'Sin Aprobar',
           }));
         } else {
           throw schemaError;
@@ -234,6 +236,7 @@ export default async function handler(req, res) {
         items: typeof items === 'string' ? items : JSON.stringify(items),
         notas: notas || null,
         usuarioId: usuarioId ? String(usuarioId) : null,
+        estadoAprobacion: 'Sin Aprobar', // Inicializar estado de aprobación
       };
       
       // Agregar campos nuevos solo si existen en el schema
@@ -256,6 +259,7 @@ export default async function handler(req, res) {
           console.log('⚠️ Columnas nuevas no encontradas en create, omitiéndolas...');
           delete dataToCreate.especificaciones;
           delete dataToCreate.adjuntos;
+          delete dataToCreate.estadoAprobacion;
           propuesta = await prisma.propuesta.create({
             data: dataToCreate,
             include: { cliente: true, oportunidad: true },
@@ -263,6 +267,8 @@ export default async function handler(req, res) {
           // Agregar campos como null
           propuesta.especificaciones = null;
           propuesta.adjuntos = null;
+          propuesta.estadoAprobacion = 'Sin Aprobar';
+          propuesta.estadoAprobacion = 'Sin Aprobar';
         } else {
           throw createError;
         }

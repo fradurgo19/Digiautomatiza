@@ -154,6 +154,9 @@ export interface AdjuntoPropuesta {
   tamaño?: number; // en bytes
 }
 
+// Estado de Aprobación de Propuesta
+export type EstadoAprobacion = 'Aprobada' | 'Sin Aprobar';
+
 // Tipo de Propuesta Comercial
 export interface Propuesta {
   id: string;
@@ -164,6 +167,7 @@ export interface Propuesta {
   numeroPropuesta: string;
   servicio: ServicioTipo;
   estado: EstadoPropuesta;
+  estadoAprobacion?: EstadoAprobacion; // Estado de aprobación: Aprobada o Sin Aprobar
   valorTotal: number;
   descuento?: number;
   valorFinal: number;

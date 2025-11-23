@@ -268,6 +268,29 @@ export default function PropuestasPage() {
     setIsEditModalOpen(true);
   };
 
+  const handleCambiarEstadoAprobacion = async (propuesta: Propuesta) => {
+    const nuevoEstado = propuesta.estadoAprobacion === 'Aprobada' ? 'Sin Aprobar' : 'Aprobada';
+    
+    if (!confirm(`¿Estás seguro de cambiar el estado de aprobación a "${nuevoEstado}"?`)) {
+      return;
+    }
+
+    try {
+      await actualizarPropuesta(propuesta.id, {
+        estadoAprobacion: nuevoEstado as 'Aprobada' | 'Sin Aprobar',
+      });
+      
+      // Recargar propuestas
+      const propuestasActualizadas = await obtenerPropuestas();
+      setPropuestas(propuestasActualizadas);
+      
+      alert(`✅ Estado de aprobación actualizado a "${nuevoEstado}"`);
+    } catch (error) {
+      console.error('Error al cambiar estado de aprobación:', error);
+      alert('Error al cambiar el estado de aprobación. Intenta nuevamente.');
+    }
+  };
+
   const handleActualizarPropuesta = async () => {
     if (!propuestaEditando) return;
 
@@ -1075,6 +1098,14 @@ export default function PropuestasPage() {
                         onClick={() => handleExportarPDF(propuesta)}
                       >
                         📥 PDF
+                      </Button>
+                      <Button
+                        variant={propuesta.estadoAprobacion === 'Aprobada' ? 'success' : 'outline'}
+                        size="sm"
+                        onClick={() => handleCambiarEstadoAprobacion(propuesta)}
+                        title={propuesta.estadoAprobacion === 'Aprobada' ? 'Cambiar a Sin Aprobar' : 'Aprobar Propuesta'}
+                      >
+                        {propuesta.estadoAprobacion === 'Aprobada' ? '✅ Aprobada' : '⏳ Sin Aprobar'}
                       </Button>
                     </div>
                   </div>
