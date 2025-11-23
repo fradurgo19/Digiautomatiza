@@ -11,6 +11,7 @@ export default function Navbar() {
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/clientes', label: 'Clientes', icon: '👥' },
     { path: '/sesiones', label: 'Sesiones', icon: '📅' },
+    { path: '/calendario', label: 'Calendario', icon: '📆' },
     { path: '/oportunidades', label: 'Oportunidades', icon: '📈' },
   ];
 

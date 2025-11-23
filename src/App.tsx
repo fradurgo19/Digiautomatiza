@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ClientesPage from './pages/ClientesPage';
 import SesionesPage from './pages/SesionesPage';
+import CalendarioPage from './pages/CalendarioPage';
 import OportunidadesPage from './pages/OportunidadesPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -37,6 +38,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SesionesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendario"
+            element={
+              <ProtectedRoute>
+                <CalendarioPage />
               </ProtectedRoute>
             }
           />
