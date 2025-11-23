@@ -8,6 +8,7 @@ import TextArea from '../atoms/TextArea';
 import Modal from '../molecules/Modal';
 import Badge from '../atoms/Badge';
 import Loading from '../atoms/Loading';
+import { useAuth } from '../context/AuthContext';
 import { Propuesta, Cliente, Oportunidad, ServicioTipo, ItemPropuesta, EstadoPropuesta, AdjuntoPropuesta } from '../types';
 import {
   obtenerPropuestas,
@@ -70,6 +71,7 @@ const serviciosOptions: { value: ServicioTipo; label: string; icon: string; desc
 ];
 
 export default function PropuestasPage() {
+  const { usuario } = useAuth();
   const [propuestas, setPropuestas] = useState<Propuesta[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [oportunidades, setOportunidades] = useState<Oportunidad[]>([]);
@@ -640,17 +642,91 @@ export default function PropuestasPage() {
         }
       }
       
-      // Footer
+      // Sección de contacto antes del footer
+      yPosition += 10;
+      if (yPosition + 40 > pdfHeight - margin) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      
+      // Línea separadora verde
+      pdf.setDrawColor(16, 185, 129); // emerald-600
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition, pdfWidth - margin, yPosition);
+      yPosition += 10;
+      
+      // Título de contacto
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(16, 185, 129); // emerald-600
+      pdf.text('Información de Contacto', margin, yPosition);
+      yPosition += 8;
+      
+      // Información del comercial
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(0, 0, 0);
+      if (usuario?.nombre) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Comercial:', margin, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(usuario.nombre, margin + 30, yPosition);
+        yPosition += 6;
+      }
+      
+      // Información de contacto de la empresa
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Teléfono:', margin, yPosition);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(16, 185, 129); // emerald-600
+      pdf.text('+57 313 368 3567', margin + 30, yPosition);
+      yPosition += 6;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Email:', margin, yPosition);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(16, 185, 129); // emerald-600
+      pdf.text('digiautomatiza1@gmail.com', margin + 30, yPosition);
+      yPosition += 6;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Web:', margin, yPosition);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(16, 185, 129); // emerald-600
+      pdf.text('https://www.digiautomatiza.co/', margin + 30, yPosition);
+      
+      // Footer en todas las páginas
       const totalPages = pdf.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
+        
+        // Línea decorativa en el footer
+        pdf.setDrawColor(16, 185, 129); // emerald-600
+        pdf.setLineWidth(0.3);
+        pdf.line(margin, pdfHeight - 20, pdfWidth - margin, pdfHeight - 20);
+        
+        // Información de contacto en el footer (compacta en todas las páginas)
+        pdf.setFontSize(7);
+        pdf.setTextColor(16, 185, 129); // emerald-600
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Digiautomatiza - Innovación Digital', margin, pdfHeight - 15);
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(107, 114, 128); // gray-500
+        pdf.text('+57 313 368 3567', margin, pdfHeight - 11);
+        pdf.text('digiautomatiza1@gmail.com', margin, pdfHeight - 7);
+        pdf.text('www.digiautomatiza.co', margin, pdfHeight - 3);
+        
+        // Número de página
         pdf.setFontSize(8);
         pdf.setTextColor(128, 128, 128);
         pdf.text(
-          `Digiautomatiza - Innovación Digital | Página ${i} de ${totalPages}`,
-          pdfWidth / 2,
-          pdfHeight - 5,
-          { align: 'center' }
+          `Página ${i} de ${totalPages}`,
+          pdfWidth - margin,
+          pdfHeight - 10,
+          { align: 'right' }
         );
       }
 
