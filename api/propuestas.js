@@ -329,8 +329,23 @@ export default async function handler(req, res) {
           esUndefined: p.adjuntos === undefined,
           esString: typeof p.adjuntos === 'string',
           longitud: p.adjuntos ? (typeof p.adjuntos === 'string' ? p.adjuntos.length : 'N/A') : 'N/A',
-          primerosCaracteres: typeof p.adjuntos === 'string' ? p.adjuntos.substring(0, 100) : 'N/A'
+          primerosCaracteres: typeof p.adjuntos === 'string' ? p.adjuntos.substring(0, 200) : 'N/A',
+          valorCompleto: typeof p.adjuntos === 'string' ? p.adjuntos : 'N/A (no es string)'
         });
+        
+        // Si es string, intentar parsear inmediatamente para verificar
+        if (typeof p.adjuntos === 'string' && p.adjuntos.trim() !== '' && p.adjuntos !== 'null') {
+          try {
+            const parsedTest = JSON.parse(p.adjuntos);
+            console.log(`✅ TEST PARSEO - Propuesta ${index + 1}:`, {
+              parseado: parsedTest,
+              esArray: Array.isArray(parsedTest),
+              longitud: Array.isArray(parsedTest) ? parsedTest.length : 'N/A'
+            });
+          } catch (e) {
+            console.error(`❌ TEST PARSEO FALLÓ - Propuesta ${index + 1}:`, e.message);
+          }
+        }
       });
       
       // Parsear adjuntos y otros campos JSON para todas las propuestas
