@@ -352,8 +352,12 @@ export default function PropuestasPage() {
         notas: nuevaPropuesta.notas || undefined,
       };
 
-      console.log('📤 Enviando actualización con adjuntos:', adjuntos.length > 0 ? adjuntos : null);
+      console.log('📤 Enviando actualización con adjuntos:', adjuntos);
+      console.log('📤 Número de adjuntos:', adjuntos.length);
+      
       const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
+      console.log('✅ Propuesta actualizada desde API:', actualizada);
+      console.log('✅ Adjuntos en respuesta:', actualizada.adjuntos);
       
       // Recargar todas las propuestas para asegurar datos actualizados
       const todasLasPropuestas = await obtenerPropuestas();
@@ -363,6 +367,8 @@ export default function PropuestasPage() {
       const propuestaActualizada = todasLasPropuestas.find(p => p.id === actualizada.id) || actualizada;
       
       console.log('📥 Propuesta recargada con adjuntos:', propuestaActualizada.adjuntos);
+      console.log('📥 Tipo de adjuntos:', typeof propuestaActualizada.adjuntos);
+      console.log('📥 Es array?:', Array.isArray(propuestaActualizada.adjuntos));
       
       // Actualizar la vista previa si está abierta
       if (propuestaPreview && propuestaPreview.id === propuestaActualizada.id) {
@@ -372,7 +378,12 @@ export default function PropuestasPage() {
       // Si el modal de edición está abierto, actualizar también el estado local
       if (isEditModalOpen && propuestaEditando && propuestaEditando.id === propuestaActualizada.id) {
         setPropuestaEditando(propuestaActualizada);
-        setAdjuntos(propuestaActualizada.adjuntos || []);
+        // Asegurar que adjuntos sea un array
+        const adjuntosActualizados = Array.isArray(propuestaActualizada.adjuntos) 
+          ? propuestaActualizada.adjuntos 
+          : (propuestaActualizada.adjuntos ? [propuestaActualizada.adjuntos] : []);
+        setAdjuntos(adjuntosActualizados);
+        console.log('📝 Adjuntos actualizados en formulario:', adjuntosActualizados);
       }
       
       setIsEditModalOpen(false);

@@ -140,6 +140,20 @@ export default async function handler(req, res) {
         }
         
         console.log(`✅ Propuesta actualizada exitosamente: ${propuesta.id}`);
+        console.log('📦 Adjuntos guardados en BD:', propuesta.adjuntos);
+        console.log('📦 Tipo de adjuntos en BD:', typeof propuesta.adjuntos);
+        
+        // Asegurar que adjuntos se parsee correctamente en la respuesta
+        if (propuesta.adjuntos && typeof propuesta.adjuntos === 'string') {
+          try {
+            propuesta.adjuntos = JSON.parse(propuesta.adjuntos);
+            console.log('✅ Adjuntos parseados correctamente:', propuesta.adjuntos);
+          } catch (e) {
+            console.error('❌ Error al parsear adjuntos en respuesta:', e);
+            propuesta.adjuntos = null;
+          }
+        }
+        
         res.status(200).json({ propuesta });
         return;
       }
@@ -220,6 +234,19 @@ export default async function handler(req, res) {
       }
       
       console.log(`✅ Propuestas obtenidas: ${propuestas.length}`);
+      
+      // Asegurar que adjuntos se parseen correctamente en todas las propuestas
+      propuestas = propuestas.map(p => {
+        if (p.adjuntos && typeof p.adjuntos === 'string') {
+          try {
+            p.adjuntos = JSON.parse(p.adjuntos);
+          } catch (e) {
+            console.error('Error al parsear adjuntos en propuesta:', p.id, e);
+            p.adjuntos = null;
+          }
+        }
+        return p;
+      });
       
       res.status(200).json({ propuestas });
     } else if (req.method === 'POST') {
