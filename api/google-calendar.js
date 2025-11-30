@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Google Calendar (combinado: crear evento y obtener eventos)
-import { setCORSHeaders } from '../lib/cors.js';
+import { setCORSHeaders } from './lib/cors.mjs';
 
 /**
  * Maneja todas las operaciones de Google Calendar

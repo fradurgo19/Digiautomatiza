@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Envío Masivo de WhatsApp con YCloud
-import { setCORSHeaders } from '../../lib/cors.js';
+import { setCORSHeaders } from '../lib/cors.mjs';
 
 function formatearNumeroWhatsApp(numero) {
   // Remover espacios y caracteres especiales
