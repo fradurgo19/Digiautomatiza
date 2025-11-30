@@ -1,6 +1,6 @@
 // Vercel Serverless Function - Webhook de YCloud para recibir actualizaciones de mensajes
 // Este endpoint recibe notificaciones de YCloud sobre el estado de los mensajes enviados
-import { setCORSHeaders } from '../lib/cors.js';
+import { setCORSHeaders } from '../../lib/cors.js';
 
 export default async function handler(req, res) {
   try {

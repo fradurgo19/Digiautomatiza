@@ -1,6 +1,6 @@
 // Vercel Serverless Function - Stats comerciales para Dashboard y Health Check
-import prisma from './lib/prisma.js';
-import { setCORSHeaders } from './lib/cors.js';
+import prisma from '../lib/prisma.js';
+import { setCORSHeaders } from '../lib/cors.js';
 
 export default async function handler(req, res) {
   try {

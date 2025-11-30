@@ -221,69 +221,144 @@ export default async function handler(req, res) {
     for (const destinatario of destinatarios) {
       try {
         const htmlContent = `
-          <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 640px; margin: 0 auto; background: #0b1720; color: #e5f4ec; padding: 0; border-radius: 24px; overflow: hidden; border: 1px solid rgba(16,94,67,0.35);">
-            <!-- Header -->
-            <div style="background: radial-gradient(circle at 0 0, rgba(16,185,129,0.25), transparent 55%), radial-gradient(circle at 100% 0, rgba(132,204,22,0.25), transparent 55%), linear-gradient(135deg, #022c22 0%, #020617 100%); padding: 24px 24px 18px; text-align: left; position: relative;">
-              <div style="position:absolute; inset:0; opacity:0.25; background-image: radial-gradient(circle at 1px 1px, rgba(16,94,67,0.35) 1px, transparent 0); background-size:14px 14px;"></div>
-              <div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;">
-                <img src="https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png" alt="Logo Digiautomatiza" style="height: 52px; width: auto; border-radius: 16px; box-shadow: 0 18px 45px rgba(16,185,129,0.35); margin-bottom: 4px;" />
-                <div style="display:block;">
-                  <p style="margin: 0 0 4px; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #6ee7b7; display:block;">
-                    Suite de Automatización Empresarial
-                  </p>
-                  <h1 style="margin: 0 0 4px; font-size: 20px; line-height: 1.3; color: #ecfdf5; display:block;">
-                    Digiautomatiza
-                  </h1>
-                  <p style="margin: 0; font-size: 11px; line-height: 1.5; color: #a7f3d0; display:block;">
-                    Digitalización • Automatización • Inteligencia de Negocio
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Body -->
-            <div style="padding: 24px 24px 20px; background: radial-gradient(circle at 100% 0, rgba(52,211,153,0.10), transparent 55%), #020617;">
-              <div style="padding: 16px 16px 14px; border-radius: 18px; background: rgba(15,118,110,0.08); border: 1px solid rgba(45,212,191,0.18);">
-                <p style="margin: 0 0 4px; font-size: 13px; color: #a7f3d0; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;">Mensaje para ti</p>
-                <p style="margin: 0; font-size: 14px; line-height: 1.7; color: #e5f4ec;">
-                  ${mensaje.replace(/\n/g, '<br>')}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f0fdf4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f0fdf4; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(5, 150, 105, 0.1);">
+          
+          <!-- Header con Logo -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%); padding: 40px 30px; text-align: center; position: relative;">
+              <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.1; background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0); background-size: 20px 20px;"></div>
+              <div style="position: relative; z-index: 1;">
+                <img src="https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png" alt="Digiautomatiza Logo" style="height: 80px; width: auto; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);" />
+                <h1 style="margin: 0 0 8px 0; font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">
+                  Digiautomatiza
+                </h1>
+                <p style="margin: 0; font-size: 13px; color: #d1fae5; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 500;">
+                  Innovación Digital • Transformando Ideas en Soluciones
                 </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Contenido Principal -->
+          <tr>
+            <td style="padding: 40px 30px; background-color: #ffffff;">
+              
+              <!-- Mensaje Personalizado -->
+              <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-left: 4px solid #10b981; border-radius: 8px; padding: 24px; margin-bottom: 30px;">
+                <p style="margin: 0 0 12px 0; font-size: 12px; font-weight: 600; color: #047857; letter-spacing: 0.5px; text-transform: uppercase;">
+                  Mensaje para ti
+                </p>
+                <div style="font-size: 16px; line-height: 1.7; color: #1f2937;">
+                  ${mensaje.replace(/\n/g, '<br>')}
+                </div>
               </div>
 
               <!-- Servicios -->
-              <div style="margin-top: 18px; padding: 14px 16px 16px; border-radius: 18px; background: rgba(15,23,42,0.85); border: 1px solid rgba(15,118,110,0.55);">
-                <p style="margin: 0 0 8px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: #6ee7b7; font-weight: 600;">Servicios clave</p>
-                <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #d1fae5; line-height: 1.7;">
-                  <li><strong style="color:#6ee7b7;">Páginas Web de Alto Impacto</strong>: sitios modernos, rápidos y optimizados para conversión.</li>
-                  <li><strong style="color:#6ee7b7;">Aplicaciones Web & Power Apps</strong>: digitalización de procesos críticos end-to-end.</li>
-                  <li><strong style="color:#6ee7b7;">Chatbots con IA & Agentes</strong>: atención inteligente en canales digitales 24/7.</li>
-                  <li><strong style="color:#6ee7b7;">Automatización con n8n / Power Automate</strong>: flujos orquestados entre SAP, ERP, CRM, Excel y más.</li>
-                  <li><strong style="color:#6ee7b7;">Analítica & Power BI</strong>: tableros ejecutivos y monitoreo en tiempo real.</li>
-                  <li><strong style="color:#6ee7b7;">Soporte SAP ERP & HANA + Excel → SAP HANA</strong>: automatizaciones avanzadas y reducción de errores operativos.</li>
-                </ul>
+              <div style="background-color: #f9fafb; border-radius: 12px; padding: 30px; margin-bottom: 30px; border: 1px solid #e5e7eb;">
+                <h2 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #047857; display: flex; align-items: center; gap: 8px;">
+                  <span style="display: inline-block; width: 4px; height: 24px; background: linear-gradient(180deg, #10b981 0%, #84cc16 100%); border-radius: 2px;"></span>
+                  Nuestros Servicios
+                </h2>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                  <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                      <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                        <strong style="color: #059669;">🌐 Páginas Web</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">Diseño y desarrollo de sitios web modernos, responsivos y optimizados para SEO</span>
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                      <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                        <strong style="color: #059669;">💻 Aplicaciones Web</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">Desarrollo con Power Apps, React, Node.js, TypeScript y Java</span>
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                      <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                        <strong style="color: #059669;">🤖 Chatbot con IA</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">Construcción de chatbots inteligentes con agentes de IA para atención 24/7</span>
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                      <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                        <strong style="color: #059669;">⚙️ Automatización</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">Procesos empresariales con N8N y Power Automate</span>
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                      <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                        <strong style="color: #059669;">📊 Análisis de Datos</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">Visualización y análisis empresarial con Power BI</span>
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 0;">
+                      <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                        <strong style="color: #059669;">🏭 Soporte SAP ERP & HANA</strong><br>
+                        <span style="color: #6b7280; font-size: 14px;">Automatización conectando Excel, SAP ERP y SAP HANA</span>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
               </div>
 
-              <!-- CTA -->
-              <div style="margin-top: 18px; text-align: center;">
-                <a href="mailto:digiautomatiza1@gmail.com" style="display: inline-block; padding: 10px 24px; border-radius: 999px; background: linear-gradient(135deg, #22c55e, #84cc16); color: #022c22; font-size: 13px; font-weight: 700; text-decoration: none; box-shadow: 0 15px 35px rgba(34,197,94,0.3);">
-                  Agenda una sesión con nuestro equipo
+              <!-- CTA Button -->
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="mailto:digiautomatiza1@gmail.com?subject=Consulta%20de%20Servicios" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #10b981 0%, #84cc16 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
+                  📅 Agenda una Sesión con Nosotros
                 </a>
               </div>
-            </div>
 
-            <!-- Footer -->
-            <div style="padding: 14px 20px 16px; background: #020617; border-top: 1px solid rgba(15,23,42,0.9); text-align: center;">
-              <p style="margin: 0 0 2px; font-size: 11px; color: #64748b;">
-                Digiautomatiza · Laboratorio de Innovación · LATAM
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); padding: 30px; text-align: center; border-top: 1px solid #d1fae5;">
+              <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #047857;">
+                Digiautomatiza
               </p>
-              <p style="margin: 0 0 2px; font-size: 11px; color: #6ee7b7;">
-                📧 <span style="color:#bbf7d0;">digiautomatiza1@gmail.com</span> · 📱 <span style="color:#bbf7d0;">+57 314 331 5108</span>
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #059669;">
+                📧 <a href="mailto:digiautomatiza1@gmail.com" style="color: #059669; text-decoration: none;">digiautomatiza1@gmail.com</a>
               </p>
-              <p style="margin: 4px 0 0; font-size: 10px; color: #475569;">
-                Digitalización • Automatización • Inteligencia de Negocio
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #059669;">
+                📱 <a href="tel:+573143315108" style="color: #059669; text-decoration: none;">+57 314 331 5108</a>
               </p>
-            </div>
-          </div>
+              <p style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280;">
+                🌐 <a href="https://www.digiautomatiza.co" style="color: #6b7280; text-decoration: none;">www.digiautomatiza.co</a>
+              </p>
+              <p style="margin: 16px 0 0 0; font-size: 11px; color: #9ca3af; line-height: 1.5;">
+                Digitalización • Automatización • Inteligencia de Negocio<br>
+                <span style="color: #d1d5db;">© ${new Date().getFullYear()} Digiautomatiza. Todos los derechos reservados.</span>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
         `;
 
         const info = await enviarEmail({

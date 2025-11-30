@@ -1,6 +1,6 @@
 // Vercel Serverless Function - Gestión de Clientes (GET, POST)
-import prisma from './lib/prisma.js';
-import { setCORSHeaders } from './lib/cors.js';
+import prisma from '../lib/prisma.js';
+import { setCORSHeaders } from '../lib/cors.js';
 
 export default async function handler(req, res) {
   try {

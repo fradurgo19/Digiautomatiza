@@ -1,7 +1,7 @@
 // Vercel Serverless Function - Login de Usuarios (Proxy a stats.js)
 // Este archivo existe solo para mantener la ruta /api/login funcionando
 // La lógica real está en stats.js
-import prisma from './lib/prisma.js';
+import prisma from '../lib/prisma.js';
 
 function setCORSHeaders(req, res) {
   const allowedOrigins = [

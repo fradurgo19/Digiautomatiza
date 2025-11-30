@@ -6,4 +6,5 @@ npm-debug.log
 *.log
 .vscode
 server/node_modules
+lib/**
 
