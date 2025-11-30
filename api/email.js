@@ -1,9 +1,9 @@
-// Vercel Serverless Function - Envío Masivo de Correos
+// Vercel Serverless Function - Email Unificado (Contacto + Envío Masivo)
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
 // Configuración del proveedor de email
-const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER || 'outlook').toLowerCase();
+const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER || 'gmail').toLowerCase();
 
 // Inicializar cliente según el proveedor
 let emailClient = null;
@@ -120,107 +120,9 @@ function setCORSHeaders(res, req) {
   );
 }
 
-// Parsear FormData usando el API nativo (compatible con Vercel)
-async function parseFormData(req) {
-  // En Vercel, el body ya viene parseado si es JSON
-  // Si es FormData, necesitamos parsearlo manualmente
-  const contentType = req.headers['content-type'] || '';
-  
-  if (contentType.includes('application/json')) {
-    // Si viene como JSON (fallback)
-    return req.body;
-  }
-
-  // Para FormData, necesitamos usar una librería o parsear manualmente
-  // Por ahora, vamos a aceptar JSON como alternativa
-  // El frontend puede enviar JSON en lugar de FormData si hay problemas
-  if (req.body && typeof req.body === 'object') {
-    return {
-      destinatarios: typeof req.body.destinatarios === 'string' 
-        ? JSON.parse(req.body.destinatarios) 
-        : req.body.destinatarios,
-      asunto: req.body.asunto || '',
-      mensaje: req.body.mensaje || '',
-      archivos: [], // Los archivos se manejarán después si es necesario
-    };
-  }
-
-  throw new Error('No se pudo parsear el body de la petición');
-}
-
-export default async function handler(req, res) {
-  setCORSHeaders(res, req);
-
-  // Manejar preflight
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      success: false,
-      error: 'Method not allowed. Use POST.' 
-    });
-  }
-
-  try {
-    // Parsear datos - En Vercel, el body puede venir como string o ya parseado
-    let bodyData = req.body;
-    
-    // Si el body es un string, parsearlo como JSON
-    if (typeof bodyData === 'string') {
-      try {
-        bodyData = JSON.parse(bodyData);
-      } catch (e) {
-        return res.status(400).json({
-          success: false,
-          error: 'Body inválido: no es un JSON válido'
-        });
-      }
-    }
-    
-    // Extraer datos
-    const destinatarios = Array.isArray(bodyData.destinatarios) 
-      ? bodyData.destinatarios 
-      : (typeof bodyData.destinatarios === 'string' 
-          ? JSON.parse(bodyData.destinatarios) 
-          : []);
-    const asunto = bodyData.asunto || '';
-    const mensaje = bodyData.mensaje || '';
-    const archivos = bodyData.archivos || [];
-
-    if (!destinatarios || !Array.isArray(destinatarios) || destinatarios.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Se requiere al menos un destinatario'
-      });
-    }
-
-    if (!asunto || !mensaje) {
-      return res.status(400).json({
-        success: false,
-        error: 'Asunto y mensaje son requeridos'
-      });
-    }
-
-    console.log(`📧 Enviando correos masivos a ${destinatarios.length} destinatarios...`);
-
-    const resultados = {
-      exitosos: [],
-      fallidos: []
-    };
-
-    // Preparar adjuntos si existen
-    // Nota: En Vercel Serverless Functions, el manejo de archivos es limitado
-    // Por ahora, los adjuntos se omiten. Si se necesitan, considerar usar Supabase Storage
-    const attachments = [];
-    // TODO: Implementar manejo de archivos con Supabase Storage si es necesario
-
-    // Enviar correo a cada destinatario
-    for (const destinatario of destinatarios) {
-      try {
-        const htmlContent = `
+// Template HTML para envío masivo
+function getEmailTemplateMasivo(mensaje) {
+  return `
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -359,45 +261,161 @@ export default async function handler(req, res) {
   </table>
 </body>
 </html>
-        `;
+  `;
+}
 
-        const info = await enviarEmail({
-          to: destinatario,
-          subject: asunto,
-          html: htmlContent,
-          attachments: attachments.length > 0 ? attachments : undefined,
+export default async function handler(req, res) {
+  setCORSHeaders(res, req);
+
+  // Manejar preflight
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ 
+      success: false,
+      error: 'Method not allowed. Use POST.' 
+    });
+  }
+
+  try {
+    // Parsear datos
+    let bodyData = req.body;
+    
+    if (typeof bodyData === 'string') {
+      try {
+        bodyData = JSON.parse(bodyData);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          error: 'Body inválido: no es un JSON válido'
         });
-
-        resultados.exitosos.push(destinatario);
-        console.log(`✅ Enviado a ${destinatario}`);
-
-        // Pequeña pausa entre envíos para evitar rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        resultados.fallidos.push({
-          email: destinatario,
-          error: error.message || 'Error desconocido'
-        });
-        console.error(`❌ Error al enviar a ${destinatario}:`, error.message);
       }
     }
 
-    console.log(`\n📊 Resumen:`);
-    console.log(`   ✅ Exitosos: ${resultados.exitosos.length}`);
-    console.log(`   ❌ Fallidos: ${resultados.fallidos.length}`);
+    // Detectar tipo de petición: contacto o envío masivo
+    // Si tiene 'destinatarios' (array), es envío masivo
+    // Si tiene 'nombre' y 'email', es contacto
+    const isMasivo = Array.isArray(bodyData.destinatarios) || 
+                     (typeof bodyData.destinatarios === 'string' && bodyData.destinatarios.length > 0);
+    const isContacto = bodyData.nombre && bodyData.email;
 
-    res.status(200).json({
-      success: true,
-      resultados: resultados,
-      total: destinatarios.length,
-      exitosos: resultados.exitosos.length,
-      fallidos: resultados.fallidos.length
-    });
+    if (isMasivo) {
+      // ========== ENVÍO MASIVO ==========
+      const destinatarios = Array.isArray(bodyData.destinatarios) 
+        ? bodyData.destinatarios 
+        : (typeof bodyData.destinatarios === 'string' 
+            ? JSON.parse(bodyData.destinatarios) 
+            : []);
+      const asunto = bodyData.asunto || '';
+      const mensaje = bodyData.mensaje || '';
+      const archivos = bodyData.archivos || [];
+
+      if (!destinatarios || !Array.isArray(destinatarios) || destinatarios.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Se requiere al menos un destinatario'
+        });
+      }
+
+      if (!asunto || !mensaje) {
+        return res.status(400).json({
+          success: false,
+          error: 'Asunto y mensaje son requeridos'
+        });
+      }
+
+      console.log(`📧 Enviando correos masivos a ${destinatarios.length} destinatarios...`);
+
+      const resultados = {
+        exitosos: [],
+        fallidos: []
+      };
+
+      const attachments = [];
+
+      // Enviar correo a cada destinatario
+      for (const destinatario of destinatarios) {
+        try {
+          const htmlContent = getEmailTemplateMasivo(mensaje);
+
+          const info = await enviarEmail({
+            to: destinatario,
+            subject: asunto,
+            html: htmlContent,
+            attachments: attachments.length > 0 ? attachments : undefined,
+          });
+
+          resultados.exitosos.push(destinatario);
+          console.log(`✅ Enviado a ${destinatario}`);
+
+          // Pequeña pausa entre envíos para evitar rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          resultados.fallidos.push({
+            email: destinatario,
+            error: error.message || 'Error desconocido'
+          });
+          console.error(`❌ Error al enviar a ${destinatario}:`, error.message);
+        }
+      }
+
+      console.log(`\n📊 Resumen:`);
+      console.log(`   ✅ Exitosos: ${resultados.exitosos.length}`);
+      console.log(`   ❌ Fallidos: ${resultados.fallidos.length}`);
+
+      res.status(200).json({
+        success: true,
+        resultados: resultados,
+        total: destinatarios.length,
+        exitosos: resultados.exitosos.length,
+        fallidos: resultados.fallidos.length
+      });
+    } else if (isContacto) {
+      // ========== FORMULARIO DE CONTACTO ==========
+      const { nombre, email, telefono, empresa, servicio, mensaje } = bodyData;
+
+      const emailTo = process.env.EMAIL_CONTACTO || process.env.EMAIL_USER || 'digiautomatiza1@gmail.com';
+
+      const info = await enviarEmail({
+        to: emailTo,
+        subject: `📧 Nuevo Contacto: ${servicio} - ${nombre}`,
+        html: `
+          <h2>📬 Nuevo Contacto desde la Web</h2>
+          <hr>
+          <p><strong>Nombre:</strong> ${nombre}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Teléfono:</strong> ${telefono}</p>
+          ${empresa ? `<p><strong>Empresa:</strong> ${empresa}</p>` : ''}
+          <p><strong>Servicio de Interés:</strong> ${servicio}</p>
+          <hr>
+          <h3>Mensaje:</h3>
+          <p>${mensaje}</p>
+          <hr>
+          <p style="color: gray; font-size: 12px;">
+            Este correo fue enviado automáticamente desde Digiautomatiza
+          </p>
+        `,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Correo enviado exitosamente',
+        messageId: info.messageId || info.id
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de petición inválido. Debe ser contacto o envío masivo.'
+      });
+    }
   } catch (error) {
-    console.error('❌ Error en envío masivo:', error);
+    console.error('❌ Error en handler de email:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Error al procesar el envío masivo'
+      error: error.message || 'Error al procesar la petición'
     });
   }
 }

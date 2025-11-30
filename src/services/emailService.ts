@@ -24,7 +24,7 @@ export async function enviarFormularioContacto(contacto: Contacto): Promise<void
   try {
     console.log('📧 Enviando formulario de contacto...', contacto);
     
-    const response = await fetch(`${EMAIL_SERVER_URL}/api/email/contacto`, {
+    const response = await fetch(`${EMAIL_SERVER_URL}/api/email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,7 +68,7 @@ export async function enviarCorreoMasivo(datos: EnvioMasivoCorreo): Promise<Resu
     const hasArchivos = datos.archivosAdjuntos && datos.archivosAdjuntos.length > 0;
     
     let body: FormData | string;
-    let headers: HeadersInit = {};
+    const headers: HeadersInit = {};
     
     if (isProduction || !hasArchivos) {
       // En producción o sin archivos: enviar como JSON
@@ -97,7 +97,7 @@ export async function enviarCorreoMasivo(datos: EnvioMasivoCorreo): Promise<Resu
       // No establecer Content-Type para FormData, el navegador lo hace automáticamente
     }
 
-    const response = await fetch(`${EMAIL_SERVER_URL}/api/email/envio-masivo`, {
+    const response = await fetch(`${EMAIL_SERVER_URL}/api/email`, {
       method: 'POST',
       headers,
       body,
@@ -108,7 +108,7 @@ export async function enviarCorreoMasivo(datos: EnvioMasivoCorreo): Promise<Resu
       try {
         const error = await response.json();
         errorMessage = error.error || errorMessage;
-      } catch (e) {
+      } catch {
         // Si no se puede parsear el error, usar el status text
         errorMessage = `Error ${response.status}: ${response.statusText}`;
       }
