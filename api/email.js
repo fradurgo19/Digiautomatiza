@@ -225,7 +225,7 @@ function getEmailTemplateMasivo(mensaje) {
 
               <!-- CTA Button -->
               <div style="text-align: center; margin-bottom: 30px;">
-                <a href="mailto:digiautomatiza1@gmail.com?subject=Consulta%20de%20Servicios" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #10b981 0%, #84cc16 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.3s ease;">
+                <a href="mailto:digiautomatiza1@gmail.com?subject=Consulta%20de%20Servicios" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3); transition: all 0.3s ease;">
                   📅 Agenda una Sesión con Nosotros
                 </a>
               </div>
