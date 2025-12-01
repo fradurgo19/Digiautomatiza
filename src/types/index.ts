@@ -107,12 +107,12 @@ export interface EnvioMasivoWhatsApp {
   parametrosPlantilla?: string[]; // Parámetros para rellenar la plantilla (ej: ["Juan", "Empresa XYZ"])
 }
 
-// Tipo para Usuario (personal comercial)
+// Tipo para Usuario (personal comercial y clientes)
 export interface Usuario {
   id: string;
   nombre: string;
   email: string;
-  rol: 'admin' | 'comercial';
+  rol: 'admin' | 'comercial' | 'cliente';
   activo: boolean;
 }
 
@@ -200,5 +200,65 @@ export interface Propuesta {
   motivoRechazo?: string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+// ============ TIPOS DE PAGOS ============
+
+// Pasarelas de pago disponibles
+export type PasarelaPago = 'payu' | 'wompi' | 'mercado-pago';
+
+// Estados de transacción
+export type EstadoTransaccion = 
+  | 'pendiente'
+  | 'procesando'
+  | 'aprobada'
+  | 'rechazada'
+  | 'cancelada';
+
+// Métodos de pago
+export type MetodoPago = 
+  | 'tarjeta'
+  | 'pse'
+  | 'nequi'
+  | 'daviplata'
+  | 'efecty'
+  | 'baloto'
+  | 'otro';
+
+// Datos para crear un pago
+export interface DatosPago {
+  valor: number;
+  descripcion: string;
+  metodoPago?: MetodoPago;
+  datosAdicionales?: Record<string, any>;
+}
+
+// Respuesta al crear un pago
+export interface RespuestaCrearPago {
+  transaccionId: string;
+  referencia: string;
+  urlPago: string;
+  estado: EstadoTransaccion;
+}
+
+// Transacción de pago
+export interface Transaccion {
+  id: string;
+  usuarioId?: string;
+  referencia: string;
+  pasarela: PasarelaPago;
+  estado: EstadoTransaccion;
+  metodoPago?: MetodoPago;
+  valor: number;
+  moneda: string;
+  descripcion?: string;
+  datosPago?: Record<string, any>;
+  respuestaPasarela?: Record<string, any>;
+  transactionId?: string;
+  urlPago?: string;
+  fechaPago?: Date;
+  fechaConfirmacion?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 

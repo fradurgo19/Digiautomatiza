@@ -3,6 +3,7 @@ import ContactForm from '../molecules/ContactForm';
 import Modal from '../molecules/Modal';
 import LoginForm from '../molecules/LoginForm';
 import Button from '../atoms/Button';
+import PaymentSection from '../organisms/PaymentSection';
 import { Contacto, ServicioTipo } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { enviarFormularioContacto } from '../services/emailService';
@@ -27,7 +28,7 @@ export default function HomePage() {
     beneficios: string[];
     casos: string;
   }>(null);
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, usuario } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,6 +36,19 @@ export default function HomePage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Si está autenticado y NO es cliente, redirigir al dashboard
+  useEffect(() => {
+    if (isAuthenticated && usuario && usuario.rol !== 'cliente') {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, usuario, navigate]);
+
+  // Si está autenticado como comercial/admin, redirigir al dashboard
+  if (isAuthenticated && usuario && usuario.rol !== 'cliente') {
+    navigate('/dashboard');
+    return null;
+  }
 
   const servicios: ServicioDestacado[] = [
     {
@@ -145,10 +159,8 @@ export default function HomePage() {
     navigate('/dashboard');
   };
 
-  if (isAuthenticated) {
-    navigate('/dashboard');
-    return null;
-  }
+  // Si está autenticado y NO es cliente, ya se redirige en el useEffect
+  // Si es cliente, mostrar la página con sección de pagos
 
   return (
     <div className="min-h-screen bg-gray-950 text-white overflow-hidden">
@@ -617,6 +629,23 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Sección de Pagos - Pública para todos */}
+      <section id="pagos" className="relative py-24 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+              <span className="bg-gradient-to-r from-emerald-300 to-lime-300 bg-clip-text text-transparent">
+                Portal de Pagos
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Realiza tus pagos de forma segura y consulta el historial de tus transacciones
+            </p>
+          </div>
+          <PaymentSection />
         </div>
       </section>
 

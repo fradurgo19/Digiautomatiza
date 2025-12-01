@@ -17,7 +17,7 @@ model Usuario {
   nombre    String
   email     String   @unique
   password  String   // Hash de la contraseña
-  rol       String   @default("comercial") // admin | comercial
+  rol       String   @default("comercial") // admin | comercial | cliente
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -27,6 +27,7 @@ model Usuario {
   sesiones      Sesion[]
   oportunidades Oportunidad[]
   propuestas    Propuesta[]
+  transacciones Transaccion[]
 
   @@map("usuarios")
 }
@@ -189,4 +190,36 @@ model Propuesta {
   @@index([fechaInicio])
   @@index([fechaEntrega])
   @@map("propuestas")
+}
+
+// Modelo de Transacción de Pago
+model Transaccion {
+  id                  String   @id @default(cuid())
+  usuarioId           String?  // Usuario que realiza el pago (cliente)
+  referencia          String   @unique // Referencia única de la transacción
+  pasarela            String   @default("payu") // payu | wompi | mercado-pago
+  estado              String   @default("pendiente") // pendiente, procesando, aprobada, rechazada, cancelada
+  metodoPago          String?  // tarjeta, pse, nequi, etc.
+  valor               Float
+  moneda              String   @default("COP")
+  descripcion         String?
+  datosPago           String?  @db.Text // JSON con datos adicionales del pago
+  respuestaPasarela   String?  @db.Text // JSON con respuesta completa de la pasarela
+  transactionId       String?  // ID de la transacción en la pasarela
+  urlPago             String?  // URL para redirigir al usuario al pago
+  fechaPago           DateTime?
+  fechaConfirmacion   DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relaciones
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([referencia])
+  @@index([estado])
+  @@index([pasarela])
+  @@index([transactionId])
+  @@index([fechaPago])
+  @@map("transacciones")
 }
