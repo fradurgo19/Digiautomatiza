@@ -27,6 +27,53 @@ export default async function handler(req, res) {
   }
   
   try {
+    // ========== STATS (GET con ?stats=true) ==========
+    if (req.method === 'GET' && req.query.stats === 'true') {
+      const usuarioId = req.headers['x-usuario-id'] ?? null;
+      const rol = req.headers['x-usuario-rol'] ?? null;
+      const isAdmin = rol && String(rol).toLowerCase() === 'admin';
+
+      let whereCliente = undefined;
+      let whereSesion = undefined;
+
+      if (usuarioId && !isAdmin) {
+        whereCliente = { usuarioId: String(usuarioId) };
+        whereSesion = { usuarioId: String(usuarioId) };
+      }
+
+      const [totalClientes, clientesInteresados, sesionesProgramadas, sesionesCompletadas] = await Promise.all([
+        prisma.cliente.count({ 
+          ...(whereCliente && { where: whereCliente })
+        }),
+        prisma.cliente.count({
+          where: {
+            ...(whereCliente || {}),
+            estado: { in: ['interesado', 'en-negociacion', 'convertido'] },
+          },
+        }),
+        prisma.sesion.count({
+          where: {
+            ...(whereSesion || {}),
+            estado: { in: ['programada', 'confirmada', 'reprogramada'] },
+          },
+        }),
+        prisma.sesion.count({
+          where: {
+            ...(whereSesion || {}),
+            estado: 'completada',
+          },
+        }),
+      ]);
+
+      return res.status(200).json({
+        totalClientes,
+        clientesInteresados,
+        sesionesProgramadas,
+        sesionesCompletadas,
+        scope: isAdmin ? 'global' : 'usuario',
+      });
+    }
+
     // Verificar si hay un ID en el query (para delete/update)
     const { id, action } = req.query;
     

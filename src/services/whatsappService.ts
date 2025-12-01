@@ -183,7 +183,7 @@ async function enviarConBackend(datos: EnvioMasivoWhatsApp): Promise<ResultadoEn
   try {
     console.log('📤 Enviando mensajes vía backend (YCloud)...');
     
-    const response = await fetch(`${BACKEND_API_URL}/api/whatsapp/enviar-masivo`, {
+    const response = await fetch(`${BACKEND_API_URL}/api/whatsapp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -567,7 +567,7 @@ export async function obtenerStatsDashboard(): Promise<DashboardStats | null> {
     }
 
     console.log('📊 Obteniendo estadísticas del dashboard...');
-    const response = await fetch(`${API_URL}/api/stats`, { headers });
+    const response = await fetch(`${API_URL}/api/clientes?stats=true`, { headers });
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
