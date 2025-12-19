@@ -120,23 +120,57 @@ export default async function handler(req, res) {
       const search = req.query.search || '';
       const skip = (page - 1) * limit;
 
+      // Parámetros de filtro específicos
+      const filtroNombre = req.query.filtroNombre || '';
+      const filtroEmail = req.query.filtroEmail || '';
+      const filtroTelefono = req.query.filtroTelefono || '';
+      const filtroEmpresa = req.query.filtroEmpresa || '';
+      const filtroEstado = req.query.filtroEstado || '';
+
       // Construir where clause
       let where = undefined;
       if (usuarioId && !isAdmin) {
         where = { usuarioId: String(usuarioId) };
       }
 
-      // Agregar búsqueda si existe
+      // Construir condiciones de filtro
+      const condiciones = [];
+
+      // Búsqueda general (si existe)
       if (search && search.trim()) {
         const searchTerm = search.trim();
-        where = {
-          ...where,
+        condiciones.push({
           OR: [
             { nombre: { contains: searchTerm, mode: 'insensitive' } },
             { email: { contains: searchTerm, mode: 'insensitive' } },
             { telefono: { contains: searchTerm, mode: 'insensitive' } },
             { empresa: { contains: searchTerm, mode: 'insensitive' } },
           ],
+        });
+      }
+
+      // Filtros específicos
+      if (filtroNombre && filtroNombre.trim()) {
+        condiciones.push({ nombre: { contains: filtroNombre.trim(), mode: 'insensitive' } });
+      }
+      if (filtroEmail && filtroEmail.trim()) {
+        condiciones.push({ email: { contains: filtroEmail.trim(), mode: 'insensitive' } });
+      }
+      if (filtroTelefono && filtroTelefono.trim()) {
+        condiciones.push({ telefono: { contains: filtroTelefono.trim(), mode: 'insensitive' } });
+      }
+      if (filtroEmpresa && filtroEmpresa.trim()) {
+        condiciones.push({ empresa: { contains: filtroEmpresa.trim(), mode: 'insensitive' } });
+      }
+      if (filtroEstado && filtroEstado.trim()) {
+        condiciones.push({ estado: filtroEstado.trim() });
+      }
+
+      // Combinar condiciones
+      if (condiciones.length > 0) {
+        where = {
+          ...where,
+          AND: condiciones,
         };
       }
 

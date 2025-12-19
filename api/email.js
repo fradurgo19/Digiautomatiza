@@ -225,7 +225,7 @@ function getEmailTemplateMasivo(mensaje) {
 
               <!-- CTA Button -->
               <div style="text-align: center; margin-bottom: 30px;">
-                <a href="mailto:digiautomatiza1@gmail.com?subject=Consulta%20de%20Servicios" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3); transition: all 0.3s ease;">
+                <a href="https://www.digiautomatiza.co/" target="_blank" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3); transition: all 0.3s ease;">
                   📅 Agenda una Sesión con Nosotros
                 </a>
               </div>
@@ -343,33 +343,10 @@ export default async function handler(req, res) {
       const attachments = [];
       const htmlContent = getEmailTemplateMasivo(mensaje);
 
-      // Función para enviar un correo
-      const enviarCorreo = async (destinatario) => {
-        try {
-          const info = await enviarEmail({
-            to: destinatario,
-            subject: asunto,
-            html: htmlContent,
-            attachments: attachments.length > 0 ? attachments : undefined,
-          });
-
-          resultados.exitosos.push(destinatario);
-          console.log(`✅ Enviado a ${destinatario}`);
-          return { success: true, email: destinatario };
-        } catch (error) {
-          resultados.fallidos.push({
-            email: destinatario,
-            error: error.message || 'Error desconocido'
-          });
-          console.error(`❌ Error al enviar a ${destinatario}:`, error.message);
-          return { success: false, email: destinatario, error: error.message };
-        }
-      };
-
       // Enviar correos en paralelo con límite de concurrencia optimizado para SMTP/Gmail
-      // Para 50 correos, usar concurrencia más alta (20-25) para completar en <10s
-      // Gmail SMTP puede manejar esta concurrencia sin problemas
-      const CONCURRENCY_LIMIT = 25;
+      // Reducir concurrencia a 10 para evitar sobrecargar Gmail y reducir errores temporales
+      // Gmail tiene límites de rate limiting que causan errores 421 si enviamos demasiado rápido
+      const CONCURRENCY_LIMIT = 10;
       const chunks = [];
       
       // Dividir destinatarios en chunks
@@ -379,25 +356,63 @@ export default async function handler(req, res) {
 
       console.log(`📦 Procesando ${destinatarios.length} correos en ${chunks.length} lotes de hasta ${CONCURRENCY_LIMIT} correos cada uno`);
 
+      // Función para enviar con retry en caso de error temporal de Gmail
+      const enviarConRetry = async (destinatario, maxRetries = 2) => {
+        for (let intento = 0; intento <= maxRetries; intento++) {
+          try {
+            const info = await enviarEmail({
+              to: destinatario,
+              subject: asunto,
+              html: htmlContent,
+              attachments: attachments.length > 0 ? attachments : undefined,
+            });
+            resultados.exitosos.push(destinatario);
+            console.log(`✅ Enviado a ${destinatario}${intento > 0 ? ` (intento ${intento + 1})` : ''}`);
+            return { success: true, email: destinatario };
+          } catch (error) {
+            const isTemporaryError = error.message && (
+              error.message.includes('421-4.3.0') || 
+              error.message.includes('Temporary System Problem') ||
+              error.message.includes('ECONNRESET') ||
+              error.message.includes('ETIMEDOUT')
+            );
+            
+            if (intento < maxRetries && isTemporaryError) {
+              // Esperar antes de reintentar (exponencial backoff)
+              const delay = Math.min(1000 * Math.pow(2, intento), 3000);
+              console.log(`⏳ Reintentando ${destinatario} en ${delay}ms (intento ${intento + 2}/${maxRetries + 1})`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+            
+            // Si no es error temporal o se agotaron los reintentos
+            resultados.fallidos.push({
+              email: destinatario,
+              error: error.message || 'Error desconocido'
+            });
+            console.error(`❌ Error al enviar a ${destinatario}:`, error.message);
+            return { success: false, email: destinatario, error: error.message };
+          }
+        }
+      };
+
       // Procesar chunks secuencialmente, pero correos dentro de cada chunk en paralelo
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
         const chunk = chunks[chunkIndex];
         const startTime = Date.now();
         
-        // Enviar todos los correos del chunk en paralelo
-        // Usar Promise.allSettled para que un error no detenga todo el lote
-        const resultadosChunk = await Promise.allSettled(
-          chunk.map(destinatario => enviarCorreo(destinatario))
+        // Enviar todos los correos del chunk en paralelo con retry
+        await Promise.allSettled(
+          chunk.map(destinatario => enviarConRetry(destinatario))
         );
         
         const chunkTime = Date.now() - startTime;
-        const exitososChunk = resultadosChunk.filter(r => r.status === 'fulfilled').length;
+        const exitososChunk = resultados.exitosos.filter(e => chunk.includes(e)).length;
         console.log(`✅ Lote ${chunkIndex + 1}/${chunks.length} completado en ${chunkTime}ms (${exitososChunk}/${chunk.length} exitosos)`);
         
-        // Sin pausa entre chunks para máxima velocidad (Gmail puede manejar esto)
-        // Solo pausa mínima si hay muchos lotes para evitar sobrecarga
-        if (chunks.length > 3 && chunkIndex < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 10)); // Pausa mínima de 10ms
+        // Pausa entre chunks para evitar rate limiting de Gmail
+        if (chunkIndex < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200)); // 200ms entre lotes
         }
       }
 

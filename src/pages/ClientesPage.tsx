@@ -146,20 +146,16 @@ export default function ClientesPage() {
     setIsLoadingClientes(true);
     setClientesError(null);
     try {
-      // Combinar búsqueda general con filtros específicos
-      const searchTerms: string[] = [];
-      if (search.trim()) searchTerms.push(search.trim());
-      if (filtros.nombre.trim()) searchTerms.push(`nombre:${filtros.nombre.trim()}`);
-      if (filtros.email.trim()) searchTerms.push(`email:${filtros.email.trim()}`);
-      if (filtros.telefono.trim()) searchTerms.push(`telefono:${filtros.telefono.trim()}`);
-      if (filtros.empresa.trim()) searchTerms.push(`empresa:${filtros.empresa.trim()}`);
-      
-      const combinedSearch = searchTerms.join(' ');
-      
+      // Enviar filtros específicos como parámetros separados
       const response = await obtenerClientes({
         page,
         limit: pageSize,
-        search: combinedSearch || undefined,
+        search: search.trim() || undefined,
+        filtroNombre: filtros.nombre.trim() || undefined,
+        filtroEmail: filtros.email.trim() || undefined,
+        filtroTelefono: filtros.telefono.trim() || undefined,
+        filtroEmpresa: filtros.empresa.trim() || undefined,
+        filtroEstado: filtros.estado || undefined,
       });
       setClientes(response.data);
       setPagination(response.pagination);

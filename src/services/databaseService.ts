@@ -56,6 +56,11 @@ export interface PaginationParams {
   page?: number;
   limit?: number;
   search?: string;
+  filtroNombre?: string;
+  filtroEmail?: string;
+  filtroTelefono?: string;
+  filtroEmpresa?: string;
+  filtroEstado?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -89,6 +94,11 @@ export async function obtenerClientes(params?: PaginationParams): Promise<Pagina
     if (params?.page) queryParams.set('page', String(params.page));
     if (params?.limit) queryParams.set('limit', String(params.limit));
     if (params?.search) queryParams.set('search', params.search);
+    if (params?.filtroNombre) queryParams.set('filtroNombre', params.filtroNombre);
+    if (params?.filtroEmail) queryParams.set('filtroEmail', params.filtroEmail);
+    if (params?.filtroTelefono) queryParams.set('filtroTelefono', params.filtroTelefono);
+    if (params?.filtroEmpresa) queryParams.set('filtroEmpresa', params.filtroEmpresa);
+    if (params?.filtroEstado) queryParams.set('filtroEstado', params.filtroEstado);
 
     const url = `${API_URL}/api/clientes${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await fetch(url, { headers });
