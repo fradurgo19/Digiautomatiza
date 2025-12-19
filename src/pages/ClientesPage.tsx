@@ -5,6 +5,7 @@ import Button from '../atoms/Button';
 import Input from '../atoms/Input';
 import Modal from '../molecules/Modal';
 import ClientCard from '../molecules/ClientCard';
+import Badge from '../atoms/Badge';
 import { Cliente, ServicioTipo, EstadoCliente } from '../types';
 import Select from '../atoms/Select';
 import TextArea from '../atoms/TextArea';
@@ -15,6 +16,7 @@ import {
   crearCliente as crearClienteApi,
   actualizarCliente as actualizarClienteApi,
   eliminarCliente as eliminarClienteApi,
+  type PaginatedResponse,
 } from '../services/databaseService';
 import { enviarWhatsAppMasivo, formatearNumeroWhatsApp, validarNumerosWhatsApp } from '../services/whatsappService';
 
@@ -52,6 +54,19 @@ export default function ClientesPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
+  const [selectAllMode, setSelectAllMode] = useState(false); // Modo "seleccionar todos" (de todas las páginas)
+  
+  // Estados de paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [pagination, setPagination] = useState<PaginatedResponse<Cliente>['pagination']>({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ exitosos: Cliente[]; errores: Array<{ fila: number; error: string; datos: Record<string, unknown> }> } | null>(null);
   const [isSavingCliente, setIsSavingCliente] = useState(false);
@@ -118,12 +133,18 @@ export default function ClientesPage() {
     { value: 'inactivo', label: 'Inactivo' },
   ];
 
-  const fetchClientes = useCallback(async () => {
+  const fetchClientes = useCallback(async (page: number = currentPage, search: string = searchTerm) => {
     setIsLoadingClientes(true);
     setClientesError(null);
     try {
-      const data = await obtenerClientes();
-      setClientes(data);
+      const response = await obtenerClientes({
+        page,
+        limit: pageSize,
+        search: search.trim() || undefined,
+      });
+      setClientes(response.data);
+      setPagination(response.pagination);
+      // Limpiar selección al cambiar de página o búsqueda
       setSelectedClientes([]);
     } catch (error) {
       console.error('No se pudieron cargar los clientes:', error);
@@ -131,11 +152,24 @@ export default function ClientesPage() {
     } finally {
       setIsLoadingClientes(false);
     }
-  }, []);
+  }, [currentPage, pageSize, searchTerm]);
 
   useEffect(() => {
     fetchClientes();
-  }, [fetchClientes]);
+  }, [currentPage, pageSize]);
+
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage === 1) {
+        fetchClientes(1, searchTerm);
+      } else {
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const resetEditState = () => {
     setClienteEnEdicion(null);
@@ -152,7 +186,8 @@ export default function ClientesPage() {
     try {
       const payload = buildClientePayload(nuevoCliente);
       const cliente = await crearClienteApi(payload);
-      setClientes((prev) => [cliente, ...prev]);
+      // Recargar clientes para mantener paginación
+      await fetchClientes();
       setIsAddModalOpen(false);
       setNuevoCliente(initialFormState);
     } catch (error) {
@@ -192,9 +227,6 @@ export default function ClientesPage() {
       const actualizado = await actualizarClienteApi(clienteEnEdicion.id, payload);
       console.log('✅ Cliente actualizado:', actualizado);
       
-      // Actualizar la lista de clientes
-      setClientes((prev) => prev.map((cliente) => (cliente.id === actualizado.id ? actualizado : cliente)));
-      
       // Recargar clientes para asegurar sincronización
       await fetchClientes();
       
@@ -216,8 +248,6 @@ export default function ClientesPage() {
       await eliminarClienteApi(clienteId);
       console.log('✅ Cliente eliminado exitosamente');
       
-      // Actualizar la lista de clientes
-      setClientes((prev) => prev.filter((c) => c.id !== clienteId));
       setSelectedClientes((prev) => prev.filter((id) => id !== clienteId));
       
       // Recargar clientes para asegurar sincronización
@@ -248,7 +278,7 @@ export default function ClientesPage() {
       }
     }
 
-    if (selectedClientes.length === 0) {
+    if (!selectAllMode && selectedClientes.length === 0) {
       alert('Por favor, selecciona al menos un cliente.');
       return;
     }
@@ -257,13 +287,36 @@ export default function ClientesPage() {
     setResultadoEnvioWhatsApp(null);
 
     try {
-      // Obtener números de teléfono de los clientes seleccionados
-      const numeros = selectedClientes
-        .map(id => {
-          const cliente = clientes.find(c => c.id === id);
-          return cliente?.telefono;
-        })
-        .filter((telefono): telefono is string => Boolean(telefono));
+      let numeros: string[] = [];
+      
+      if (selectAllMode) {
+        // Si está en modo "seleccionar todos", obtener todos los clientes
+        try {
+          setIsLoadingClientes(true);
+          // Obtener todos los clientes sin paginación (usando un límite muy alto)
+          const response = await obtenerClientes({
+            page: 1,
+            limit: 10000, // Límite alto para obtener todos
+            search: searchTerm.trim() || undefined,
+          });
+          numeros = response.data.map(c => c.telefono).filter((telefono): telefono is string => Boolean(telefono));
+        } catch (error) {
+          console.error('Error al obtener todos los clientes:', error);
+          alert('Error al obtener la lista completa de clientes');
+          setIsLoadingClientes(false);
+          return;
+        } finally {
+          setIsLoadingClientes(false);
+        }
+      } else {
+        // Solo los clientes seleccionados de la página actual
+        numeros = selectedClientes
+          .map(id => {
+            const cliente = clientes.find(c => c.id === id);
+            return cliente?.telefono;
+          })
+          .filter((telefono): telefono is string => Boolean(telefono));
+      }
 
       if (numeros.length === 0) {
         alert('No se encontraron números de teléfono para los clientes seleccionados.');
@@ -348,8 +401,32 @@ export default function ClientesPage() {
   };
 
   const handleEnvioMasivoCorreo = async () => {
-    const clientesSeleccionados = clientes.filter(c => selectedClientes.includes(c.id));
-    const emails = clientesSeleccionados.map(c => c.email);
+    let emails: string[] = [];
+    
+    if (selectAllMode) {
+      // Si está en modo "seleccionar todos", obtener todos los clientes
+      try {
+        setIsLoadingClientes(true);
+        // Obtener todos los clientes sin paginación (usando un límite muy alto)
+        const response = await obtenerClientes({
+          page: 1,
+          limit: 10000, // Límite alto para obtener todos
+          search: searchTerm.trim() || undefined,
+        });
+        emails = response.data.map(c => c.email).filter(Boolean);
+      } catch (error) {
+        console.error('Error al obtener todos los clientes:', error);
+        alert('Error al obtener la lista completa de clientes');
+        setIsLoadingClientes(false);
+        return;
+      } finally {
+        setIsLoadingClientes(false);
+      }
+    } else {
+      // Solo los clientes seleccionados de la página actual
+      const clientesSeleccionados = clientes.filter(c => selectedClientes.includes(c.id));
+      emails = clientesSeleccionados.map(c => c.email).filter(Boolean);
+    }
     
     try {
       // Importar el servicio dinámicamente
@@ -391,6 +468,23 @@ export default function ClientesPage() {
         : [...prev, clienteId]
     );
   };
+
+  const toggleSelectAll = () => {
+    if (selectAllMode) {
+      // Desactivar modo "seleccionar todos"
+      setSelectAllMode(false);
+      setSelectedClientes([]);
+    } else if (selectedClientes.length === clientes.length && !selectAllMode) {
+      // Si todos los de la página están seleccionados, activar modo "seleccionar todos"
+      setSelectAllMode(true);
+    } else {
+      // Seleccionar todos los de la página actual
+      setSelectedClientes(clientes.map(c => c.id));
+    }
+  };
+
+  const isAllSelected = selectAllMode || (clientes.length > 0 && selectedClientes.length === clientes.length && !selectAllMode);
+  const isSomeSelected = selectedClientes.length > 0 && !selectAllMode;
 
   // Funciones para manejo de Excel
   const handleDescargarPlantilla = () => {
@@ -449,7 +543,8 @@ export default function ClientesPage() {
       }
 
       if (clientesGuardados.length > 0) {
-        setClientes((prev) => [...clientesGuardados, ...prev]);
+        // Recargar clientes después de importar
+        await fetchClientes();
       }
 
       setImportResult({
@@ -473,11 +568,8 @@ export default function ClientesPage() {
     fileInputRef.current?.click();
   };
 
-  const clientesFiltrados = clientes.filter(cliente =>
-    cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.telefono.includes(searchTerm)
-  );
+  // Los clientes ya vienen filtrados del servidor
+  const clientesFiltrados = clientes;
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
@@ -504,23 +596,28 @@ export default function ClientesPage() {
                 </span>
               </h1>
               <p className="text-gray-700 mt-3">
-                Total: {clientes.length} clientes · Seleccionados: {selectedClientes.length}
+                Total: {pagination.total} clientes · Mostrando: {clientes.length} · 
+                {selectAllMode ? (
+                  <span className="font-semibold text-emerald-700"> Seleccionados: TODOS ({pagination.total})</span>
+                ) : (
+                  <span> Seleccionados: {selectedClientes.length}</span>
+                )}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button
                 variant="secondary"
                 onClick={() => setIsEnvioCorreoModalOpen(true)}
-                disabled={selectedClientes.length === 0}
+                disabled={!selectAllMode && selectedClientes.length === 0}
               >
-                📧 Envío Masivo Correo
+                📧 Envío Masivo Correo {selectAllMode && `(${pagination.total})`}
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => setIsEnvioWhatsAppModalOpen(true)}
-                disabled={selectedClientes.length === 0}
+                disabled={!selectAllMode && selectedClientes.length === 0}
               >
-                💬 Envío Masivo WhatsApp
+                💬 Envío Masivo WhatsApp {selectAllMode && `(${pagination.total})`}
               </Button>
               <Button variant="primary" onClick={() => setIsAddModalOpen(true)}>
                 + Agregar Cliente
@@ -599,37 +696,215 @@ export default function ClientesPage() {
               />
             </Card>
 
-            {/* Lista de clientes */}
+            {/* Lista de clientes en formato tabla */}
             {clientesFiltrados.length === 0 ? (
               <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">👥</div>
                   <h3 className="text-xl font-semibold text-emerald-900 mb-2">
-                    No hay clientes registrados
+                    {searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
                   </h3>
                   <p className="text-gray-600">
-                    Agrega tu primer cliente para comenzar
+                    {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Agrega tu primer cliente para comenzar'}
                   </p>
                 </div>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {clientesFiltrados.map((cliente) => (
-                  <div key={cliente.id} className="relative">
-                    <input
-                      type="checkbox"
-                      checked={selectedClientes.includes(cliente.id)}
-                      onChange={() => toggleSelectCliente(cliente.id)}
-                      className="absolute top-4 left-4 h-5 w-5 rounded z-10 cursor-pointer"
-                    />
-                    <ClientCard
-                      cliente={cliente}
-                      onEdit={handleOpenEditModal}
-                      onDelete={handleDeleteCliente}
-                    />
+              <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-emerald-50 border-b border-emerald-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isAllSelected}
+                              ref={(input) => {
+                                if (input) input.indeterminate = isSomeSelected;
+                              }}
+                              onChange={toggleSelectAll}
+                              className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                              title={selectAllMode ? "Deseleccionar todos" : "Seleccionar todos"}
+                            />
+                            {selectAllMode && (
+                              <span className="text-xs text-emerald-700 font-semibold" title="Todos los clientes están seleccionados">
+                                (Todos)
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Nombre</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Teléfono</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Empresa</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Estado</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Servicios</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-emerald-900">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-emerald-100">
+                      {clientesFiltrados.map((cliente) => (
+                        <tr
+                          key={cliente.id}
+                          className={`hover:bg-emerald-50/50 transition-colors ${
+                            selectedClientes.includes(cliente.id) ? 'bg-emerald-100/50' : ''
+                          }`}
+                        >
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectAllMode || selectedClientes.includes(cliente.id)}
+                              onChange={() => {
+                                if (selectAllMode) {
+                                  // Si está en modo "seleccionar todos", desactivar ese modo y quitar este cliente
+                                  setSelectAllMode(false);
+                                  setSelectedClientes(clientes.filter(c => c.id !== cliente.id).map(c => c.id));
+                                } else {
+                                  toggleSelectCliente(cliente.id);
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-900">{cliente.nombre}</div>
+                            {cliente.notas && (
+                              <div className="text-xs text-gray-500 mt-1 truncate max-w-xs" title={cliente.notas}>
+                                {cliente.notas}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{cliente.email}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{cliente.telefono}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{cliente.empresa || '-'}</td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={
+                                cliente.estado === 'nuevo'
+                                  ? 'info'
+                                  : cliente.estado === 'contactado'
+                                  ? 'primary'
+                                  : cliente.estado === 'interesado' || cliente.estado === 'convertido'
+                                  ? 'success'
+                                  : cliente.estado === 'en-negociacion'
+                                  ? 'warning'
+                                  : 'gray'
+                              }
+                            >
+                              {cliente.estado === 'nuevo'
+                                ? 'Nuevo'
+                                : cliente.estado === 'contactado'
+                                ? 'Contactado'
+                                : cliente.estado === 'interesado'
+                                ? 'Interesado'
+                                : cliente.estado === 'en-negociacion'
+                                ? 'En Negociación'
+                                : cliente.estado === 'convertido'
+                                ? 'Convertido'
+                                : 'Inactivo'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {cliente.serviciosInteres.slice(0, 2).map((servicio) => (
+                                <Badge key={servicio} variant="gray" size="sm">
+                                  {servicio}
+                                </Badge>
+                              ))}
+                              {cliente.serviciosInteres.length > 2 && (
+                                <Badge variant="gray" size="sm" title={cliente.serviciosInteres.slice(2).join(', ')}>
+                                  +{cliente.serviciosInteres.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2 justify-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditModal(cliente)}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleDeleteCliente(cliente.id)}
+                              >
+                                Eliminar
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Paginación */}
+                {pagination.totalPages > 1 && (
+                  <div className="px-4 py-4 border-t border-emerald-200 bg-emerald-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-sm text-gray-700">
+                      Mostrando {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, pagination.total)} de {pagination.total} clientes
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={!pagination.hasPrevPage || currentPage === 1}
+                      >
+                        « Primera
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={!pagination.hasPrevPage}
+                      >
+                        ‹ Anterior
+                      </Button>
+                      <span className="px-3 py-1 text-sm text-gray-700">
+                        Página {currentPage} de {pagination.totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
+                        disabled={!pagination.hasNextPage}
+                      >
+                        Siguiente ›
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(pagination.totalPages)}
+                        disabled={!pagination.hasNextPage || currentPage === pagination.totalPages}
+                      >
+                        Última »
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-700">Mostrar:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="px-3 py-1 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      >
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                        <option value={200}>200</option>
+                      </select>
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </Card>
             )}
           </>
         )}

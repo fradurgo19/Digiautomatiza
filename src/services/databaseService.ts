@@ -52,7 +52,25 @@ export interface DashboardStats {
 
 // ============ CLIENTES ============
 
-export async function obtenerClientes(): Promise<Cliente[]> {
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export async function obtenerClientes(params?: PaginationParams): Promise<PaginatedResponse<Cliente>> {
   try {
     const usuario = localStorage.getItem('usuario');
     const headers: Record<string, string> = {};
@@ -66,13 +84,41 @@ export async function obtenerClientes(): Promise<Cliente[]> {
       }
     }
 
-    const response = await fetch(`${API_URL}/api/clientes`, { headers });
+    // Construir query string
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.set('page', String(params.page));
+    if (params?.limit) queryParams.set('limit', String(params.limit));
+    if (params?.search) queryParams.set('search', params.search);
+
+    const url = `${API_URL}/api/clientes${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await fetch(url, { headers });
     if (!response.ok) throw new Error('Error al obtener clientes');
     const data = await response.json();
-    return (data.clientes || []).map(mapCliente);
+    
+    return {
+      data: (data.clientes || []).map(mapCliente),
+      pagination: data.pagination || {
+        page: 1,
+        limit: 50,
+        total: data.clientes?.length || 0,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+    };
   } catch (error) {
     console.error('Error al obtener clientes:', error);
-    return [];
+    return {
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 50,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+    };
   }
 }
 

@@ -109,31 +109,72 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      // Obtener todos los clientes
+      // Obtener clientes con paginación y búsqueda
       const usuarioId = req.headers['x-usuario-id'] ?? null;
       const rol = req.headers['x-usuario-rol'] ?? null;
       const isAdmin = rol && String(rol).toLowerCase() === 'admin';
 
+      // Parámetros de paginación
+      const page = parseInt(req.query.page || '1');
+      const limit = parseInt(req.query.limit || '50');
+      const search = req.query.search || '';
+      const skip = (page - 1) * limit;
+
+      // Construir where clause
       let where = undefined;
       if (usuarioId && !isAdmin) {
         where = { usuarioId: String(usuarioId) };
       }
 
-      console.log('📋 Obteniendo clientes - Admin:', isAdmin, 'UsuarioId:', usuarioId);
+      // Agregar búsqueda si existe
+      if (search && search.trim()) {
+        const searchTerm = search.trim();
+        where = {
+          ...where,
+          OR: [
+            { nombre: { contains: searchTerm, mode: 'insensitive' } },
+            { email: { contains: searchTerm, mode: 'insensitive' } },
+            { telefono: { contains: searchTerm, mode: 'insensitive' } },
+            { empresa: { contains: searchTerm, mode: 'insensitive' } },
+          ],
+        };
+      }
 
-      const clientes = await prisma.cliente.findMany({
-        ...(where && { where }),
-        orderBy: { createdAt: 'desc' },
-      });
+      console.log('📋 Obteniendo clientes - Admin:', isAdmin, 'UsuarioId:', usuarioId, 'Page:', page, 'Limit:', limit, 'Search:', search);
+
+      // Obtener clientes con paginación
+      const [clientes, total] = await Promise.all([
+        prisma.cliente.findMany({
+          ...(where && { where }),
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.cliente.count({
+          ...(where && { where }),
+        }),
+      ]);
       
-      console.log(`✅ Clientes obtenidos: ${clientes.length}`);
+      const totalPages = Math.ceil(total / limit);
+      
+      console.log(`✅ Clientes obtenidos: ${clientes.length} de ${total} (Página ${page}/${totalPages})`);
       
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.setHeader('Content-Type', 'application/json');
       
-      res.status(200).json({ clientes });
+      res.status(200).json({ 
+        clientes,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        }
+      });
     } else if (req.method === 'POST') {
       // Crear nuevo cliente
       const usuarioId = req.headers['x-usuario-id'] ?? null;
