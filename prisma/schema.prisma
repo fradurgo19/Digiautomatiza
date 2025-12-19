@@ -43,6 +43,8 @@ model Cliente {
   serviciosInteres  String[] // Array de servicios
   estado            String   @default("nuevo") // nuevo, contactado, interesado, en-negociacion, convertido, inactivo
   notas             String?  @db.Text
+  totalEmailsEnviados Int    @default(0) // Contador de correos enviados
+  ultimoEmailEnviado  DateTime? // Fecha del último correo enviado
   fechaRegistro     DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

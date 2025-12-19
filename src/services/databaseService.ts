@@ -26,6 +26,8 @@ const API_URL = import.meta.env.VITE_BACKEND_URL ||
 const mapCliente = (cliente: any): Cliente => ({
   ...cliente,
   fechaRegistro: cliente?.fechaRegistro ? new Date(cliente.fechaRegistro) : new Date(),
+  totalEmailsEnviados: cliente?.totalEmailsEnviados ?? 0,
+  ultimoEmailEnviado: cliente?.ultimoEmailEnviado ? new Date(cliente.ultimoEmailEnviado) : undefined,
 });
 
 const mapSesion = (sesion: any): Sesion => ({

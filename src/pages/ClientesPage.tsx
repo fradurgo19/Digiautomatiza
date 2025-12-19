@@ -486,6 +486,13 @@ export default function ClientesPage() {
 
       alert(mensaje);
       
+      // Recargar clientes para actualizar contadores de correos enviados
+      if (resultado.exitosos.length > 0) {
+        setTimeout(() => {
+          fetchClientes();
+        }, 1500); // Esperar 1.5 segundos para que la BD se actualice
+      }
+      
       setIsEnvioCorreoModalOpen(false);
       setSelectedClientes([]);
       setEnvioCorreo({ asunto: '', mensaje: '', archivos: [] });
@@ -810,6 +817,7 @@ export default function ClientesPage() {
                         <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Empresa</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Estado</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Servicios</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-emerald-900">Correos</th>
                         <th className="px-4 py-3 text-center text-sm font-semibold text-emerald-900">Acciones</th>
                       </tr>
                       {/* Fila de filtros */}
@@ -872,6 +880,7 @@ export default function ClientesPage() {
                             className="w-full px-2 py-1 text-xs border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                           />
                         </th>
+                        <th className="px-4 py-2"></th>
                         <th className="px-4 py-2"></th>
                       </tr>
                     </thead>
@@ -950,6 +959,29 @@ export default function ClientesPage() {
                                     +{cliente.serviciosInteres.length - 2}
                                   </Badge>
                                 </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-2">
+                              {cliente.totalEmailsEnviados && cliente.totalEmailsEnviados > 0 ? (
+                                <div 
+                                  className="flex flex-col items-center gap-1"
+                                  title={cliente.ultimoEmailEnviado ? `Último envío: ${new Date(cliente.ultimoEmailEnviado).toLocaleDateString('es-CO')}` : `Total: ${cliente.totalEmailsEnviados} correos enviados`}
+                                >
+                                  <Badge variant="success" size="sm">
+                                    📧 {cliente.totalEmailsEnviados}
+                                  </Badge>
+                                  {cliente.ultimoEmailEnviado && (
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(cliente.ultimoEmailEnviado).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400" title="No se han enviado correos">
+                                  —
+                                </span>
                               )}
                             </div>
                           </td>

@@ -1,6 +1,7 @@
 // Vercel Serverless Function - Email Unificado (Contacto + Envío Masivo)
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+import prisma from './lib/prisma.mjs';
 
 // Configuración del proveedor de email
 const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER || 'gmail').toLowerCase();
@@ -419,6 +420,34 @@ export default async function handler(req, res) {
       console.log(`\n📊 Resumen:`);
       console.log(`   ✅ Exitosos: ${resultados.exitosos.length}`);
       console.log(`   ❌ Fallidos: ${resultados.fallidos.length}`);
+
+      // Actualizar contadores de correos enviados en la base de datos
+      if (resultados.exitosos.length > 0) {
+        try {
+          const ahora = new Date();
+          // Actualizar cada cliente que recibió correo exitosamente
+          await Promise.all(
+            resultados.exitosos.map(async (email) => {
+              try {
+                await prisma.cliente.updateMany({
+                  where: { email: email.toLowerCase() },
+                  data: {
+                    totalEmailsEnviados: { increment: 1 },
+                    ultimoEmailEnviado: ahora,
+                  },
+                });
+              } catch (error) {
+                // No fallar si no se puede actualizar el contador
+                console.warn(`⚠️ No se pudo actualizar contador para ${email}:`, error.message);
+              }
+            })
+          );
+          console.log(`✅ Contadores actualizados para ${resultados.exitosos.length} clientes`);
+        } catch (error) {
+          // No fallar el envío si hay error al actualizar contadores
+          console.warn(`⚠️ Error al actualizar contadores (no crítico):`, error.message);
+        }
+      }
 
       res.status(200).json({
         success: true,

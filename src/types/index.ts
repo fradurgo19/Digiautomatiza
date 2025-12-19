@@ -9,6 +9,8 @@ export interface Cliente {
   estado: EstadoCliente;
   fechaRegistro: Date;
   notas?: string;
+  totalEmailsEnviados?: number;
+  ultimoEmailEnviado?: Date;
 }
 
 // Tipos de servicios ofrecidos
