@@ -4,7 +4,6 @@ import Card from '../atoms/Card';
 import Button from '../atoms/Button';
 import Input from '../atoms/Input';
 import Modal from '../molecules/Modal';
-import ClientCard from '../molecules/ClientCard';
 import Badge from '../atoms/Badge';
 import { Cliente, ServicioTipo, EstadoCliente } from '../types';
 import Select from '../atoms/Select';
@@ -55,6 +54,16 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
   const [selectAllMode, setSelectAllMode] = useState(false); // Modo "seleccionar todos" (de todas las páginas)
+  
+  // Estados de filtros por columna
+  const [filtros, setFiltros] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    empresa: '',
+    estado: '',
+    servicios: '',
+  });
   
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -137,10 +146,20 @@ export default function ClientesPage() {
     setIsLoadingClientes(true);
     setClientesError(null);
     try {
+      // Combinar búsqueda general con filtros específicos
+      const searchTerms: string[] = [];
+      if (search.trim()) searchTerms.push(search.trim());
+      if (filtros.nombre.trim()) searchTerms.push(`nombre:${filtros.nombre.trim()}`);
+      if (filtros.email.trim()) searchTerms.push(`email:${filtros.email.trim()}`);
+      if (filtros.telefono.trim()) searchTerms.push(`telefono:${filtros.telefono.trim()}`);
+      if (filtros.empresa.trim()) searchTerms.push(`empresa:${filtros.empresa.trim()}`);
+      
+      const combinedSearch = searchTerms.join(' ');
+      
       const response = await obtenerClientes({
         page,
         limit: pageSize,
-        search: search.trim() || undefined,
+        search: combinedSearch || undefined,
       });
       setClientes(response.data);
       setPagination(response.pagination);
@@ -152,13 +171,14 @@ export default function ClientesPage() {
     } finally {
       setIsLoadingClientes(false);
     }
-  }, [currentPage, pageSize, searchTerm]);
+  }, [currentPage, pageSize, searchTerm, filtros]);
 
   useEffect(() => {
     fetchClientes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize]);
 
-  // Debounce para búsqueda
+  // Debounce para búsqueda y filtros
   useEffect(() => {
     const timer = setTimeout(() => {
       if (currentPage === 1) {
@@ -169,7 +189,26 @@ export default function ClientesPage() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, filtros]);
+  
+  const handleFiltroChange = (campo: keyof typeof filtros, valor: string) => {
+    setFiltros(prev => ({ ...prev, [campo]: valor }));
+    setCurrentPage(1); // Resetear a primera página al filtrar
+  };
+  
+  const limpiarFiltros = () => {
+    setFiltros({
+      nombre: '',
+      email: '',
+      telefono: '',
+      empresa: '',
+      estado: '',
+      servicios: '',
+    });
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
 
   const resetEditState = () => {
     setClienteEnEdicion(null);
@@ -185,7 +224,7 @@ export default function ClientesPage() {
     setIsSavingCliente(true);
     try {
       const payload = buildClientePayload(nuevoCliente);
-      const cliente = await crearClienteApi(payload);
+      await crearClienteApi(payload);
       // Recargar clientes para mantener paginación
       await fetchClientes();
       setIsAddModalOpen(false);
@@ -385,7 +424,7 @@ export default function ClientesPage() {
       // Si todos fueron exitosos, limpiar formulario y cerrar modal después de mostrar resultado
       if (resultado.fallidos.length === 0) {
         setTimeout(() => {
-          setEnvioWhatsApp({ mensaje: '', archivos: [] });
+          setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
           setSelectedClientes([]);
           setIsEnvioWhatsAppModalOpen(false);
           setResultadoEnvioWhatsApp(null);
@@ -568,8 +607,27 @@ export default function ClientesPage() {
     fileInputRef.current?.click();
   };
 
-  // Los clientes ya vienen filtrados del servidor
-  const clientesFiltrados = clientes;
+  // Los clientes ya vienen filtrados del servidor, pero aplicamos filtros adicionales del lado del cliente
+  // para estado y servicios (que no están en la búsqueda del servidor)
+  const clientesFiltrados = clientes.filter(cliente => {
+    // Filtro por estado
+    if (filtros.estado && cliente.estado !== filtros.estado) {
+      return false;
+    }
+    
+    // Filtro por servicios
+    if (filtros.servicios) {
+      const serviciosLower = filtros.servicios.toLowerCase();
+      const tieneServicio = cliente.serviciosInteres.some(servicio => 
+        servicio.toLowerCase().includes(serviciosLower)
+      );
+      if (!tieneServicio) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
@@ -586,7 +644,7 @@ export default function ClientesPage() {
 
       <Navbar />
       
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="relative w-full px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-10">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
@@ -636,7 +694,7 @@ export default function ClientesPage() {
                 <h3 className="text-lg font-semibold text-red-800">No pudimos cargar los clientes</h3>
                 <p className="text-sm text-red-700">{clientesError}</p>
               </div>
-              <Button variant="primary" onClick={fetchClientes}>
+              <Button variant="primary" onClick={() => fetchClientes()}>
                 Reintentar
               </Button>
             </div>
@@ -684,16 +742,31 @@ export default function ClientesPage() {
               />
             </Card>
 
-            {/* Búsqueda */}
+            {/* Búsqueda y Filtros */}
             <Card className="mb-6 mt-6 bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
-              <Input
-                type="text"
-                placeholder="Buscar por nombre, email o teléfono..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                fullWidth
-                textClassName="text-emerald-900 placeholder:text-emerald-500"
-              />
+              <div className="flex flex-col gap-4">
+                <div className="flex gap-3 items-center">
+                  <Input
+                    type="text"
+                    placeholder="Buscar por nombre, email o teléfono..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1"
+                    textClassName="text-emerald-900 placeholder:text-emerald-500"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={limpiarFiltros}
+                    disabled={!searchTerm && Object.values(filtros).every(f => !f)}
+                  >
+                    🔄 Limpiar Filtros
+                  </Button>
+                </div>
+                <div className="text-xs text-gray-600">
+                  💡 Usa los filtros en cada columna de la tabla para búsquedas más específicas
+                </div>
+              </div>
             </Card>
 
             {/* Lista de clientes en formato tabla */}
@@ -714,6 +787,7 @@ export default function ClientesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-emerald-50 border-b border-emerald-200">
+                      {/* Fila de encabezados */}
                       <tr>
                         <th className="px-4 py-3 text-left">
                           <div className="flex items-center gap-2">
@@ -741,6 +815,68 @@ export default function ClientesPage() {
                         <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Estado</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold text-emerald-900">Servicios</th>
                         <th className="px-4 py-3 text-center text-sm font-semibold text-emerald-900">Acciones</th>
+                      </tr>
+                      {/* Fila de filtros */}
+                      <tr className="bg-emerald-100/50">
+                        <th className="px-4 py-2"></th>
+                        <th className="px-4 py-2">
+                          <input
+                            type="text"
+                            placeholder="Filtrar nombre..."
+                            value={filtros.nombre}
+                            onChange={(e) => handleFiltroChange('nombre', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          />
+                        </th>
+                        <th className="px-4 py-2">
+                          <input
+                            type="text"
+                            placeholder="Filtrar email..."
+                            value={filtros.email}
+                            onChange={(e) => handleFiltroChange('email', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          />
+                        </th>
+                        <th className="px-4 py-2">
+                          <input
+                            type="text"
+                            placeholder="Filtrar teléfono..."
+                            value={filtros.telefono}
+                            onChange={(e) => handleFiltroChange('telefono', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          />
+                        </th>
+                        <th className="px-4 py-2">
+                          <input
+                            type="text"
+                            placeholder="Filtrar empresa..."
+                            value={filtros.empresa}
+                            onChange={(e) => handleFiltroChange('empresa', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          />
+                        </th>
+                        <th className="px-4 py-2">
+                          <select
+                            value={filtros.estado}
+                            onChange={(e) => handleFiltroChange('estado', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-emerald-300 rounded bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          >
+                            <option value="">Todos los estados</option>
+                            {estadoOptions.map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </th>
+                        <th className="px-4 py-2">
+                          <input
+                            type="text"
+                            placeholder="Filtrar servicios..."
+                            value={filtros.servicios}
+                            onChange={(e) => handleFiltroChange('servicios', e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          />
+                        </th>
+                        <th className="px-4 py-2"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-emerald-100">
@@ -813,9 +949,11 @@ export default function ClientesPage() {
                                 </Badge>
                               ))}
                               {cliente.serviciosInteres.length > 2 && (
-                                <Badge variant="gray" size="sm" title={cliente.serviciosInteres.slice(2).join(', ')}>
-                                  +{cliente.serviciosInteres.length - 2}
-                                </Badge>
+                                <div title={cliente.serviciosInteres.slice(2).join(', ')}>
+                                  <Badge variant="gray" size="sm">
+                                    +{cliente.serviciosInteres.length - 2}
+                                  </Badge>
+                                </div>
                               )}
                             </div>
                           </td>

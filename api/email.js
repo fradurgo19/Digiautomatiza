@@ -327,6 +327,12 @@ export default async function handler(req, res) {
         });
       }
 
+      // Advertencia si hay muchos destinatarios (Vercel tiene límite de 10s en plan gratuito)
+      if (destinatarios.length > 30) {
+        console.warn(`⚠️ Advertencia: ${destinatarios.length} destinatarios pueden causar timeout en Vercel (límite 10s).`);
+        console.warn(`   Considera dividir en lotes más pequeños o usar un servicio de cola.`);
+      }
+
       console.log(`📧 Enviando correos masivos a ${destinatarios.length} destinatarios...`);
 
       const resultados = {
@@ -335,12 +341,11 @@ export default async function handler(req, res) {
       };
 
       const attachments = [];
+      const htmlContent = getEmailTemplateMasivo(mensaje);
 
-      // Enviar correo a cada destinatario
-      for (const destinatario of destinatarios) {
+      // Función para enviar un correo
+      const enviarCorreo = async (destinatario) => {
         try {
-          const htmlContent = getEmailTemplateMasivo(mensaje);
-
           const info = await enviarEmail({
             to: destinatario,
             subject: asunto,
@@ -350,15 +355,49 @@ export default async function handler(req, res) {
 
           resultados.exitosos.push(destinatario);
           console.log(`✅ Enviado a ${destinatario}`);
-
-          // Pequeña pausa entre envíos para evitar rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          return { success: true, email: destinatario };
         } catch (error) {
           resultados.fallidos.push({
             email: destinatario,
             error: error.message || 'Error desconocido'
           });
           console.error(`❌ Error al enviar a ${destinatario}:`, error.message);
+          return { success: false, email: destinatario, error: error.message };
+        }
+      };
+
+      // Enviar correos en paralelo con límite de concurrencia optimizado para SMTP/Gmail
+      // Para 50 correos, usar concurrencia más alta (20-25) para completar en <10s
+      // Gmail SMTP puede manejar esta concurrencia sin problemas
+      const CONCURRENCY_LIMIT = 25;
+      const chunks = [];
+      
+      // Dividir destinatarios en chunks
+      for (let i = 0; i < destinatarios.length; i += CONCURRENCY_LIMIT) {
+        chunks.push(destinatarios.slice(i, i + CONCURRENCY_LIMIT));
+      }
+
+      console.log(`📦 Procesando ${destinatarios.length} correos en ${chunks.length} lotes de hasta ${CONCURRENCY_LIMIT} correos cada uno`);
+
+      // Procesar chunks secuencialmente, pero correos dentro de cada chunk en paralelo
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        const chunk = chunks[chunkIndex];
+        const startTime = Date.now();
+        
+        // Enviar todos los correos del chunk en paralelo
+        // Usar Promise.allSettled para que un error no detenga todo el lote
+        const resultadosChunk = await Promise.allSettled(
+          chunk.map(destinatario => enviarCorreo(destinatario))
+        );
+        
+        const chunkTime = Date.now() - startTime;
+        const exitososChunk = resultadosChunk.filter(r => r.status === 'fulfilled').length;
+        console.log(`✅ Lote ${chunkIndex + 1}/${chunks.length} completado en ${chunkTime}ms (${exitososChunk}/${chunk.length} exitosos)`);
+        
+        // Sin pausa entre chunks para máxima velocidad (Gmail puede manejar esto)
+        // Solo pausa mínima si hay muchos lotes para evitar sobrecarga
+        if (chunks.length > 3 && chunkIndex < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 10)); // Pausa mínima de 10ms
         }
       }
 
