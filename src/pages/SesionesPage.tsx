@@ -18,6 +18,20 @@ import {
 } from '../services/databaseService';
 import { esEnlaceGoogleMeetValido } from '../services/googleMeetService';
 
+function formatearFechaSesion(fecha: string | Date): string {
+  const d = typeof fecha === 'string' ? new Date(fecha) : fecha;
+  const año = d.getUTCFullYear();
+  const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(d.getUTCDate()).padStart(2, '0');
+  return `${dia}/${mes}/${año}`;
+}
+
+function obtenerValorFechaParaInput(fecha: Date | string | null | undefined): string {
+  if (!fecha) return '';
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  return d.toISOString().split('T')[0];
+}
+
 export default function SesionesPage() {
   const [sesiones, setSesiones] = useState<Sesion[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -68,11 +82,11 @@ export default function SesionesPage() {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const [clientesData, sesionesData] = await Promise.all([
+      const [clientesRes, sesionesData] = await Promise.all([
         obtenerClientes(),
         obtenerSesiones(),
       ]);
-      setClientes(clientesData);
+      setClientes(clientesRes.data);
       setSesiones(sesionesData);
     } catch (error) {
       console.error('Error al cargar sesiones/clientes:', error);
@@ -164,7 +178,7 @@ export default function SesionesPage() {
       setSesiones(prev => prev.filter(s => s.id !== sesionId));
       
       // Notificar a otros módulos (como CalendarioPage) que se eliminó una sesión
-      window.dispatchEvent(new Event('sesionEliminada'));
+      globalThis.dispatchEvent(new Event('sesionEliminada'));
       // También actualizar localStorage para trigger storage event
       localStorage.setItem('sesiones_updated', Date.now().toString());
     } catch (error) {
@@ -201,9 +215,7 @@ export default function SesionesPage() {
       setSesiones(prev => prev.map(s => (s.id === sesionEditando.id ? actualizada : s)));
       
       // Notificar a otros módulos (como CalendarioPage) que se actualizó una sesión
-      window.dispatchEvent(new Event('sesionActualizada'));
-      // También actualizar localStorage para trigger storage event
-      const sesionesActualizadas = await obtenerSesiones();
+      globalThis.dispatchEvent(new Event('sesionActualizada'));
       localStorage.setItem('sesiones_updated', Date.now().toString());
       
       setIsEditModalOpen(false);
@@ -225,6 +237,120 @@ export default function SesionesPage() {
     const dateB = new Date(b.fecha).getTime();
     return dateB - dateA; // Más recientes primero
   });
+
+  const mensajeListaVacia =
+    filtroEstado === 'todas'
+      ? 'Programa tu primera sesión con un cliente'
+      : `No hay sesiones con estado "${estadoOptions.find(e => e.value === filtroEstado)?.label}"`;
+
+  const renderListContent = () => {
+    if (isLoading) {
+      return (
+        <div className="py-24 flex justify-center">
+          <Loading text="Cargando sesiones..." />
+        </div>
+      );
+    }
+    if (fetchError) {
+      return (
+        <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-red-700">No se pudieron cargar las sesiones</h3>
+              <p className="text-sm text-red-600">{fetchError}</p>
+            </div>
+            <Button variant="primary" onClick={fetchData}>
+              Reintentar
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+    if (sesionesOrdenadas.length === 0) {
+      return (
+        <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📅</div>
+            <h3 className="text-xl font-semibold text-emerald-900 mb-2">
+              No hay sesiones programadas
+            </h3>
+            <p className="text-gray-600 mb-4">{mensajeListaVacia}</p>
+            <Button variant="primary" onClick={() => setIsAddModalOpen(true)}>
+              + Programar Sesión
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+    return (
+      <div className="space-y-4">
+        {sesionesOrdenadas.map((sesion) => (
+          <Card key={sesion.id} className="bg-white/85 border border-emerald-100 shadow-lg shadow-emerald-100/50">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-xl font-bold text-gray-800">
+                    {sesion.cliente.nombre}
+                  </h3>
+                  <Badge variant={estadoColors[sesion.estado]}>
+                    {estadoOptions.find(e => e.value === sesion.estado)?.label}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+                  <div>
+                    <p><strong>📧 Email:</strong> {sesion.cliente.email}</p>
+                    <p><strong>📱 Teléfono:</strong> {sesion.cliente.telefono}</p>
+                  </div>
+                  <div>
+                    <p><strong>📅 Fecha:</strong> {formatearFechaSesion(sesion.fecha)}</p>
+                    <p><strong>⏰ Hora:</strong> {sesion.hora}</p>
+                    <p><strong>💼 Servicio:</strong> {serviciosOptions.find(s => s.value === sesion.servicio)?.label}</p>
+                  </div>
+                </div>
+                {sesion.urlReunion && (
+                  <div className="mt-2">
+                    <a
+                      href={sesion.urlReunion}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-700 hover:underline text-sm"
+                    >
+                      🔗 {sesion.urlReunion}
+                    </a>
+                  </div>
+                )}
+                {sesion.notas && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="font-semibold text-sm">Notas:</p>
+                    <p className="text-gray-600 text-sm mt-1">{sesion.notas}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 ml-4">
+                <Select
+                  options={estadoOptions}
+                  value={sesion.estado}
+                  onChange={(e) => handleCambiarEstado(sesion.id, e.target.value as EstadoSesion)}
+                  textClassName="text-green-600"
+                  className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
+                />
+                <Button variant="primary" size="sm" onClick={() => handleEditarSesion(sesion)}>
+                  ✏️ Editar
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => handleEliminarSesion(sesion.id)}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
@@ -300,123 +426,7 @@ export default function SesionesPage() {
         </div>
 
         {/* Lista de sesiones */}
-        {isLoading ? (
-          <div className="py-24 flex justify-center">
-            <Loading text="Cargando sesiones..." />
-          </div>
-        ) : fetchError ? (
-          <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-red-700">No se pudieron cargar las sesiones</h3>
-                <p className="text-sm text-red-600">{fetchError}</p>
-              </div>
-              <Button variant="primary" onClick={fetchData}>
-                Reintentar
-              </Button>
-            </div>
-          </Card>
-        ) : sesionesOrdenadas.length === 0 ? (
-          <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📅</div>
-              <h3 className="text-xl font-semibold text-emerald-900 mb-2">
-                No hay sesiones programadas
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {filtroEstado === 'todas'
-                  ? 'Programa tu primera sesión con un cliente'
-                  : `No hay sesiones con estado "${estadoOptions.find(e => e.value === filtroEstado)?.label}"`}
-              </p>
-              <Button variant="primary" onClick={() => setIsAddModalOpen(true)}>
-                + Programar Sesión
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {sesionesOrdenadas.map((sesion) => (
-              <Card key={sesion.id} className="bg-white/85 border border-emerald-100 shadow-lg shadow-emerald-100/50">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold text-gray-800">
-                        {sesion.cliente.nombre}
-                      </h3>
-                      <Badge variant={estadoColors[sesion.estado]}>
-                        {estadoOptions.find(e => e.value === sesion.estado)?.label}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
-                      <div>
-                        <p><strong>📧 Email:</strong> {sesion.cliente.email}</p>
-                        <p><strong>📱 Teléfono:</strong> {sesion.cliente.telefono}</p>
-                      </div>
-                      <div>
-                        <p><strong>📅 Fecha:</strong> {(() => {
-                          // Formatear fecha correctamente evitando problemas de zona horaria
-                          const fecha = new Date(sesion.fecha);
-                          // Usar UTC para obtener el día correcto sin conversión de zona horaria
-                          const año = fecha.getUTCFullYear();
-                          const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
-                          const dia = String(fecha.getUTCDate()).padStart(2, '0');
-                          return `${dia}/${mes}/${año}`;
-                        })()}</p>
-                        <p><strong>⏰ Hora:</strong> {sesion.hora}</p>
-                        <p><strong>💼 Servicio:</strong> {serviciosOptions.find(s => s.value === sesion.servicio)?.label}</p>
-                      </div>
-                    </div>
-
-                    {sesion.urlReunion && (
-                      <div className="mt-2">
-                        <a
-                          href={sesion.urlReunion}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-emerald-700 hover:underline text-sm"
-                        >
-                          🔗 {sesion.urlReunion}
-                        </a>
-                      </div>
-                    )}
-
-                    {sesion.notas && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="font-semibold text-sm">Notas:</p>
-                        <p className="text-gray-600 text-sm mt-1">{sesion.notas}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2 ml-4">
-                    <Select
-                      options={estadoOptions}
-                      value={sesion.estado}
-                      onChange={(e) => handleCambiarEstado(sesion.id, e.target.value as EstadoSesion)}
-                      textClassName="text-green-600"
-                      className="bg-white/90 border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
-                    />
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleEditarSesion(sesion)}
-                    >
-                      ✏️ Editar
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleEliminarSesion(sesion.id)}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+        {renderListContent()}
 
         {/* Modal Programar Sesión */}
         <Modal
@@ -492,10 +502,11 @@ export default function SesionesPage() {
                 />
                 
                 <div>
-                  <label className="block text-sm font-medium text-emerald-800 mb-2">
+                  <label htmlFor="nueva-sesion-url-reunion" className="block text-sm font-medium text-emerald-800 mb-2">
                     URL de la reunión (opcional)
                   </label>
                   <Input
+                    id="nueva-sesion-url-reunion"
                     type="url"
                     value={nuevaSesion.urlReunion}
                     onChange={(e) => setNuevaSesion({ ...nuevaSesion, urlReunion: e.target.value })}
@@ -516,21 +527,23 @@ export default function SesionesPage() {
 
                 {/* Opción para crear en Google Calendar */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
+                  <label className="flex items-center gap-3 cursor-pointer" htmlFor="crear-evento-calendario">
                     <input
+                      id="crear-evento-calendario"
                       type="checkbox"
                       checked={crearEnCalendario}
                       onChange={(e) => setCrearEnCalendario(e.target.checked)}
                       disabled={isSavingSesion}
                       className="w-5 h-5 text-blue-600 border-blue-300 rounded focus:ring-blue-500"
+                      aria-label="Crear evento en Google Calendar"
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-blue-900">
+                      <span className="text-sm font-semibold text-blue-900">
                         📅 Crear evento en Google Calendar
-                      </p>
-                      <p className="text-xs text-blue-800 mt-1">
+                      </span>
+                      <span className="text-xs text-blue-800 mt-1 block">
                         Se creará automáticamente un evento en el calendario de digiautomatiza1@gmail.com con enlace de Google Meet
-                      </p>
+                      </span>
                     </div>
                   </label>
                 </div>
@@ -581,7 +594,7 @@ export default function SesionesPage() {
               <Input
                 label="Fecha *"
                 type="date"
-                value={sesionEditando.fecha ? (sesionEditando.fecha instanceof Date ? sesionEditando.fecha.toISOString().split('T')[0] : new Date(sesionEditando.fecha).toISOString().split('T')[0]) : ''}
+                value={obtenerValorFechaParaInput(sesionEditando.fecha)}
                 onChange={(e) => {
                   const nuevaFecha = new Date(e.target.value);
                   setSesionEditando({ ...sesionEditando, fecha: nuevaFecha });
@@ -627,10 +640,11 @@ export default function SesionesPage() {
               />
               
               <div>
-                <label className="block text-sm font-medium text-emerald-800 mb-2">
+                <label htmlFor="editar-sesion-url-reunion" className="block text-sm font-medium text-emerald-800 mb-2">
                   URL de la reunión (opcional)
                 </label>
                 <Input
+                  id="editar-sesion-url-reunion"
                   type="url"
                   value={sesionEditando.urlReunion || ''}
                   onChange={(e) => setSesionEditando({ ...sesionEditando, urlReunion: e.target.value })}

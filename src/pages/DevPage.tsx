@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -32,7 +31,6 @@ const serviciosOptions: { value: string; label: string; icon: string }[] = [
 
 export default function DevPage() {
   const { usuario } = useAuth();
-  const navigate = useNavigate();
   const [propuestas, setPropuestas] = useState<Propuesta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [propuestaSeleccionada, setPropuestaSeleccionada] = useState<Propuesta | null>(null);
@@ -232,7 +230,7 @@ export default function DevPage() {
               </p>
             </div>
             <Badge variant="success" className="text-lg px-4 py-2">
-              {propuestas.length} {propuestas.length === 1 ? 'Propuesta' : 'Propuestas'} Aprobada{propuestas.length !== 1 ? 's' : ''}
+              {propuestas.length} {propuestas.length === 1 ? 'Propuesta' : 'Propuestas'} Aprobada{propuestas.length === 1 ? '' : 's'}
             </Badge>
           </div>
         </Card>
@@ -301,7 +299,7 @@ export default function DevPage() {
                           <div className="flex flex-wrap gap-2">
                             {propuesta.adjuntos.map((adjunto, index) => (
                               <a
-                                key={index}
+                                key={adjunto.nombre ? `${adjunto.nombre}-${index}` : `adj-${index}`}
                                 href={adjunto.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -386,13 +384,13 @@ export default function DevPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-700">Fecha de Inicio:</p>
-                  <p className="text-gray-900 font-semibold text-emerald-600">
+                  <p className="font-semibold text-emerald-600">
                     {formatearFecha(propuestaSeleccionada.fechaInicio)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-700">Fecha de Entrega:</p>
-                  <p className="text-gray-900 font-semibold text-emerald-600">
+                  <p className="font-semibold text-emerald-600">
                     {formatearFecha(propuestaSeleccionada.fechaEntrega)}
                   </p>
                 </div>
@@ -424,7 +422,7 @@ export default function DevPage() {
                   <p className="text-sm font-semibold text-gray-700 mb-2">📎 Archivos Adjuntos ({propuestaSeleccionada.adjuntos.length}):</p>
                   <div className="space-y-2">
                     {propuestaSeleccionada.adjuntos.map((adjunto, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                      <div key={adjunto.nombre ? `${adjunto.nombre}-${index}` : `adj-modal-${index}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
                         <span className="text-2xl">{adjunto.tipo === 'imagen' ? '🖼️' : '📄'}</span>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 truncate">{adjunto.nombre}</p>
@@ -534,7 +532,7 @@ export default function DevPage() {
                     min="0"
                     max="100"
                     value={nuevaTarea.progreso.toString()}
-                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, progreso: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => setNuevaTarea({ ...nuevaTarea, progreso: Number.parseInt(e.target.value, 10) || 0 })}
                     fullWidth
                     className="bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                     textClassName="text-emerald-900 placeholder:text-emerald-500"
@@ -571,7 +569,7 @@ export default function DevPage() {
                             min="0"
                             max="100"
                             value={tarea.progreso.toString()}
-                            onChange={(e) => handleActualizarProgreso(tarea.id, parseInt(e.target.value) || 0)}
+                            onChange={(e) => handleActualizarProgreso(tarea.id, Number.parseInt(e.target.value, 10) || 0)}
                             className="w-20 bg-white border-emerald-300 focus:ring-emerald-600 focus:border-emerald-600"
                             textClassName="text-emerald-900 placeholder:text-emerald-500"
                           />

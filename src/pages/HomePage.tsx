@@ -246,9 +246,9 @@ export default function HomePage() {
             </h1>
 
             <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
-              Expertos en <span className="text-emerald-400 font-semibold">digitalización</span>, 
-              <span className="text-lime-400 font-semibold"> automatización inteligente</span> y 
-              <span className="text-gray-200 font-semibold"> análisis de datos</span>.
+              Expertos en <span className="text-emerald-400 font-semibold">digitalización</span>,{' '}
+              <span className="text-lime-400 font-semibold">automatización inteligente</span> y{' '}
+              <span className="text-gray-200 font-semibold">análisis de datos</span>.
               Transformamos procesos complejos en soluciones simples y eficientes.
             </p>
 
@@ -273,8 +273,8 @@ export default function HomePage() {
             {/* Stats destacados */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
               {stats.map((stat, index) => (
-                <div 
-                  key={index}
+                <div
+                  key={`${stat.number}-${stat.label}`}
                   className="group backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 hover:scale-105"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
@@ -366,8 +366,8 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Stack Tecnológico de
-              <span className="bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent"> Vanguardia</span>
+              Stack Tecnológico de{' '}
+              <span className="bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent">Vanguardia</span>
             </h2>
             <p className="text-gray-400">Trabajamos con las tecnologías más modernas y demandadas del mercado</p>
           </div>
@@ -377,7 +377,7 @@ export default function HomePage() {
             <div className="flex gap-6 animate-marquee">
               {[...tecnologias, ...tecnologias].map((tech, index) => (
                 <div
-                  key={index}
+                  key={`${tech}-${index}`}
                   className="flex-shrink-0 backdrop-blur-lg bg-white/5 border border-white/10 px-8 py-4 rounded-full hover:bg-white/10 transition-colors"
                 >
                   <span className="text-lg font-semibold whitespace-nowrap">{tech}</span>
@@ -394,8 +394,8 @@ export default function HomePage() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                ¿Por Qué Elegir
-                <span className="bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent"> Digiautomatiza</span>?
+                ¿Por Qué Elegir{' '}
+                <span className="bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent">Digiautomatiza</span>?
               </h2>
               <p className="text-gray-400 text-lg mb-8">
                 Somos más que un proveedor de servicios tecnológicos. Somos tu socio estratégico en transformación digital.
@@ -407,8 +407,8 @@ export default function HomePage() {
                   { icon: '🎯', title: 'Precisión', desc: 'Soluciones personalizadas a tu medida' },
                   { icon: '🔒', title: 'Seguridad', desc: 'Protección de datos de nivel empresarial' },
                   { icon: '📈', title: 'Escalabilidad', desc: 'Crece sin limitaciones técnicas' },
-                ].map((item, index) => (
-                  <div key={index} className="flex gap-4 items-start group">
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-4 items-start group">
                     <div className="text-4xl transform group-hover:scale-110 transition-transform">
                       {item.icon}
                     </div>
@@ -436,9 +436,9 @@ export default function HomePage() {
                       { label: 'BI', sub: 'Analítica' },
                       { label: 'ERP', sub: 'Procesos' },
                       { label: 'N8N', sub: 'Orquestación' },
-                    ].map((stack, i) => (
-                      <div 
-                        key={i} 
+                    ].map((stack) => (
+                      <div
+                        key={stack.label}
                         className="aspect-square backdrop-blur-lg bg-white/5 rounded-xl border border-white/10 hover:border-emerald-400/50 transition-colors p-4 flex flex-col items-center justify-center text-center text-gray-300"
                       >
                         <span className="text-2xl font-bold text-emerald-300">{stack.label}</span>
@@ -458,8 +458,8 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Nuestro Proceso
-              <span className="bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent"> Probado</span>
+              Nuestro Proceso{' '}
+              <span className="bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent">Probado</span>
             </h2>
           </div>
 
@@ -469,8 +469,8 @@ export default function HomePage() {
               { num: '02', title: 'Diseño', desc: 'Creamos la solución perfecta' },
               { num: '03', title: 'Desarrollo', desc: 'Implementamos con excelencia' },
               { num: '04', title: 'Soporte', desc: 'Te acompañamos siempre' },
-            ].map((step, index) => (
-              <div key={index} className="relative group">
+            ].map((step) => (
+              <div key={step.num} className="relative group">
                 <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all hover:scale-105 h-full">
                 <div className="text-6xl font-bold bg-gradient-to-br from-emerald-500/20 to-gray-500/20 bg-clip-text text-transparent mb-4">
                     {step.num}
@@ -480,7 +480,7 @@ export default function HomePage() {
                 </div>
                 
                 {/* Línea conectora */}
-                {index < 3 && (
+                {step.num !== '04' && (
                   <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-emerald-400 to-gray-400 opacity-30" />
                 )}
               </div>
@@ -632,18 +632,48 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
         </div>
       </section>
 
-      {/* Sección de Pagos - Pública para todos */}
-      <section id="pagos" className="relative py-24 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl md:text-6xl font-bold mb-6">
+      {/* Sección Portal de Pagos - Mercado Pago */}
+      <section id="pagos" className="relative py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        {/* Fondo sutil para destacar la sección */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/5 to-transparent pointer-events-none" aria-hidden="true" />
+        <div className="max-w-7xl mx-auto relative">
+          <div className="text-center mb-12">
+            <p className="text-sm font-medium text-emerald-400/90 uppercase tracking-wider mb-3">
+              Pagos en línea
+            </p>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-5">
               <span className="bg-gradient-to-r from-emerald-300 to-lime-300 bg-clip-text text-transparent">
                 Portal de Pagos
               </span>
             </h2>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Realiza tus pagos de forma segura y consulta el historial de tus transacciones
+            <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-8">
+              Realiza tus pagos de forma segura y consulta el historial de tus transacciones.
             </p>
+            {/* Trust: Mercado Pago y beneficios */}
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-[#009ee3]/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[#009ee3]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M15.5 12c0-.4-.1-.8-.3-1.2-.2-.3-.4-.6-.7-.9-.3-.3-.6-.5-1-.6-.4-.2-.8-.2-1.2-.2h-1.5v5.8h1.5c.4 0 .8-.1 1.2-.2.4-.1.7-.4 1-.6.3-.3.5-.6.7-.9.2-.4.3-.8.3-1.2zm-1.5 0c0 .3 0 .5-.1.7-.1.2-.2.3-.4.4-.2.1-.4.2-.6.2h-.4v-2.6h.4c.2 0 .4.1.6.2.2.1.3.2.4.4.1.2.1.4.1.7z" />
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z" />
+                  </svg>
+                </span>
+                {' '}
+                Pagos con Mercado Pago
+              </span>
+              <span className="inline-flex items-center gap-2 text-gray-400">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Ambiente seguro
+              </span>
+              <span className="inline-flex items-center gap-2 text-gray-400">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Historial de transacciones
+              </span>
+            </div>
           </div>
           <PaymentSection />
         </div>
@@ -669,14 +699,14 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
                 Transformamos negocios a través de la digitalización, automatización y análisis de datos.
               </p>
               <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full backdrop-blur-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                <a href="https://www.facebook.com/digiautomatiza" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full backdrop-blur-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all" aria-label="Facebook Digiautomatiza">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full backdrop-blur-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                <a href="https://twitter.com/digiautomatiza" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full backdrop-blur-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all" aria-label="Twitter Digiautomatiza">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full backdrop-blur-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                <a href="https://www.linkedin.com/company/digiautomatiza" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full backdrop-blur-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all" aria-label="LinkedIn Digiautomatiza">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
                 </a>
               </div>
             </div>
@@ -761,8 +791,8 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
                 Beneficios Tangibles
               </h4>
               <ul className="space-y-3">
-                {selectedService.beneficios.map((beneficio, index) => (
-                  <li key={index} className="flex items-start gap-3">
+                {selectedService.beneficios.map((beneficio) => (
+                  <li key={beneficio} className="flex items-start gap-3">
                     <span className="mt-1 w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                     <p className="text-gray-700 leading-relaxed">{beneficio}</p>
                   </li>

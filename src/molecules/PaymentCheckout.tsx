@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Button from '../atoms/Button';
 import Input from '../atoms/Input';
 import { crearPago } from '../services/paymentService';
-import { DatosPago } from '../types';
 import Loading from '../atoms/Loading';
 
 interface PaymentCheckoutProps {
@@ -10,7 +9,7 @@ interface PaymentCheckoutProps {
   onError?: (error: string) => void;
 }
 
-export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutProps) {
+export default function PaymentCheckout({ onSuccess, onError }: Readonly<PaymentCheckoutProps>) {
   const [valor, setValor] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [metodoPago, setMetodoPago] = useState<string>('');
@@ -24,7 +23,7 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!valor || parseFloat(valor) <= 0) {
+    if (!valor || Number.parseFloat(valor) <= 0) {
       newErrors.valor = 'El valor debe ser mayor a 0';
     }
 
@@ -55,7 +54,7 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
 
     try {
       const datosPago = {
-        valor: parseFloat(valor),
+        valor: Number.parseFloat(valor),
         descripcion: descripcion.trim(),
         metodoPago: metodoPago || undefined,
         compradorNombre: nombre.trim(),
@@ -75,7 +74,7 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
         if (onSuccess) {
           onSuccess(resultado.urlPago);
         } else {
-          window.location.href = resultado.urlPago;
+          globalThis.location.href = resultado.urlPago;
         }
       } else {
         throw new Error('No se recibió URL de pago');
@@ -102,10 +101,11 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
       {/* Información del Comprador */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
-          <label className="block text-sm font-semibold text-emerald-300 mb-2">
+          <label htmlFor="payment-nombre" className="block text-sm font-semibold text-emerald-300 mb-2">
             Nombre Completo *
           </label>
           <Input
+            id="payment-nombre"
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -118,10 +118,11 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
           )}
         </div>
         <div>
-          <label className="block text-sm font-semibold text-emerald-300 mb-2">
+          <label htmlFor="payment-email" className="block text-sm font-semibold text-emerald-300 mb-2">
             Email *
           </label>
           <Input
+            id="payment-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -137,16 +138,17 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
 
       {/* Valor */}
       <div>
-        <label className="block text-sm font-semibold text-emerald-300 mb-2">
+        <label htmlFor="payment-valor" className="block text-sm font-semibold text-emerald-300 mb-2">
           Valor a Pagar (COP)
         </label>
         <Input
+          id="payment-valor"
           type="number"
           value={valor}
           onChange={(e) => setValor(e.target.value)}
           placeholder="Ej: 500000"
-          min="1"
-          step="1"
+          min={1}
+          step={1}
           className={errors.valor ? 'border-red-500' : ''}
           required
         />
@@ -157,10 +159,11 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
 
       {/* Descripción */}
       <div>
-        <label className="block text-sm font-semibold text-emerald-300 mb-2">
+        <label htmlFor="payment-descripcion" className="block text-sm font-semibold text-emerald-300 mb-2">
           Descripción del Pago
         </label>
         <textarea
+          id="payment-descripcion"
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
           placeholder="Ej: Pago de servicios de desarrollo web"
@@ -175,31 +178,37 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
         )}
       </div>
 
-      {/* Método de Pago (Opcional) */}
+      {/* Método de Pago (Opcional - la elección final es en Mercado Pago) */}
       <div>
-        <label className="block text-sm font-semibold text-emerald-300 mb-2">
+        <label htmlFor="payment-metodo" className="block text-sm font-semibold text-emerald-300 mb-2">
           Método de Pago Preferido (Opcional)
         </label>
         <select
+          id="payment-metodo"
           value={metodoPago}
           onChange={(e) => setMetodoPago(e.target.value)}
           className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all"
+          aria-describedby="metodo-pago-hint"
         >
-          <option value="">Seleccionar método</option>
+          <option value="">Elegir en Mercado Pago (tarjeta, PSE, efectivo…)</option>
           <option value="tarjeta">Tarjeta de Crédito/Débito</option>
           <option value="pse">PSE (Pagos Seguros en Línea)</option>
           <option value="nequi">Nequi</option>
           <option value="daviplata">Daviplata</option>
         </select>
+        <p id="metodo-pago-hint" className="text-xs text-gray-500 mt-1">
+          La selección final del método de pago se realiza en el checkout de Mercado Pago.
+        </p>
       </div>
 
       {/* Información Adicional */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-emerald-300 mb-2">
+          <label htmlFor="payment-telefono" className="block text-sm font-semibold text-emerald-300 mb-2">
             Teléfono (Opcional)
           </label>
           <Input
+            id="payment-telefono"
             type="tel"
             value={telefono}
             onChange={(e) => setTelefono(e.target.value)}
@@ -207,10 +216,11 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-emerald-300 mb-2">
+          <label htmlFor="payment-documento" className="block text-sm font-semibold text-emerald-300 mb-2">
             Documento (Opcional)
           </label>
           <Input
+            id="payment-documento"
             type="text"
             value={documento}
             onChange={(e) => setDocumento(e.target.value)}
@@ -230,8 +240,8 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
         💳 Proceder al Pago
       </Button>
 
-      <p className="text-xs text-gray-400 text-center">
-        Serás redirigido a la pasarela de pagos segura de Mercado Pago para completar la transacción
+      <p className="text-xs text-gray-400 text-center mt-2">
+        Al continuar serás redirigido al checkout de Mercado Pago para elegir tu método de pago (tarjeta, PSE, efectivo, etc.) y completar la transacción de forma segura.
       </p>
     </form>
   );

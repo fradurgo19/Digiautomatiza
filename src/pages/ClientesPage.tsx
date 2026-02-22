@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type RefObject, type SetStateAction } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -79,6 +79,332 @@ const ESTADO_OPTIONS = [
   { value: 'inactivo' as const, label: 'Inactivo' },
 ];
 
+function buildClientesFetchParams(filtros: { nombre: string; email: string; telefono: string; empresa: string; estado: string }, page: number, pageSize: number, search: string) {
+  return {
+    page,
+    limit: pageSize,
+    search: search.trim() || undefined,
+    filtroNombre: filtros.nombre.trim() || undefined,
+    filtroEmail: filtros.email.trim() || undefined,
+    filtroTelefono: filtros.telefono.trim() || undefined,
+    filtroEmpresa: filtros.empresa.trim() || undefined,
+    filtroEstado: filtros.estado || undefined,
+  };
+}
+
+async function loadClientesWithErrorHandling(
+  params: Parameters<typeof obtenerClientes>[0]
+): Promise<{ data: Cliente[]; pagination: PaginatedResponse<Cliente>['pagination'] } | { error: string }> {
+  try {
+    const response = await obtenerClientes(params);
+    return { data: response.data, pagination: response.pagination };
+  } catch (err) {
+    console.error('No se pudieron cargar los clientes:', err);
+    return { error: 'No se pudieron cargar los clientes. Verifica la API y la conexión con la base de datos.' };
+  }
+}
+
+function applyFetchClientesResult(
+  result: { data: Cliente[]; pagination: PaginatedResponse<Cliente>['pagination'] } | { error: string },
+  setters: {
+    setClientes: (v: Cliente[]) => void;
+    setPagination: (v: PaginatedResponse<Cliente>['pagination']) => void;
+    setSelectedClientes: (v: string[]) => void;
+    setClientesError: (v: string | null) => void;
+  }
+): void {
+  if ('error' in result) {
+    setters.setClientesError(result.error);
+  } else {
+    setters.setClientes(result.data);
+    setters.setPagination(result.pagination);
+    setters.setSelectedClientes([]);
+  }
+}
+
+type EnvioWhatsAppForm = {
+  usarPlantilla: boolean;
+  nombrePlantilla: string;
+  mensaje: string;
+  archivos: File[];
+  idiomaPlantilla: string;
+};
+type PlantillaWhatsApp = { nombre: string; idioma?: string; tieneVariables?: boolean };
+
+function buildEnvioWhatsAppMasivoOptions(
+  validos: string[],
+  envioWhatsApp: EnvioWhatsAppForm,
+  plantillasWhatsApp: PlantillaWhatsApp[]
+) {
+  const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+  const idiomaPlantilla = plantillaSeleccionada?.idioma || envioWhatsApp.idiomaPlantilla || 'es_CO';
+  const tieneVariables = plantillaSeleccionada?.tieneVariables ?? false;
+  const parametrosPlantilla = envioWhatsApp.usarPlantilla && tieneVariables && envioWhatsApp.mensaje.trim()
+    ? envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0)
+    : [];
+  return {
+    numeros: validos,
+    mensaje: envioWhatsApp.usarPlantilla ? '' : envioWhatsApp.mensaje.trim(),
+    archivos: envioWhatsApp.archivos.length > 0 ? [] : undefined,
+    usarPlantilla: envioWhatsApp.usarPlantilla,
+    nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
+    idiomaPlantilla: envioWhatsApp.usarPlantilla ? idiomaPlantilla : undefined,
+    parametrosPlantilla: envioWhatsApp.usarPlantilla && tieneVariables && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
+  };
+}
+
+function validarEnvioWhatsAppForm(
+  envioWhatsApp: EnvioWhatsAppForm,
+  plantillasWhatsApp: PlantillaWhatsApp[],
+  selectAllMode: boolean,
+  selectedClientes: string[]
+): { ok: true } | { ok: false; message: string } {
+  if (envioWhatsApp.usarPlantilla) {
+    const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+    if (plantillaSeleccionada?.tieneVariables && !envioWhatsApp.mensaje.trim()) {
+      return { ok: false, message: 'Por favor, ingresa los parámetros de la plantilla separados por comas.' };
+    }
+    return { ok: true };
+  }
+  if (!envioWhatsApp.mensaje.trim()) {
+    return { ok: false, message: 'Por favor, escribe un mensaje antes de enviar.' };
+  }
+  if (!selectAllMode && selectedClientes.length === 0) {
+    return { ok: false, message: 'Por favor, selecciona al menos un cliente.' };
+  }
+  return { ok: true };
+}
+
+function getNextSelectAllState(
+  selectAllMode: boolean,
+  selectedClientes: string[],
+  clientes: { id: string }[]
+): { selectAllMode: boolean; selectedClientes: string[] } {
+  if (selectAllMode) {
+    return { selectAllMode: false, selectedClientes: [] };
+  }
+  if (selectedClientes.length === clientes.length) {
+    return { selectAllMode: true, selectedClientes: clientes.map(c => c.id) };
+  }
+  return { selectAllMode: false, selectedClientes: clientes.map(c => c.id) };
+}
+
+function getNextStateAfterRowToggle(
+  selectAllMode: boolean,
+  clientes: { id: string }[],
+  clienteId: string,
+  currentSelected: string[]
+): { selectAllMode: boolean; selectedClientes: string[] } {
+  if (selectAllMode) {
+    return { selectAllMode: false, selectedClientes: clientes.filter(c => c.id !== clienteId).map(c => c.id) };
+  }
+  const isSelected = currentSelected.includes(clienteId);
+  return {
+    selectAllMode: false,
+    selectedClientes: isSelected ? currentSelected.filter(id => id !== clienteId) : [...currentSelected, clienteId],
+  };
+}
+
+function canExportClientes(clientes: unknown[]): boolean {
+  if (clientes.length === 0) {
+    alert('No hay clientes para exportar');
+    return false;
+  }
+  return true;
+}
+
+function matchesFiltrosClientes(
+  cliente: Cliente,
+  filtros: { estado: string; servicios: string }
+): boolean {
+  if (filtros.estado && cliente.estado !== filtros.estado) return false;
+  if (filtros.servicios) {
+    const serviciosLower = filtros.servicios.toLowerCase();
+    const tieneServicio = cliente.serviciosInteres?.some(servicio =>
+      servicio.toLowerCase().includes(serviciosLower)
+    );
+    if (!tieneServicio) return false;
+  }
+  return true;
+}
+
+function getIsAllSelected(selectAllMode: boolean, clientes: { id: string }[], selectedClientes: string[]): boolean {
+  return selectAllMode || (clientes.length > 0 && selectedClientes.length === clientes.length && !selectAllMode);
+}
+
+async function runImportExcelFile(
+  file: File,
+  fetchClientes: () => Promise<void>,
+  setters: {
+    setIsImporting: (v: boolean) => void;
+    setIsImportModalOpen: (v: boolean) => void;
+    setImportResult: (v: { exitosos: Cliente[]; errores: Array<{ fila: number; error: string; datos: Record<string, unknown> }> } | null) => void;
+  },
+  fileInputRef: RefObject<HTMLInputElement | null>
+): Promise<void> {
+  if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    alert('Por favor selecciona un archivo Excel (.xlsx o .xls)');
+    return;
+  }
+  setters.setIsImporting(true);
+  setters.setIsImportModalOpen(true);
+  try {
+    const resultado = await importarClientesExcel(file);
+    const persistErrors: Array<{ fila: number; error: string; datos: Record<string, unknown> }> = [];
+    const clientesGuardados: Cliente[] = [];
+    for (const cliente of resultado.exitosos) {
+      try {
+        const payload = {
+          nombre: cliente.nombre,
+          email: cliente.email,
+          telefono: cliente.telefono,
+          empresa: cliente.empresa,
+          serviciosInteres: ensureServicios(cliente.serviciosInteres),
+          estado: cliente.estado,
+          notas: cliente.notas,
+        };
+        const guardado = await crearClienteApi(payload);
+        clientesGuardados.push(guardado);
+      } catch (error) {
+        persistErrors.push({
+          fila: -1,
+          error: `Error al guardar en la base de datos: ${(error as Error).message}`,
+          datos: { 'Nombre Completo': cliente.nombre, Email: cliente.email },
+        });
+      }
+    }
+    if (clientesGuardados.length > 0) await fetchClientes();
+    setters.setImportResult({ exitosos: clientesGuardados, errores: [...resultado.errores, ...persistErrors] });
+  } catch (error) {
+    console.error('Error al importar archivo:', error);
+    alert('Error al procesar el archivo Excel. Verifica el formato.');
+    setters.setIsImportModalOpen(false);
+  } finally {
+    setters.setIsImporting(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+}
+
+function applyResultadoEnvioWhatsAppSuccess(
+  resultado: { exitosos: string[]; fallidos: { numero: string; error: string }[]; total: number },
+  setResultadoEnvioWhatsApp: (r: { exitosos: string[]; fallidos: { numero: string; error: string }[]; total: number } | null) => void,
+  onAllSuccess: () => void
+) {
+  setResultadoEnvioWhatsApp(resultado);
+  if (resultado.fallidos.length === 0) {
+    setTimeout(onAllSuccess, 3000);
+  }
+}
+
+type EnvioWhatsAppResult = { exitosos: string[]; fallidos: { numero: string; error: string }[]; total: number } | null;
+
+async function runEnvioMasivoWhatsApp(
+  validar: () => boolean,
+  ejecutar: () => Promise<EnvioWhatsAppResult>,
+  setters: {
+    setIsEnviandoWhatsApp: (v: boolean) => void;
+    setResultadoEnvioWhatsApp: (r: EnvioWhatsAppResult) => void;
+    setEnvioWhatsApp: (v: { mensaje: string; archivos: File[]; usarPlantilla: boolean; nombrePlantilla: string; idiomaPlantilla: string; parametrosPlantilla: string[] }) => void;
+    setSelectedClientes: (v: string[]) => void;
+    setIsEnvioWhatsAppModalOpen: (v: boolean) => void;
+  }
+): Promise<void> {
+  if (!validar()) return;
+  setters.setIsEnviandoWhatsApp(true);
+  setters.setResultadoEnvioWhatsApp(null);
+  try {
+    const resultado = await ejecutar();
+    if (resultado) {
+      applyResultadoEnvioWhatsAppSuccess(resultado, setters.setResultadoEnvioWhatsApp, () => {
+        setters.setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
+        setters.setSelectedClientes([]);
+        setters.setIsEnvioWhatsAppModalOpen(false);
+        setters.setResultadoEnvioWhatsApp(null);
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error al enviar WhatsApp masivo:', error);
+    alert(`Error al enviar mensajes: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+  } finally {
+    setters.setIsEnviandoWhatsApp(false);
+  }
+}
+
+async function runAddCliente(
+  nuevoCliente: ClienteForm,
+  initialFormState: ClienteForm,
+  fetchClientes: () => Promise<void>,
+  setters: {
+    setIsSavingCliente: (v: boolean) => void;
+    setIsAddModalOpen: (v: boolean) => void;
+    setNuevoCliente: (v: ClienteForm) => void;
+  }
+): Promise<void> {
+  if (!nuevoCliente.nombre.trim() || !nuevoCliente.email.trim() || !nuevoCliente.telefono.trim()) {
+    alert('Nombre, email y teléfono son obligatorios.');
+    return;
+  }
+  setters.setIsSavingCliente(true);
+  try {
+    const payload = buildClientePayload(nuevoCliente);
+    await crearClienteApi(payload);
+    await fetchClientes();
+    setters.setIsAddModalOpen(false);
+    setters.setNuevoCliente(initialFormState);
+  } catch (error) {
+    console.error('Error al crear cliente:', error);
+    alert('No se pudo guardar el cliente. Verifica la API y vuelve a intentar.');
+  } finally {
+    setters.setIsSavingCliente(false);
+  }
+}
+
+async function runUpdateCliente(
+  clienteEnEdicion: Cliente | null,
+  clienteEditado: ClienteForm,
+  fetchClientes: () => Promise<void>,
+  resetEditState: () => void,
+  setters: {
+    setIsUpdatingCliente: (v: boolean) => void;
+    setIsEditModalOpen: (v: boolean) => void;
+  }
+): Promise<void> {
+  if (!clienteEnEdicion) return;
+  if (!clienteEditado.nombre.trim() || !clienteEditado.email.trim() || !clienteEditado.telefono.trim()) {
+    alert('Nombre, email y teléfono son obligatorios.');
+    return;
+  }
+  setters.setIsUpdatingCliente(true);
+  try {
+    const payload = buildClientePayload(clienteEditado);
+    await actualizarClienteApi(clienteEnEdicion.id, payload);
+    await fetchClientes();
+    setters.setIsEditModalOpen(false);
+    resetEditState();
+  } catch (error) {
+    console.error('❌ Error al actualizar cliente:', error);
+    alert('No se pudo actualizar el cliente. Intenta nuevamente.');
+  } finally {
+    setters.setIsUpdatingCliente(false);
+  }
+}
+
+async function runDeleteCliente(
+  clienteId: string,
+  fetchClientes: () => Promise<void>,
+  setSelectedClientes: (value: SetStateAction<string[]>) => void
+): Promise<void> {
+  if (!globalThis.confirm('¿Está seguro de eliminar este cliente?')) return;
+  try {
+    await eliminarClienteApi(clienteId);
+    setSelectedClientes((prev) => prev.filter((id) => id !== clienteId));
+    await fetchClientes();
+  } catch (error) {
+    console.error('❌ Error al eliminar cliente:', error);
+    alert('No se pudo eliminar el cliente. Verifica la API.');
+  }
+}
+
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoadingClientes, setIsLoadingClientes] = useState(true);
@@ -90,9 +416,8 @@ export default function ClientesPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
-  const [selectAllMode, setSelectAllMode] = useState(false); // Modo "seleccionar todos" (de todas las páginas)
+  const [selectAllMode, setSelectAllMode] = useState(false);
   
-  // Estados de filtros por columna
   const [filtros, setFiltros] = useState({
     nombre: '',
     email: '',
@@ -102,7 +427,6 @@ export default function ClientesPage() {
     servicios: '',
   });
   
-  // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [pagination, setPagination] = useState<PaginatedResponse<Cliente>['pagination']>({
@@ -119,7 +443,6 @@ export default function ClientesPage() {
   const [isUpdatingCliente, setIsUpdatingCliente] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Formulario para nuevo cliente
   const [clienteEnEdicion, setClienteEnEdicion] = useState<Cliente | null>(null);
 
   const initialFormState: ClienteForm = {
@@ -135,14 +458,12 @@ export default function ClientesPage() {
   const [nuevoCliente, setNuevoCliente] = useState<ClienteForm>(initialFormState);
   const [clienteEditado, setClienteEditado] = useState<ClienteForm>(initialFormState);
 
-  // Formulario envío masivo correo
   const [envioCorreo, setEnvioCorreo] = useState({
     asunto: '',
     mensaje: '',
     archivos: [] as File[],
   });
 
-  // Plantillas de WhatsApp disponibles (estable para no invalidar useCallback)
   const plantillasWhatsApp = useMemo(() => [
     {
       nombre: 'template_marketing_20251120221528',
@@ -154,7 +475,6 @@ export default function ClientesPage() {
     },
   ], []);
 
-  // Formulario envío masivo WhatsApp
   const [envioWhatsApp, setEnvioWhatsApp] = useState({
     mensaje: '',
     archivos: [] as File[],
@@ -173,28 +493,9 @@ export default function ClientesPage() {
   const fetchClientes = useCallback(async (page: number = currentPage, search: string = searchTerm) => {
     setIsLoadingClientes(true);
     setClientesError(null);
-    try {
-      // Enviar filtros específicos como parámetros separados
-      const response = await obtenerClientes({
-        page,
-        limit: pageSize,
-        search: search.trim() || undefined,
-        filtroNombre: filtros.nombre.trim() || undefined,
-        filtroEmail: filtros.email.trim() || undefined,
-        filtroTelefono: filtros.telefono.trim() || undefined,
-        filtroEmpresa: filtros.empresa.trim() || undefined,
-        filtroEstado: filtros.estado || undefined,
-      });
-      setClientes(response.data);
-      setPagination(response.pagination);
-      // Limpiar selección al cambiar de página o búsqueda
-      setSelectedClientes([]);
-    } catch (error) {
-      console.error('No se pudieron cargar los clientes:', error);
-      setClientesError('No se pudieron cargar los clientes. Verifica la API y la conexión con la base de datos.');
-    } finally {
-      setIsLoadingClientes(false);
-    }
+    const result = await loadClientesWithErrorHandling(buildClientesFetchParams(filtros, page, pageSize, search));
+    applyFetchClientesResult(result, { setClientes, setPagination, setSelectedClientes, setClientesError });
+    setIsLoadingClientes(false);
   }, [currentPage, pageSize, searchTerm, filtros]);
 
   useEffect(() => {
@@ -239,27 +540,12 @@ export default function ClientesPage() {
     setClienteEditado(initialFormState);
   };
 
-  const handleAddCliente = async () => {
-    if (!nuevoCliente.nombre.trim() || !nuevoCliente.email.trim() || !nuevoCliente.telefono.trim()) {
-      alert('Nombre, email y teléfono son obligatorios.');
-      return;
-    }
-
-    setIsSavingCliente(true);
-    try {
-      const payload = buildClientePayload(nuevoCliente);
-      await crearClienteApi(payload);
-      // Recargar clientes para mantener paginación
-      await fetchClientes();
-      setIsAddModalOpen(false);
-      setNuevoCliente(initialFormState);
-    } catch (error) {
-      console.error('Error al crear cliente:', error);
-      alert('No se pudo guardar el cliente. Verifica la API y vuelve a intentar.');
-    } finally {
-      setIsSavingCliente(false);
-    }
-  };
+  const handleAddCliente = () =>
+    runAddCliente(nuevoCliente, initialFormState, fetchClientes, {
+      setIsSavingCliente,
+      setIsAddModalOpen,
+      setNuevoCliente,
+    });
 
   const handleOpenEditModal = (cliente: Cliente) => {
     setClienteEnEdicion(cliente);
@@ -275,51 +561,14 @@ export default function ClientesPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateCliente = async () => {
-    if (!clienteEnEdicion) return;
-    if (!clienteEditado.nombre.trim() || !clienteEditado.email.trim() || !clienteEditado.telefono.trim()) {
-      alert('Nombre, email y teléfono son obligatorios.');
-      return;
-    }
+  const handleUpdateCliente = () =>
+    runUpdateCliente(clienteEnEdicion, clienteEditado, fetchClientes, resetEditState, {
+      setIsUpdatingCliente,
+      setIsEditModalOpen,
+    });
 
-    setIsUpdatingCliente(true);
-    try {
-      const payload = buildClientePayload(clienteEditado);
-      console.log('🔄 Actualizando cliente:', clienteEnEdicion.id, payload);
-      
-      const actualizado = await actualizarClienteApi(clienteEnEdicion.id, payload);
-      console.log('✅ Cliente actualizado:', actualizado);
-      
-      // Recargar clientes para asegurar sincronización
-      await fetchClientes();
-      
-      setIsEditModalOpen(false);
-      resetEditState();
-    } catch (error) {
-      console.error('❌ Error al actualizar cliente:', error);
-      alert('No se pudo actualizar el cliente. Intenta nuevamente.');
-    } finally {
-      setIsUpdatingCliente(false);
-    }
-  };
-
-  const handleDeleteCliente = async (clienteId: string) => {
-    if (!confirm('¿Está seguro de eliminar este cliente?')) return;
-    
-    try {
-      console.log('🗑️ Eliminando cliente:', clienteId);
-      await eliminarClienteApi(clienteId);
-      console.log('✅ Cliente eliminado exitosamente');
-      
-      setSelectedClientes((prev) => prev.filter((id) => id !== clienteId));
-      
-      // Recargar clientes para asegurar sincronización
-      await fetchClientes();
-    } catch (error) {
-      console.error('❌ Error al eliminar cliente:', error);
-      alert('No se pudo eliminar el cliente. Verifica la API.');
-    }
-  };
+  const handleDeleteCliente = (clienteId: string) =>
+    runDeleteCliente(clienteId, fetchClientes, setSelectedClientes);
 
   const obtenerNumerosParaEnvioWhatsApp = useCallback(async (): Promise<string[] | null> => {
     if (selectAllMode) {
@@ -336,20 +585,9 @@ export default function ClientesPage() {
   }, [selectAllMode, searchTerm, selectedClientes, clientes]);
 
   const validarEnvioWhatsApp = (): boolean => {
-    if (envioWhatsApp.usarPlantilla) {
-      const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
-      if (plantillaSeleccionada?.tieneVariables && !envioWhatsApp.mensaje.trim()) {
-        alert('Por favor, ingresa los parámetros de la plantilla separados por comas.');
-        return false;
-      }
-      return true;
-    }
-    if (!envioWhatsApp.mensaje.trim()) {
-      alert('Por favor, escribe un mensaje antes de enviar.');
-      return false;
-    }
-    if (!selectAllMode && selectedClientes.length === 0) {
-      alert('Por favor, selecciona al menos un cliente.');
+    const result = validarEnvioWhatsAppForm(envioWhatsApp, plantillasWhatsApp, selectAllMode, selectedClientes);
+    if (!result.ok) {
+      alert(result.message);
       return false;
     }
     return true;
@@ -382,21 +620,8 @@ export default function ClientesPage() {
       alert('No hay números válidos para enviar.');
       return null;
     }
-    const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
-    const idiomaPlantilla = plantillaSeleccionada?.idioma || envioWhatsApp.idiomaPlantilla || 'es_CO';
-    const tieneVariables = plantillaSeleccionada?.tieneVariables || false;
-    const parametrosPlantilla = envioWhatsApp.usarPlantilla && tieneVariables && envioWhatsApp.mensaje.trim()
-      ? envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0)
-      : [];
-    const resultado = await enviarWhatsAppMasivo({
-      numeros: validos,
-      mensaje: envioWhatsApp.usarPlantilla ? '' : envioWhatsApp.mensaje.trim(),
-      archivos: envioWhatsApp.archivos.length > 0 ? [] : undefined,
-      usarPlantilla: envioWhatsApp.usarPlantilla,
-      nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
-      idiomaPlantilla: envioWhatsApp.usarPlantilla ? idiomaPlantilla : undefined,
-      parametrosPlantilla: envioWhatsApp.usarPlantilla && tieneVariables && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
-    });
+    const options = buildEnvioWhatsAppMasivoOptions(validos, envioWhatsApp, plantillasWhatsApp);
+    const resultado = await enviarWhatsAppMasivo(options);
     return { exitosos: resultado.exitosos, fallidos: resultado.fallidos, total: validos.length };
   }, [
     selectAllMode,
@@ -405,30 +630,14 @@ export default function ClientesPage() {
     plantillasWhatsApp,
   ]);
 
-  const handleEnvioMasivoWhatsApp = async () => {
-    if (!validarEnvioWhatsApp()) return;
-    setIsEnviandoWhatsApp(true);
-    setResultadoEnvioWhatsApp(null);
-    try {
-      const resultado = await ejecutarEnvioWhatsAppMasivo();
-      if (resultado) {
-        setResultadoEnvioWhatsApp(resultado);
-        if (resultado.fallidos.length === 0) {
-          setTimeout(() => {
-            setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
-            setSelectedClientes([]);
-            setIsEnvioWhatsAppModalOpen(false);
-            setResultadoEnvioWhatsApp(null);
-          }, 3000);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error al enviar WhatsApp masivo:', error);
-      alert(`Error al enviar mensajes: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-    } finally {
-      setIsEnviandoWhatsApp(false);
-    }
-  };
+  const handleEnvioMasivoWhatsApp = () =>
+    runEnvioMasivoWhatsApp(validarEnvioWhatsApp, ejecutarEnvioWhatsAppMasivo, {
+      setIsEnviandoWhatsApp,
+      setResultadoEnvioWhatsApp,
+      setEnvioWhatsApp,
+      setSelectedClientes,
+      setIsEnvioWhatsAppModalOpen,
+    });
 
   const handleEnvioMasivoCorreo = async () => {
     let emails: string[] = [];
@@ -498,38 +707,19 @@ export default function ClientesPage() {
     }
   };
 
-  const toggleSelectCliente = (clienteId: string) => {
-    setSelectedClientes(prev =>
-      prev.includes(clienteId)
-        ? prev.filter(id => id !== clienteId)
-        : [...prev, clienteId]
-    );
-  };
-
   const handleRowCheckboxChange = (clienteId: string) => {
-    if (selectAllMode) {
-      setSelectAllMode(false);
-      setSelectedClientes(clientes.filter(c => c.id !== clienteId).map(c => c.id));
-    } else {
-      toggleSelectCliente(clienteId);
-    }
+    const next = getNextStateAfterRowToggle(selectAllMode, clientes, clienteId, selectedClientes);
+    setSelectAllMode(next.selectAllMode);
+    setSelectedClientes(next.selectedClientes);
   };
 
   const toggleSelectAll = () => {
-    if (selectAllMode) {
-      // Desactivar modo "seleccionar todos"
-      setSelectAllMode(false);
-      setSelectedClientes([]);
-    } else if (selectedClientes.length === clientes.length && !selectAllMode) {
-      // Si todos los de la página están seleccionados, activar modo "seleccionar todos"
-      setSelectAllMode(true);
-    } else {
-      // Seleccionar todos los de la página actual
-      setSelectedClientes(clientes.map(c => c.id));
-    }
+    const next = getNextSelectAllState(selectAllMode, selectedClientes, clientes);
+    setSelectAllMode(next.selectAllMode);
+    setSelectedClientes(next.selectedClientes);
   };
 
-  const isAllSelected = selectAllMode || (clientes.length > 0 && selectedClientes.length === clientes.length && !selectAllMode);
+  const isAllSelected = getIsAllSelected(selectAllMode, clientes, selectedClientes);
   const isSomeSelected = selectedClientes.length > 0 && !selectAllMode;
 
   // Funciones para manejo de Excel
@@ -538,103 +728,21 @@ export default function ClientesPage() {
   };
 
   const handleExportarExcel = () => {
-    if (clientes.length === 0) {
-      alert('No hay clientes para exportar');
-      return;
-    }
+    if (!canExportClientes(clientes)) return;
     exportarClientesExcel(clientes);
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Validar que sea un archivo Excel
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      alert('Por favor selecciona un archivo Excel (.xlsx o .xls)');
-      return;
-    }
-
-    setIsImporting(true);
-    setIsImportModalOpen(true);
-
-    try {
-      const resultado = await importarClientesExcel(file);
-      const persistErrors: Array<{ fila: number; error: string; datos: Record<string, unknown> }> = [];
-      const clientesGuardados: Cliente[] = [];
-
-      for (const cliente of resultado.exitosos) {
-        try {
-          const payload = {
-            nombre: cliente.nombre,
-            email: cliente.email,
-            telefono: cliente.telefono,
-            empresa: cliente.empresa,
-            serviciosInteres: ensureServicios(cliente.serviciosInteres),
-            estado: cliente.estado,
-            notas: cliente.notas,
-          };
-          const guardado = await crearClienteApi(payload);
-          clientesGuardados.push(guardado);
-        } catch (error) {
-          persistErrors.push({
-            fila: -1,
-            error: `Error al guardar en la base de datos: ${(error as Error).message}`,
-            datos: {
-              'Nombre Completo': cliente.nombre,
-              Email: cliente.email,
-            },
-          });
-        }
-      }
-
-      if (clientesGuardados.length > 0) {
-        // Recargar clientes después de importar
-        await fetchClientes();
-      }
-
-      setImportResult({
-        exitosos: clientesGuardados,
-        errores: [...resultado.errores, ...persistErrors],
-      });
-    } catch (error) {
-      console.error('Error al importar archivo:', error);
-      alert('Error al procesar el archivo Excel. Verifica el formato.');
-      setIsImportModalOpen(false);
-    } finally {
-      setIsImporting(false);
-      // Limpiar input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
+    await runImportExcelFile(file, fetchClientes, { setIsImporting, setIsImportModalOpen, setImportResult }, fileInputRef);
   };
 
   const handleImportarClick = () => {
     fileInputRef.current?.click();
   };
 
-  // Los clientes ya vienen filtrados del servidor, pero aplicamos filtros adicionales del lado del cliente
-  // para estado y servicios (que no están en la búsqueda del servidor)
-  const clientesFiltrados = clientes.filter(cliente => {
-    // Filtro por estado
-    if (filtros.estado && cliente.estado !== filtros.estado) {
-      return false;
-    }
-    
-    // Filtro por servicios
-    if (filtros.servicios) {
-      const serviciosLower = filtros.servicios.toLowerCase();
-      const tieneServicio = cliente.serviciosInteres.some(servicio => 
-        servicio.toLowerCase().includes(serviciosLower)
-      );
-      if (!tieneServicio) {
-        return false;
-      }
-    }
-    
-    return true;
-  });
+  const clientesFiltrados = clientes.filter(cliente => matchesFiltrosClientes(cliente, filtros));
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
