@@ -34,6 +34,16 @@ VITE_SUPABASE_ANON_KEY=tu_anon_key_aqui
 # ===== EMAIL (Para futuras implementaciones) =====
 VITE_SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxx
 
+# ===== PASARELA DE PAGOS (Vercel / API) =====
+# Usar Mercado Pago en producción: PAYMENT_PROVIDER=mercado-pago
+# PayU (legacy): PAYMENT_PROVIDER=payu
+PAYMENT_PROVIDER=mercado-pago
+
+# Mercado Pago - Access Token (Producción o Pruebas desde https://www.mercadopago.com.co/developers/panel/app)
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-xxxxxxxxxxxxxxxxxxxxxxxx
+
+# En Mercado Pago Panel → Tu integración → Notificaciones IPN: URL https://www.digiautomatiza.co/api/pagos
+
 # ===== PRISMA / BASE DE DATOS =====
 # Para desarrollo local con PostgreSQL 17 (docker-compose.postgres.yml)
 DATABASE_URL="postgresql://digiauto:digiauto@localhost:5432/digiautomatiza_local?schema=public"

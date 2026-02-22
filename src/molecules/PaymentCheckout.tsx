@@ -231,7 +231,7 @@ export default function PaymentCheckout({ onSuccess, onError }: PaymentCheckoutP
       </Button>
 
       <p className="text-xs text-gray-400 text-center">
-        Serás redirigido a la pasarela de pagos segura de PayU para completar la transacción
+        Serás redirigido a la pasarela de pagos segura de Mercado Pago para completar la transacción
       </p>
     </form>
   );

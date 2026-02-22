@@ -1,9 +1,11 @@
 // Vercel Serverless Function - Pagos Unificado (Crear, Consultar, Historial, Webhook)
+// Pasarelas: payu | mercado-pago (PAYMENT_PROVIDER en Vercel)
+// Mercado Pago: configurar MERCADOPAGO_ACCESS_TOKEN y en MP Panel → IPN/Webhooks la URL: https://www.digiautomatiza.co/api/pagos
 import prisma from './lib/prisma.mjs';
 import { setCORSHeaders } from './lib/cors.mjs';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
-// Obtener la pasarela configurada (default: payu)
+// Obtener la pasarela configurada (default: payu). Para Mercado Pago usar PAYMENT_PROVIDER=mercado-pago
 const PAYMENT_PROVIDER = (process.env.PAYMENT_PROVIDER || 'payu').toLowerCase();
 
 /**
@@ -148,6 +150,311 @@ function mapearEstadoPayU(estadoPayU) {
   return estados[estadoPayU] || 'pendiente';
 }
 
+/**
+ * Crear pago con Mercado Pago (Checkout Pro - Preference)
+ * Documentación: https://www.mercadopago.com.co/developers/en/reference/preferences/_checkout_preferences/post
+ */
+async function crearPagoMercadoPago(datos, referencia) {
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurada');
+  }
+
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'https://www.digiautomatiza.co';
+  const notificationUrl = `${baseUrl}/api/pagos`;
+  const backUrl = `${baseUrl}/#pagos`;
+
+  const payload = {
+    items: [
+      {
+        id: referencia,
+        title: datos.descripcion.substring(0, 256),
+        quantity: 1,
+        unit_price: Number.parseFloat(datos.valor),
+        currency_id: 'COP',
+      },
+    ],
+    payer: {
+      email: datos.compradorEmail,
+      name: datos.compradorNombre,
+      ...(datos.compradorTelefono && { phone: { number: datos.compradorTelefono } }),
+    },
+    external_reference: referencia,
+    notification_url: notificationUrl,
+    back_urls: {
+      success: backUrl,
+      failure: backUrl,
+      pending: backUrl,
+    },
+    auto_return: 'approved',
+    statement_descriptor: 'DIGIAUTOMATIZA',
+  };
+
+  const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+
+  if (result.id && result.init_point) {
+    return {
+      success: true,
+      transactionId: result.id,
+      referencia,
+      urlPago: result.init_point,
+      estado: 'pendiente',
+      respuestaCompleta: result,
+    };
+  }
+
+  const errorMsg = result.message || result.error || 'Error al crear preferencia en Mercado Pago';
+  throw new Error(Array.isArray(result.cause) ? result.cause.map((c) => c.description).join('; ') : errorMsg);
+}
+
+/**
+ * Mapear estado de Mercado Pago a estado interno
+ */
+function mapearEstadoMercadoPago(status) {
+  const estados = {
+    pending: 'pendiente',
+    approved: 'aprobada',
+    rejected: 'rechazada',
+    cancelled: 'cancelada',
+    in_process: 'procesando',
+    in_mediation: 'procesando',
+    refunded: 'cancelada',
+    charged_back: 'rechazada',
+  };
+  return estados[status] || 'pendiente';
+}
+
+async function handleWebhookMercadoPago(req, res, notifId) {
+  try {
+    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+    if (!accessToken) return;
+    const payRes = await fetch(`https://api.mercadopago.com/v1/payments/${notifId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const payment = await payRes.json();
+    const externalRef = payment.external_reference;
+    const status = payment.status;
+    if (!externalRef) return;
+    const transaccion = await prisma.transaccion.findUnique({
+      where: { referencia: externalRef },
+    });
+    if (!transaccion) return;
+    const estadoNuevo = mapearEstadoMercadoPago(status);
+    const datosActualizacion = {
+      estado: estadoNuevo,
+      respuestaPasarela: JSON.stringify(payment),
+      transactionId: String(payment.id),
+    };
+    if (estadoNuevo === 'aprobada') {
+      datosActualizacion.fechaPago = new Date();
+      datosActualizacion.fechaConfirmacion = new Date();
+    }
+    await prisma.transaccion.update({
+      where: { id: transaccion.id },
+      data: datosActualizacion,
+    });
+    console.log(`✅ MP Transacción ${externalRef} actualizada a: ${estadoNuevo}`);
+  } catch (err) {
+    console.error('Error procesando webhook Mercado Pago:', err);
+  }
+}
+
+async function handleWebhookPayU(req, res) {
+  const datos = req.body;
+  if (datos.signature) {
+    const esValida = verificarFirmaPayU(datos, datos.signature);
+    if (!esValida) {
+      console.error('⚠️ Firma de webhook inválida');
+      return res.status(400).json({ error: 'Firma inválida' });
+    }
+  }
+  const referenciaWebhook = datos.referenceCode || datos.reference_sale;
+  if (!referenciaWebhook) {
+    return res.status(400).json({ error: 'Referencia no encontrada' });
+  }
+  const transaccion = await prisma.transaccion.findUnique({
+    where: { referencia: referenciaWebhook },
+  });
+  if (!transaccion) {
+    console.error(`⚠️ Transacción no encontrada: ${referenciaWebhook}`);
+    return res.status(404).json({ error: 'Transacción no encontrada' });
+  }
+  const estadoPayU = datos.state || datos.transactionState;
+  const estadoNuevo = mapearEstadoPayU(estadoPayU);
+  const datosActualizacion = {
+    estado: estadoNuevo,
+    respuestaPasarela: JSON.stringify(datos),
+    transactionId: datos.transactionId || datos.transaction_id || transaccion.transactionId,
+  };
+  if (estadoNuevo === 'aprobada') {
+    datosActualizacion.fechaPago = new Date();
+    datosActualizacion.fechaConfirmacion = new Date();
+  }
+  await prisma.transaccion.update({
+    where: { id: transaccion.id },
+    data: datosActualizacion,
+  });
+  console.log(`✅ Transacción ${referenciaWebhook} actualizada a estado: ${estadoNuevo}`);
+  return res.status(200).json({ success: true, message: 'Webhook procesado correctamente' });
+}
+
+async function handleCrearPago(req, res) {
+  const {
+    valor, descripcion, metodoPago, datosAdicionales,
+    compradorNombre, compradorEmail, compradorTelefono, compradorDocumento,
+  } = req.body;
+
+  if (!valor || valor <= 0) {
+    return res.status(400).json({ error: 'El valor debe ser mayor a 0' });
+  }
+  if (!descripcion) {
+    return res.status(400).json({ error: 'La descripción es requerida' });
+  }
+  if (!compradorEmail || !compradorNombre) {
+    return res.status(400).json({ error: 'Email y nombre del comprador son requeridos' });
+  }
+
+  const referenciaNueva = generarReferencia();
+  const valorNum = Number.parseFloat(String(valor));
+
+  const transaccion = await prisma.transaccion.create({
+    data: {
+      usuarioId: null,
+      referencia: referenciaNueva,
+      pasarela: PAYMENT_PROVIDER,
+      estado: 'pendiente',
+      metodoPago: metodoPago || null,
+      valor: valorNum,
+      moneda: 'COP',
+      descripcion: descripcion,
+      datosPago: JSON.stringify({
+        compradorNombre,
+        compradorEmail,
+        compradorTelefono: compradorTelefono || '',
+        compradorDocumento: compradorDocumento || '',
+        ...datosAdicionales,
+      }),
+    },
+  });
+
+  let resultadoPasarela;
+  if (PAYMENT_PROVIDER === 'payu') {
+    resultadoPasarela = await crearPagoPayU({
+      valor: valorNum,
+      descripcion,
+      compradorEmail,
+      compradorNombre,
+      compradorTelefono: compradorTelefono || '',
+      compradorDocumento: compradorDocumento || '',
+    });
+  } else if (PAYMENT_PROVIDER === 'mercado-pago') {
+    resultadoPasarela = await crearPagoMercadoPago(
+      {
+        valor: valorNum,
+        descripcion,
+        compradorEmail,
+        compradorNombre,
+        compradorTelefono: compradorTelefono || '',
+        compradorDocumento: compradorDocumento || '',
+      },
+      referenciaNueva
+    );
+  } else {
+    return res.status(400).json({ error: `Pasarela ${PAYMENT_PROVIDER} no implementada aún` });
+  }
+
+  await prisma.transaccion.update({
+    where: { id: transaccion.id },
+    data: {
+      transactionId: resultadoPasarela.transactionId,
+      urlPago: resultadoPasarela.urlPago,
+      estado: resultadoPasarela.estado,
+      respuestaPasarela: JSON.stringify(resultadoPasarela.respuestaCompleta),
+    },
+  });
+
+  return res.status(200).json({
+    success: true,
+    transaccionId: transaccion.id,
+    referencia: referenciaNueva,
+    urlPago: resultadoPasarela.urlPago,
+    estado: resultadoPasarela.estado,
+  });
+}
+
+async function handleGetTransaccion(res, referencia) {
+  const transaccion = await prisma.transaccion.findUnique({
+    where: { referencia },
+    include: {
+      usuario: { select: { id: true, nombre: true, email: true } },
+    },
+  });
+  if (!transaccion) {
+    return res.status(404).json({ error: 'Transacción no encontrada' });
+  }
+  const transaccionFormateada = {
+    ...transaccion,
+    datosPago: transaccion.datosPago ? JSON.parse(transaccion.datosPago) : null,
+    respuestaPasarela: transaccion.respuestaPasarela ? JSON.parse(transaccion.respuestaPasarela) : null,
+  };
+  return res.status(200).json({ success: true, transaccion: transaccionFormateada });
+}
+
+async function handleGetHistorial(res, emailComprador) {
+  const todasTransacciones = await prisma.transaccion.findMany({
+    where: { datosPago: { contains: emailComprador } },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+  const transacciones = todasTransacciones.filter((t) => {
+    try {
+      const datos = JSON.parse(t.datosPago || '{}');
+      return datos.compradorEmail?.toLowerCase() === emailComprador.toLowerCase();
+    } catch {
+      return false;
+    }
+  });
+  const transaccionesFormateadas = transacciones.map((t) => ({
+    ...t,
+    datosPago: t.datosPago ? JSON.parse(t.datosPago) : null,
+    respuestaPasarela: t.respuestaPasarela ? JSON.parse(t.respuestaPasarela) : null,
+  }));
+  return res.status(200).json({ success: true, transacciones: transaccionesFormateadas });
+}
+
+/** Devuelve true si la petición fue un webhook y ya se respondió. */
+async function tryHandleWebhooks(req, res) {
+  const topic = req.query?.topic || req.body?.topic;
+  const notifId = req.query?.id || req.body?.id;
+  const isGetOrPost = req.method === 'GET' || req.method === 'POST';
+  if (isGetOrPost && topic && notifId && PAYMENT_PROVIDER === 'mercado-pago') {
+    if (topic === 'payment') await handleWebhookMercadoPago(req, res, notifId);
+    res.status(200).end();
+    return true;
+  }
+  const isPayUWebhook = req.method === 'POST' && !req.body?.valor && (req.body?.referenceCode || req.body?.reference_sale);
+  if (isPayUWebhook) {
+    if (PAYMENT_PROVIDER === 'payu') {
+      await handleWebhookPayU(req, res);
+      return true;
+    }
+    res.status(400).json({ error: `Webhook para ${PAYMENT_PROVIDER} no implementado` });
+    return true;
+  }
+  return false;
+}
+
 export default async function handler(req, res) {
   setCORSHeaders(req, res);
 
@@ -156,258 +463,31 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Obtener parámetros de la petición
   const referencia = req.query?.referencia;
 
   try {
-    // ========== WEBHOOK (POST sin parámetros específicos, viene de PayU) ==========
-    if (req.method === 'POST' && !req.body?.valor && (req.body?.referenceCode || req.body?.reference_sale)) {
-      // Es un webhook de PayU
-      if (PAYMENT_PROVIDER === 'payu') {
-        const datos = req.body;
-        
-        // Verificar firma si está presente
-        if (datos.signature) {
-          const esValida = verificarFirmaPayU(datos, datos.signature);
-          if (!esValida) {
-            console.error('⚠️ Firma de webhook inválida');
-            return res.status(400).json({ error: 'Firma inválida' });
-          }
-        }
+    if (await tryHandleWebhooks(req, res)) return;
 
-        // Obtener referencia de la transacción
-        const referenciaWebhook = datos.referenceCode || datos.reference_sale;
-        if (!referenciaWebhook) {
-          return res.status(400).json({ error: 'Referencia no encontrada' });
-        }
-
-        // Buscar transacción en la BD
-        const transaccion = await prisma.transaccion.findUnique({
-          where: { referencia: referenciaWebhook },
-        });
-
-        if (!transaccion) {
-          console.error(`⚠️ Transacción no encontrada: ${referenciaWebhook}`);
-          return res.status(404).json({ error: 'Transacción no encontrada' });
-        }
-
-        // Mapear estado
-        const estadoPayU = datos.state || datos.transactionState;
-        const estadoNuevo = mapearEstadoPayU(estadoPayU);
-
-        // Actualizar transacción
-        const datosActualizacion = {
-          estado: estadoNuevo,
-          respuestaPasarela: JSON.stringify(datos),
-          transactionId: datos.transactionId || datos.transaction_id || transaccion.transactionId,
-        };
-
-        // Si está aprobada, actualizar fechas
-        if (estadoNuevo === 'aprobada') {
-          datosActualizacion.fechaPago = new Date();
-          datosActualizacion.fechaConfirmacion = new Date();
-        }
-
-        await prisma.transaccion.update({
-          where: { id: transaccion.id },
-          data: datosActualizacion,
-        });
-
-        console.log(`✅ Transacción ${referenciaWebhook} actualizada a estado: ${estadoNuevo}`);
-
-        // Responder a PayU (requerido)
-        return res.status(200).json({ 
-          success: true,
-          message: 'Webhook procesado correctamente' 
-        });
-      } else {
-        return res.status(400).json({ 
-          error: `Webhook para ${PAYMENT_PROVIDER} no implementado` 
-        });
-      }
-    }
-
-    // ========== CREAR PAGO (POST con valor) ==========
     if (req.method === 'POST' && req.body?.valor) {
-      // El pago es público, no requiere autenticación
-      // Los datos del comprador vienen en el body
-      const { 
-        valor, 
-        descripcion, 
-        metodoPago, 
-        datosAdicionales,
-        compradorNombre,
-        compradorEmail,
-        compradorTelefono,
-        compradorDocumento
-      } = req.body;
-
-      // Validaciones
-      if (!valor || valor <= 0) {
-        return res.status(400).json({ error: 'El valor debe ser mayor a 0' });
-      }
-
-      if (!descripcion) {
-        return res.status(400).json({ error: 'La descripción es requerida' });
-      }
-
-      // Validar datos del comprador
-      if (!compradorEmail || !compradorNombre) {
-        return res.status(400).json({ 
-          error: 'Email y nombre del comprador son requeridos' 
-        });
-      }
-
-      // Generar referencia única
-      const referenciaNueva = generarReferencia();
-
-      // Crear transacción en la BD (sin usuarioId, es pago público)
-      const transaccion = await prisma.transaccion.create({
-        data: {
-          usuarioId: null, // Pago público, sin usuario asociado
-          referencia: referenciaNueva,
-          pasarela: PAYMENT_PROVIDER,
-          estado: 'pendiente',
-          metodoPago: metodoPago || null,
-          valor: parseFloat(valor),
-          moneda: 'COP',
-          descripcion: descripcion,
-          datosPago: JSON.stringify({
-            compradorNombre,
-            compradorEmail,
-            compradorTelefono: compradorTelefono || '',
-            compradorDocumento: compradorDocumento || '',
-            ...datosAdicionales
-          }),
-        },
-      });
-
-      // Crear pago en la pasarela según el proveedor
-      let resultadoPasarela;
-      
-      if (PAYMENT_PROVIDER === 'payu') {
-        resultadoPasarela = await crearPagoPayU({
-          valor: parseFloat(valor),
-          descripcion: descripcion,
-          compradorEmail: compradorEmail,
-          compradorNombre: compradorNombre,
-          compradorTelefono: compradorTelefono || '',
-          compradorDocumento: compradorDocumento || '',
-        });
-      } else {
-        return res.status(400).json({ 
-          error: `Pasarela ${PAYMENT_PROVIDER} no implementada aún` 
-        });
-      }
-
-      // Actualizar transacción con datos de la pasarela
-      await prisma.transaccion.update({
-        where: { id: transaccion.id },
-        data: {
-          transactionId: resultadoPasarela.transactionId,
-          urlPago: resultadoPasarela.urlPago,
-          estado: resultadoPasarela.estado,
-          respuestaPasarela: JSON.stringify(resultadoPasarela.respuestaCompleta),
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        transaccionId: transaccion.id,
-        referencia: referenciaNueva,
-        urlPago: resultadoPasarela.urlPago,
-        estado: resultadoPasarela.estado,
-      });
+      return await handleCrearPago(req, res);
     }
 
-    // ========== CONSULTAR TRANSACCIÓN (GET con referencia) ==========
     if (req.method === 'GET' && referencia) {
-      const transaccion = await prisma.transaccion.findUnique({
-        where: { referencia: referencia },
-        include: {
-          usuario: {
-            select: {
-              id: true,
-              nombre: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      if (!transaccion) {
-        return res.status(404).json({ error: 'Transacción no encontrada' });
-      }
-
-      // Parsear JSON fields
-      const transaccionFormateada = {
-        ...transaccion,
-        datosPago: transaccion.datosPago ? JSON.parse(transaccion.datosPago) : null,
-        respuestaPasarela: transaccion.respuestaPasarela 
-          ? JSON.parse(transaccion.respuestaPasarela) 
-          : null,
-      };
-
-      return res.status(200).json({
-        success: true,
-        transaccion: transaccionFormateada,
-      });
+      return await handleGetTransaccion(res, referencia);
     }
 
-    // ========== HISTORIAL (GET sin referencia) ==========
-    // Nota: El historial requiere email del comprador para consultar sus transacciones
     if (req.method === 'GET' && !referencia) {
       const emailComprador = req.query?.email;
-      
       if (!emailComprador) {
-        return res.status(400).json({ 
-          error: 'Se requiere el email del comprador para consultar el historial' 
-        });
+        return res.status(400).json({ error: 'Se requiere el email del comprador para consultar el historial' });
       }
-
-      // Buscar transacciones por email del comprador en datosPago
-      // Nota: Esto requiere una búsqueda en JSON, que puede ser lenta
-      // En producción, considera agregar un índice o campo separado para email
-      const todasTransacciones = await prisma.transaccion.findMany({
-        where: {
-          datosPago: {
-            contains: emailComprador,
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      });
-
-      // Filtrar por email exacto (porque contains puede dar falsos positivos)
-      const transacciones = todasTransacciones.filter(t => {
-        try {
-          const datos = JSON.parse(t.datosPago || '{}');
-          return datos.compradorEmail?.toLowerCase() === emailComprador.toLowerCase();
-        } catch {
-          return false;
-        }
-      });
-
-      // Formatear transacciones
-      const transaccionesFormateadas = transacciones.map(t => ({
-        ...t,
-        datosPago: t.datosPago ? JSON.parse(t.datosPago) : null,
-        respuestaPasarela: t.respuestaPasarela ? JSON.parse(t.respuestaPasarela) : null,
-      }));
-
-      return res.status(200).json({
-        success: true,
-        transacciones: transaccionesFormateadas,
-      });
+      return await handleGetHistorial(res, emailComprador);
     }
 
-    // Si no coincide con ninguna ruta
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('Error en handler de pagos:', error);
-    res.status(500).json({ 
-      error: error.message || 'Error al procesar la petición' 
-    });
+    res.status(500).json({ error: error.message || 'Error al procesar la petición' });
   }
 }
 

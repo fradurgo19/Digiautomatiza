@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -41,6 +41,43 @@ const buildClientePayload = (form: ClienteForm) => ({
   estado: form.estado,
   notas: form.notas.trim() ? form.notas.trim() : undefined,
 });
+
+function getEstadoBadgeVariant(estado: EstadoCliente): 'info' | 'primary' | 'success' | 'warning' | 'gray' {
+  if (estado === 'nuevo') return 'info';
+  if (estado === 'contactado') return 'primary';
+  if (estado === 'interesado' || estado === 'convertido') return 'success';
+  if (estado === 'en-negociacion') return 'warning';
+  return 'gray';
+}
+
+function getEstadoLabel(estado: EstadoCliente): string {
+  const labels: Record<EstadoCliente, string> = {
+    nuevo: 'Nuevo',
+    contactado: 'Contactado',
+    interesado: 'Interesado',
+    'en-negociacion': 'En Negociación',
+    convertido: 'Convertido',
+    inactivo: 'Inactivo',
+  };
+  return labels[estado] ?? 'Inactivo';
+}
+
+/** Convierte valor de celda Excel a string para mostrar; evita [object Object]. */
+function safeDatosStr(val: unknown, fallback: string): string {
+  if (val == null) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  return fallback;
+}
+
+const ESTADO_OPTIONS = [
+  { value: 'nuevo' as const, label: 'Nuevo' },
+  { value: 'contactado' as const, label: 'Contactado' },
+  { value: 'interesado' as const, label: 'Interesado' },
+  { value: 'en-negociacion' as const, label: 'En Negociación' },
+  { value: 'convertido' as const, label: 'Convertido' },
+  { value: 'inactivo' as const, label: 'Inactivo' },
+];
 
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -105,17 +142,17 @@ export default function ClientesPage() {
     archivos: [] as File[],
   });
 
-  // Plantillas de WhatsApp disponibles
-  const plantillasWhatsApp = [
+  // Plantillas de WhatsApp disponibles (estable para no invalidar useCallback)
+  const plantillasWhatsApp = useMemo(() => [
     {
       nombre: 'template_marketing_20251120221528',
       descripcion: 'Plantilla de Marketing - Promoción de Servicios',
       categoria: 'MARKETING',
       estado: 'Activo',
-      idioma: 'es_CO', // Español Colombia
-      tieneVariables: false // Esta plantilla NO tiene variables
-    }
-  ];
+      idioma: 'es_CO',
+      tieneVariables: false,
+    },
+  ], []);
 
   // Formulario envío masivo WhatsApp
   const [envioWhatsApp, setEnvioWhatsApp] = useState({
@@ -132,15 +169,6 @@ export default function ClientesPage() {
     fallidos: Array<{ numero: string; error: string }>;
     total: number;
   } | null>(null);
-
-  const estadoOptions = [
-    { value: 'nuevo', label: 'Nuevo' },
-    { value: 'contactado', label: 'Contactado' },
-    { value: 'interesado', label: 'Interesado' },
-    { value: 'en-negociacion', label: 'En Negociación' },
-    { value: 'convertido', label: 'Convertido' },
-    { value: 'inactivo', label: 'Inactivo' },
-  ];
 
   const fetchClientes = useCallback(async (page: number = currentPage, search: string = searchTerm) => {
     setIsLoadingClientes(true);
@@ -293,140 +321,107 @@ export default function ClientesPage() {
     }
   };
 
-  const handleEnvioMasivoWhatsApp = async () => {
-    // Validar mensaje solo si NO se usa plantilla, o si se usa plantilla CON variables
-    if (!envioWhatsApp.usarPlantilla) {
-      // Si no usa plantilla, siempre requiere mensaje
-      if (!envioWhatsApp.mensaje.trim()) {
-        alert('Por favor, escribe un mensaje antes de enviar.');
-        return;
-      }
-    } else {
-      // Si usa plantilla, verificar si tiene variables
-      const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
-      const tieneVariables = plantillaSeleccionada?.tieneVariables || false;
-      
-      // Solo requiere mensaje si la plantilla tiene variables
-      if (tieneVariables && !envioWhatsApp.mensaje.trim()) {
-        alert('Por favor, ingresa los parámetros de la plantilla separados por comas.');
-        return;
-      }
+  const obtenerNumerosParaEnvioWhatsApp = useCallback(async (): Promise<string[] | null> => {
+    if (selectAllMode) {
+      const response = await obtenerClientes({
+        page: 1,
+        limit: 10000,
+        search: searchTerm.trim() || undefined,
+      });
+      return response.data.map(c => c.telefono).filter((t): t is string => Boolean(t));
     }
+    return selectedClientes
+      .map(id => clientes.find(c => c.id === id)?.telefono)
+      .filter((t): t is string => Boolean(t));
+  }, [selectAllMode, searchTerm, selectedClientes, clientes]);
 
+  const validarEnvioWhatsApp = (): boolean => {
+    if (envioWhatsApp.usarPlantilla) {
+      const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+      if (plantillaSeleccionada?.tieneVariables && !envioWhatsApp.mensaje.trim()) {
+        alert('Por favor, ingresa los parámetros de la plantilla separados por comas.');
+        return false;
+      }
+      return true;
+    }
+    if (!envioWhatsApp.mensaje.trim()) {
+      alert('Por favor, escribe un mensaje antes de enviar.');
+      return false;
+    }
     if (!selectAllMode && selectedClientes.length === 0) {
       alert('Por favor, selecciona al menos un cliente.');
-      return;
+      return false;
     }
+    return true;
+  };
 
+  const ejecutarEnvioWhatsAppMasivo = useCallback(async (): Promise<{ exitosos: string[]; fallidos: { numero: string; error: string }[]; total: number } | null> => {
+    if (selectAllMode) setIsLoadingClientes(true);
+    let numeros: string[] | null = null;
+    try {
+      numeros = await obtenerNumerosParaEnvioWhatsApp();
+    } catch (error) {
+      console.error('Error al obtener todos los clientes:', error);
+      alert('Error al obtener la lista completa de clientes');
+      return null;
+    } finally {
+      if (selectAllMode) setIsLoadingClientes(false);
+    }
+    if (!numeros || numeros.length === 0) {
+      alert('No se encontraron números de teléfono para los clientes seleccionados.');
+      return null;
+    }
+    const { validos, invalidos } = validarNumerosWhatsApp(numeros);
+    if (invalidos.length > 0) {
+      const confirmar = globalThis.confirm(
+        `Se encontraron ${invalidos.length} números inválidos:\n${invalidos.join(', ')}\n\n¿Deseas continuar solo con los números válidos?`
+      );
+      if (!confirmar) return null;
+    }
+    if (validos.length === 0) {
+      alert('No hay números válidos para enviar.');
+      return null;
+    }
+    const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
+    const idiomaPlantilla = plantillaSeleccionada?.idioma || envioWhatsApp.idiomaPlantilla || 'es_CO';
+    const tieneVariables = plantillaSeleccionada?.tieneVariables || false;
+    const parametrosPlantilla = envioWhatsApp.usarPlantilla && tieneVariables && envioWhatsApp.mensaje.trim()
+      ? envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0)
+      : [];
+    const resultado = await enviarWhatsAppMasivo({
+      numeros: validos,
+      mensaje: envioWhatsApp.usarPlantilla ? '' : envioWhatsApp.mensaje.trim(),
+      archivos: envioWhatsApp.archivos.length > 0 ? [] : undefined,
+      usarPlantilla: envioWhatsApp.usarPlantilla,
+      nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
+      idiomaPlantilla: envioWhatsApp.usarPlantilla ? idiomaPlantilla : undefined,
+      parametrosPlantilla: envioWhatsApp.usarPlantilla && tieneVariables && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
+    });
+    return { exitosos: resultado.exitosos, fallidos: resultado.fallidos, total: validos.length };
+  }, [
+    selectAllMode,
+    obtenerNumerosParaEnvioWhatsApp,
+    envioWhatsApp,
+    plantillasWhatsApp,
+  ]);
+
+  const handleEnvioMasivoWhatsApp = async () => {
+    if (!validarEnvioWhatsApp()) return;
     setIsEnviandoWhatsApp(true);
     setResultadoEnvioWhatsApp(null);
-
     try {
-      let numeros: string[] = [];
-      
-      if (selectAllMode) {
-        // Si está en modo "seleccionar todos", obtener todos los clientes
-        try {
-          setIsLoadingClientes(true);
-          // Obtener todos los clientes sin paginación (usando un límite muy alto)
-          const response = await obtenerClientes({
-            page: 1,
-            limit: 10000, // Límite alto para obtener todos
-            search: searchTerm.trim() || undefined,
-          });
-          numeros = response.data.map(c => c.telefono).filter((telefono): telefono is string => Boolean(telefono));
-        } catch (error) {
-          console.error('Error al obtener todos los clientes:', error);
-          alert('Error al obtener la lista completa de clientes');
-          setIsLoadingClientes(false);
-          return;
-        } finally {
-          setIsLoadingClientes(false);
-        }
-      } else {
-        // Solo los clientes seleccionados de la página actual
-        numeros = selectedClientes
-          .map(id => {
-            const cliente = clientes.find(c => c.id === id);
-            return cliente?.telefono;
-          })
-          .filter((telefono): telefono is string => Boolean(telefono));
-      }
-
-      if (numeros.length === 0) {
-        alert('No se encontraron números de teléfono para los clientes seleccionados.');
-        setIsEnviandoWhatsApp(false);
-        return;
-      }
-
-      // Validar números
-      const { validos, invalidos } = validarNumerosWhatsApp(numeros);
-
-      if (invalidos.length > 0) {
-        const confirmar = confirm(
-          `Se encontraron ${invalidos.length} números inválidos:\n${invalidos.join(', ')}\n\n¿Deseas continuar solo con los números válidos?`
-        );
-        if (!confirmar) {
-          setIsEnviandoWhatsApp(false);
-          return;
+      const resultado = await ejecutarEnvioWhatsAppMasivo();
+      if (resultado) {
+        setResultadoEnvioWhatsApp(resultado);
+        if (resultado.fallidos.length === 0) {
+          setTimeout(() => {
+            setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
+            setSelectedClientes([]);
+            setIsEnvioWhatsAppModalOpen(false);
+            setResultadoEnvioWhatsApp(null);
+          }, 3000);
         }
       }
-
-      if (validos.length === 0) {
-        alert('No hay números válidos para enviar.');
-        setIsEnviandoWhatsApp(false);
-        return;
-      }
-
-      console.log(`📤 Enviando ${validos.length} mensajes de WhatsApp...`);
-
-      // Preparar archivos (nota: YCloud requiere URLs públicas, por ahora solo enviamos el mensaje)
-      // TODO: Implementar subida de archivos a servidor público si es necesario
-      const archivosParaEnviar = envioWhatsApp.archivos.length > 0 
-        ? [] // Por ahora no enviamos archivos, solo mensajes de texto
-        : undefined;
-
-      // Enviar mensajes
-      // Obtener información de la plantilla seleccionada
-      const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === envioWhatsApp.nombrePlantilla);
-      const idiomaPlantilla = plantillaSeleccionada?.idioma || envioWhatsApp.idiomaPlantilla || 'es_CO';
-      const tieneVariables = plantillaSeleccionada?.tieneVariables || false;
-
-      // Preparar parámetros de plantilla SOLO si la plantilla tiene variables
-      let parametrosPlantilla: string[] = [];
-      if (envioWhatsApp.usarPlantilla && tieneVariables && envioWhatsApp.mensaje.trim()) {
-        parametrosPlantilla = envioWhatsApp.mensaje.trim().split(',').map(p => p.trim()).filter(p => p.length > 0);
-      }
-
-      const resultado = await enviarWhatsAppMasivo({
-        numeros: validos,
-        mensaje: envioWhatsApp.usarPlantilla ? '' : envioWhatsApp.mensaje.trim(), // Solo mensaje si no es plantilla
-        archivos: archivosParaEnviar,
-        usarPlantilla: envioWhatsApp.usarPlantilla,
-        nombrePlantilla: envioWhatsApp.usarPlantilla ? envioWhatsApp.nombrePlantilla : undefined,
-        idiomaPlantilla: envioWhatsApp.usarPlantilla ? idiomaPlantilla : undefined,
-        parametrosPlantilla: envioWhatsApp.usarPlantilla && tieneVariables && parametrosPlantilla.length > 0 ? parametrosPlantilla : undefined,
-      });
-
-      console.log('✅ Resultado del envío:', resultado);
-
-      // Guardar resultado
-      setResultadoEnvioWhatsApp({
-        exitosos: resultado.exitosos,
-        fallidos: resultado.fallidos,
-        total: validos.length,
-      });
-
-      // Si todos fueron exitosos, limpiar formulario y cerrar modal después de mostrar resultado
-      if (resultado.fallidos.length === 0) {
-        setTimeout(() => {
-          setEnvioWhatsApp({ mensaje: '', archivos: [], usarPlantilla: false, nombrePlantilla: '', idiomaPlantilla: 'es_CO', parametrosPlantilla: [] });
-          setSelectedClientes([]);
-          setIsEnvioWhatsAppModalOpen(false);
-          setResultadoEnvioWhatsApp(null);
-        }, 3000);
-      }
-
     } catch (error) {
       console.error('❌ Error al enviar WhatsApp masivo:', error);
       alert(`Error al enviar mensajes: ${error instanceof Error ? error.message : 'Error desconocido'}`);
@@ -509,6 +504,15 @@ export default function ClientesPage() {
         ? prev.filter(id => id !== clienteId)
         : [...prev, clienteId]
     );
+  };
+
+  const handleRowCheckboxChange = (clienteId: string) => {
+    if (selectAllMode) {
+      setSelectAllMode(false);
+      setSelectedClientes(clientes.filter(c => c.id !== clienteId).map(c => c.id));
+    } else {
+      toggleSelectCliente(clienteId);
+    }
   };
 
   const toggleSelectAll = () => {
@@ -686,23 +690,30 @@ export default function ClientesPage() {
             </div>
           </div>
 
-        {isLoadingClientes ? (
-          <div className="py-24 flex justify-center">
-            <Loading text="Cargando clientes..." />
-          </div>
-        ) : clientesError ? (
-          <Card className="bg-red-50 border border-red-200 shadow-md shadow-red-100/40">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-red-800">No pudimos cargar los clientes</h3>
-                <p className="text-sm text-red-700">{clientesError}</p>
+        {(() => {
+          if (isLoadingClientes) {
+            return (
+              <div className="py-24 flex justify-center">
+                <Loading text="Cargando clientes..." />
               </div>
-              <Button variant="primary" onClick={() => fetchClientes()}>
-                Reintentar
-              </Button>
-            </div>
-          </Card>
-        ) : (
+            );
+          }
+          if (clientesError) {
+            return (
+              <Card className="bg-red-50 border border-red-200 shadow-md shadow-red-100/40">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-800">No pudimos cargar los clientes</h3>
+                    <p className="text-sm text-red-700">{clientesError}</p>
+                  </div>
+                  <Button variant="primary" onClick={() => fetchClientes()}>
+                    Reintentar
+                  </Button>
+                </div>
+              </Card>
+            );
+          }
+          return (
           <>
             {/* Botones de Excel */}
             <Card className="mt-6 bg-white/80 border border-emerald-100 shadow-lg shadow-emerald-100/60">
@@ -866,7 +877,7 @@ export default function ClientesPage() {
                             className="w-full px-2 py-1 text-xs border border-emerald-300 rounded bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                           >
                             <option value="">Todos los estados</option>
-                            {estadoOptions.map(opt => (
+                            {ESTADO_OPTIONS.map(opt => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
@@ -896,15 +907,7 @@ export default function ClientesPage() {
                             <input
                               type="checkbox"
                               checked={selectAllMode || selectedClientes.includes(cliente.id)}
-                              onChange={() => {
-                                if (selectAllMode) {
-                                  // Si está en modo "seleccionar todos", desactivar ese modo y quitar este cliente
-                                  setSelectAllMode(false);
-                                  setSelectedClientes(clientes.filter(c => c.id !== cliente.id).map(c => c.id));
-                                } else {
-                                  toggleSelectCliente(cliente.id);
-                                }
-                              }}
+                              onChange={() => handleRowCheckboxChange(cliente.id)}
                               className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                             />
                           </td>
@@ -920,30 +923,8 @@ export default function ClientesPage() {
                           <td className="px-4 py-3 text-sm text-gray-700">{cliente.telefono}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">{cliente.empresa || '-'}</td>
                           <td className="px-4 py-3">
-                            <Badge
-                              variant={
-                                cliente.estado === 'nuevo'
-                                  ? 'info'
-                                  : cliente.estado === 'contactado'
-                                  ? 'primary'
-                                  : cliente.estado === 'interesado' || cliente.estado === 'convertido'
-                                  ? 'success'
-                                  : cliente.estado === 'en-negociacion'
-                                  ? 'warning'
-                                  : 'gray'
-                              }
-                            >
-                              {cliente.estado === 'nuevo'
-                                ? 'Nuevo'
-                                : cliente.estado === 'contactado'
-                                ? 'Contactado'
-                                : cliente.estado === 'interesado'
-                                ? 'Interesado'
-                                : cliente.estado === 'en-negociacion'
-                                ? 'En Negociación'
-                                : cliente.estado === 'convertido'
-                                ? 'Convertido'
-                                : 'Inactivo'}
+                            <Badge variant={getEstadoBadgeVariant(cliente.estado)}>
+                              {getEstadoLabel(cliente.estado)}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
@@ -1073,7 +1054,8 @@ export default function ClientesPage() {
               </Card>
             )}
           </>
-        )}
+          );
+        })()}
       </div>
 
         {/* Modal Agregar Cliente */}
@@ -1134,7 +1116,7 @@ export default function ClientesPage() {
             <div className="md:col-span-1">
               <Select
                 label="Estado"
-                options={estadoOptions}
+                options={ESTADO_OPTIONS}
                 value={nuevoCliente.estado}
                 onChange={(e) => setNuevoCliente({ ...nuevoCliente, estado: e.target.value as EstadoCliente })}
                 fullWidth
@@ -1230,7 +1212,7 @@ export default function ClientesPage() {
             <div className="md:col-span-1">
               <Select
                 label="Estado"
-                options={estadoOptions}
+                options={ESTADO_OPTIONS}
                 value={clienteEditado.estado}
                 onChange={(e) => setClienteEditado({ ...clienteEditado, estado: e.target.value as EstadoCliente })}
                 fullWidth
@@ -1309,10 +1291,11 @@ export default function ClientesPage() {
               labelClassName="text-emerald-800"
             />
             <div>
-              <label className="block text-sm font-medium text-emerald-800 mb-1">
+              <label htmlFor="envio-correo-archivos" className="block text-sm font-medium text-emerald-800 mb-1">
                 Archivos adjuntos
               </label>
               <input
+                id="envio-correo-archivos"
                 type="file"
                 multiple
                 className="w-full text-emerald-900"
@@ -1378,10 +1361,10 @@ export default function ClientesPage() {
                     </h4>
                     <div className="max-h-40 overflow-y-auto bg-green-50 rounded-lg p-3 border border-green-200">
                       <div className="space-y-1">
-                        {resultadoEnvioWhatsApp.exitosos.map((numero, index) => {
+                        {resultadoEnvioWhatsApp.exitosos.map((numero) => {
                           const cliente = clientes.find(c => formatearNumeroWhatsApp(c.telefono) === numero);
                           return (
-                            <div key={index} className="text-sm py-1 border-b border-green-200 last:border-0">
+                            <div key={`exitoso-${numero}`} className="text-sm py-1 border-b border-green-200 last:border-0">
                               <strong className="text-green-800">{cliente?.nombre || numero}</strong>
                               <span className="text-green-600 ml-2">{numero}</span>
                             </div>
@@ -1399,10 +1382,10 @@ export default function ClientesPage() {
                     </h4>
                     <div className="max-h-40 overflow-y-auto bg-red-50 rounded-lg p-3 border border-red-200">
                       <div className="space-y-2">
-                        {resultadoEnvioWhatsApp.fallidos.map((fallido, index) => {
+                        {resultadoEnvioWhatsApp.fallidos.map((fallido) => {
                           const cliente = clientes.find(c => formatearNumeroWhatsApp(c.telefono) === fallido.numero);
                           return (
-                            <div key={index} className="text-sm py-2 border-b border-red-200 last:border-0">
+                            <div key={`fallido-${fallido.numero}-${fallido.error}`} className="text-sm py-2 border-b border-red-200 last:border-0">
                               <p className="font-semibold text-red-800">
                                 {cliente?.nombre || fallido.numero}
                               </p>
@@ -1455,9 +1438,10 @@ export default function ClientesPage() {
 
                 {/* Opción para usar plantilla - MÁS VISIBLE */}
                 <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-5 shadow-lg" style={{ backgroundColor: '#fffbeb', borderColor: '#fbbf24' }}>
-                  <label className="flex items-start gap-3 cursor-pointer">
+                  <label className="flex items-start gap-3 cursor-pointer" id="label-usar-plantilla-whatsapp">
                     <input
                       type="checkbox"
+                      aria-labelledby="label-usar-plantilla-whatsapp"
                       checked={envioWhatsApp.usarPlantilla}
                       onChange={(e) => setEnvioWhatsApp({ 
                         ...envioWhatsApp, 
@@ -1481,10 +1465,11 @@ export default function ClientesPage() {
                   {envioWhatsApp.usarPlantilla && (
                     <div className="mt-5 space-y-4 border-t border-amber-300 pt-4">
                       <div>
-                        <label className="block text-sm font-bold text-amber-900 mb-2">
+                        <label htmlFor="whatsapp-nombre-plantilla" className="block text-sm font-bold text-amber-900 mb-2">
                           Nombre de la Plantilla *
                         </label>
                         <select
+                          id="whatsapp-nombre-plantilla"
                           value={envioWhatsApp.nombrePlantilla}
                           onChange={(e) => {
                             const plantillaSeleccionada = plantillasWhatsApp.find(p => p.nombre === e.target.value);
@@ -1569,10 +1554,11 @@ export default function ClientesPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-emerald-800 mb-2">
+                  <label htmlFor="envio-whatsapp-archivos" className="block text-sm font-medium text-emerald-800 mb-2">
                     Archivos adjuntos (Opcional)
                   </label>
                   <input
+                    id="envio-whatsapp-archivos"
                     type="file"
                     multiple
                     className="w-full text-emerald-900 border border-emerald-200 rounded-lg p-2 bg-white"
@@ -1662,13 +1648,18 @@ export default function ClientesPage() {
           title="Resultado de Importación"
           size="lg"
         >
-          {isImporting ? (
-            <div className="text-center py-8">
-              <div className="animate-spin text-6xl mb-4">⏳</div>
-              <p className="text-lg font-semibold">Procesando archivo Excel...</p>
-              <p className="text-gray-600 mt-2">Por favor espera</p>
-            </div>
-          ) : importResult ? (
+          {(() => {
+            if (isImporting) {
+              return (
+                <div className="text-center py-8">
+                  <div className="animate-spin text-6xl mb-4">⏳</div>
+                  <p className="text-lg font-semibold">Procesando archivo Excel...</p>
+                  <p className="text-gray-600 mt-2">Por favor espera</p>
+                </div>
+              );
+            }
+            if (importResult) {
+              return (
             <div className="space-y-4">
               {/* Resumen */}
               <div className="grid grid-cols-2 gap-4">
@@ -1691,8 +1682,8 @@ export default function ClientesPage() {
                 <div>
                   <h4 className="font-semibold text-green-700 mb-2">✅ Clientes Importados Correctamente:</h4>
                   <div className="max-h-48 overflow-y-auto bg-green-50 rounded-lg p-3">
-                    {importResult.exitosos.map((cliente, index) => (
-                      <div key={index} className="text-sm py-1 border-b border-green-200 last:border-0">
+                    {importResult.exitosos.map((cliente) => (
+                      <div key={`importado-${cliente.email}-${cliente.nombre}`} className="text-sm py-1 border-b border-green-200 last:border-0">
                         <strong>{cliente.nombre}</strong> - {cliente.email}
                       </div>
                     ))}
@@ -1705,11 +1696,11 @@ export default function ClientesPage() {
                 <div>
                   <h4 className="font-semibold text-red-700 mb-2">❌ Errores en la Importación:</h4>
                   <div className="max-h-48 overflow-y-auto bg-red-50 rounded-lg p-3">
-                    {importResult.errores.map((error, index) => (
-                      <div key={index} className="text-sm py-2 border-b border-red-200 last:border-0">
+                    {importResult.errores.map((error) => (
+                      <div key={`error-fila-${error.fila}-${safeDatosStr(error.datos?.['Nombre Completo'], 'Sin nombre')}-${safeDatosStr(error.datos?.['Email'], 'Sin email')}`} className="text-sm py-2 border-b border-red-200 last:border-0">
                         <p className="font-semibold">Fila {error.fila}: {error.error}</p>
                         <p className="text-gray-600 text-xs mt-1">
-                          {String(error.datos['Nombre Completo'] || 'Sin nombre')} - {String(error.datos['Email'] || 'Sin email')}
+                          {safeDatosStr(error.datos?.['Nombre Completo'], 'Sin nombre')} - {safeDatosStr(error.datos?.['Email'], 'Sin email')}
                         </p>
                       </div>
                     ))}
@@ -1745,7 +1736,10 @@ export default function ClientesPage() {
                 Cerrar
               </Button>
             </div>
-          ) : null}
+              );
+            }
+            return null;
+          })()}
         </Modal>
       </div>
     </div>
