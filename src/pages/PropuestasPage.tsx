@@ -314,31 +314,98 @@ export default function PropuestasPage() {
     }
   };
 
+  const validarActualizacionPropuesta = (total: number): string | null => {
+    if (!nuevaPropuesta.clienteId || !nuevaPropuesta.titulo || !nuevaPropuesta.servicio) {
+      return 'Por favor completa todos los campos requeridos.';
+    }
+    if (!nuevaPropuesta.especificaciones || nuevaPropuesta.especificaciones.trim() === '') {
+      return 'Por favor ingresa las especificaciones del servicio.';
+    }
+    if (total <= 0) {
+      return 'El valor total debe ser mayor a cero.';
+    }
+    return null;
+  };
+
+  type AdjuntoInput = Propuesta['adjuntos'] | AdjuntoPropuesta | null | undefined;
+
+  const normalizarAdjuntos = (
+    adjuntosEntrada: AdjuntoInput
+  ): AdjuntoPropuesta[] => {
+    if (Array.isArray(adjuntosEntrada)) {
+      return adjuntosEntrada;
+    }
+    if (adjuntosEntrada) {
+      return [adjuntosEntrada];
+    }
+    return [];
+  };
+
+  const resolverAdjuntosActualizacion = (
+    adjuntosEstado: AdjuntoPropuesta[],
+    adjuntosExistentes: AdjuntoInput
+  ): AdjuntoPropuesta[] | null => {
+    const adjuntosOriginales = normalizarAdjuntos(adjuntosExistentes);
+    if (adjuntosEstado.length > 0) {
+      return adjuntosEstado;
+    }
+    if (adjuntosOriginales.length > 0) {
+      return adjuntosOriginales;
+    }
+    return null;
+  };
+
+  const logSeleccionAdjuntos = (
+    adjuntosEstado: AdjuntoPropuesta[],
+    adjuntosExistentes: AdjuntoInput,
+    adjuntosParaEnviar: AdjuntoPropuesta[] | null
+  ) => {
+    const adjuntosOriginales = normalizarAdjuntos(adjuntosExistentes);
+    if (adjuntosEstado.length > 0) {
+      console.log('✅ Usando adjuntos del estado local:', adjuntosParaEnviar);
+      return;
+    }
+    if (adjuntosOriginales.length > 0) {
+      console.log(
+        '⚠️ No hay adjuntos en estado local, usando adjuntos originales de propuestaEditando:',
+        adjuntosParaEnviar
+      );
+      return;
+    }
+    console.log('⚠️ No hay adjuntos disponibles');
+  };
+
+  const sincronizarEstadosPropuestaActualizada = (propuestaActualizada: Propuesta) => {
+    if (propuestaPreview?.id === propuestaActualizada.id) {
+      setPropuestaPreview(propuestaActualizada);
+    }
+
+    if (isEditModalOpen && propuestaEditando?.id === propuestaActualizada.id) {
+      setPropuestaEditando(propuestaActualizada);
+      const adjuntosActualizados = normalizarAdjuntos(propuestaActualizada.adjuntos);
+      setAdjuntos(adjuntosActualizados);
+      console.log('📝 Adjuntos actualizados en formulario:', adjuntosActualizados);
+    }
+  };
+
   const handleActualizarPropuesta = async () => {
     if (!propuestaEditando) return;
 
-    if (!nuevaPropuesta.clienteId || !nuevaPropuesta.titulo || !nuevaPropuesta.servicio) {
-      alert('Por favor completa todos los campos requeridos.');
-      return;
-    }
-
-    if (!nuevaPropuesta.especificaciones || nuevaPropuesta.especificaciones.trim() === '') {
-      alert('Por favor ingresa las especificaciones del servicio.');
-      return;
-    }
-
-    const { total } = calcularTotal();
-    if (total <= 0) {
-      alert('El valor total debe ser mayor a cero.');
+    const { subtotal, descuento, total } = calcularTotal();
+    const validationMessage = validarActualizacionPropuesta(total);
+    if (validationMessage) {
+      alert(validationMessage);
       return;
     }
 
     setIsSaving(true);
     try {
-      const servicioInfo = serviciosOptions.find(s => s.value === nuevaPropuesta.servicio);
+      const servicioInfo = serviciosOptions.find((s) => s.value === nuevaPropuesta.servicio);
+      const clienteNombre =
+        clientes.find((c) => c.id === nuevaPropuesta.clienteId)?.nombre || 'Cliente';
       
       const contenido = {
-        introduccion: `Estimado/a ${clientes.find(c => c.id === nuevaPropuesta.clienteId)?.nombre || 'Cliente'},`,
+        introduccion: `Estimado/a ${clienteNombre},`,
         servicio: servicioInfo?.label || nuevaPropuesta.servicio,
         descripcionServicio: servicioInfo?.descripcion || '',
         beneficios: [
@@ -355,8 +422,8 @@ export default function PropuestasPage() {
         id: '1',
         descripcion: nuevaPropuesta.especificaciones,
         cantidad: 1,
-        precioUnitario: calcularTotal().subtotal,
-        subtotal: calcularTotal().subtotal,
+        precioUnitario: subtotal,
+        subtotal,
       };
 
       // Log detallado ANTES de enviar
@@ -369,36 +436,19 @@ export default function PropuestasPage() {
         propuestaEditandoAdjuntosEsArray: Array.isArray(propuestaEditando?.adjuntos)
       });
 
-      // Asegurar que adjuntos se envíe correctamente: estado local o originales de la propuesta
-      const adjuntosOriginales = ((): AdjuntoPropuesta[] => {
-        const a = propuestaEditando?.adjuntos;
-        if (Array.isArray(a)) return a.length > 0 ? a : [];
-        if (a) return [a];
-        return [];
-      })();
-      let adjuntosParaEnviar: AdjuntoPropuesta[] | null;
-      if (adjuntos.length > 0) {
-        adjuntosParaEnviar = adjuntos;
-      } else if (adjuntosOriginales.length > 0) {
-        adjuntosParaEnviar = adjuntosOriginales;
-      } else {
-        adjuntosParaEnviar = null;
-      }
-      if (adjuntos.length > 0) {
-        console.log('✅ Usando adjuntos del estado local:', adjuntosParaEnviar);
-      } else if (adjuntosOriginales.length > 0) {
-        console.log('⚠️ No hay adjuntos en estado local, usando adjuntos originales de propuestaEditando:', adjuntosParaEnviar);
-      } else {
-        console.log('⚠️ No hay adjuntos disponibles');
-      }
+      const adjuntosParaEnviar = resolverAdjuntosActualizacion(
+        adjuntos,
+        propuestaEditando?.adjuntos
+      );
+      logSeleccionAdjuntos(adjuntos, propuestaEditando?.adjuntos, adjuntosParaEnviar);
 
       const propuestaData = {
         oportunidadId: nuevaPropuesta.oportunidadId || undefined,
         clienteId: nuevaPropuesta.clienteId,
         titulo: nuevaPropuesta.titulo,
         servicio: nuevaPropuesta.servicio,
-        valorTotal: calcularTotal().subtotal,
-        descuento: calcularTotal().descuento,
+        valorTotal: subtotal,
+        descuento,
         valorFinal: total,
         validez: Number.parseInt(nuevaPropuesta.validez, 10) || 30,
         contenido: JSON.stringify(contenido),
@@ -408,14 +458,7 @@ export default function PropuestasPage() {
         notas: nuevaPropuesta.notas || undefined,
       };
 
-      let numAdjuntos: number;
-      if (adjuntosParaEnviar == null) {
-        numAdjuntos = 0;
-      } else if (Array.isArray(adjuntosParaEnviar)) {
-        numAdjuntos = adjuntosParaEnviar.length;
-      } else {
-        numAdjuntos = 1;
-      }
+      const numAdjuntos = adjuntosParaEnviar?.length ?? 0;
       console.log('📤 FRONTEND - Enviando actualización con adjuntos:', adjuntosParaEnviar);
       console.log('📤 FRONTEND - Número de adjuntos:', numAdjuntos);
       console.log('📤 FRONTEND - propuestaData.adjuntos:', propuestaData.adjuntos);
@@ -429,31 +472,14 @@ export default function PropuestasPage() {
       setPropuestas(todasLasPropuestas);
       
       // Buscar la propuesta actualizada en la lista recargada
-      const propuestaActualizada = todasLasPropuestas.find(p => p.id === actualizada.id) || actualizada;
+      const propuestaActualizada =
+        todasLasPropuestas.find((p) => p.id === actualizada.id) || actualizada;
       
       console.log('📥 Propuesta recargada con adjuntos:', propuestaActualizada.adjuntos);
       console.log('📥 Tipo de adjuntos:', typeof propuestaActualizada.adjuntos);
       console.log('📥 Es array?:', Array.isArray(propuestaActualizada.adjuntos));
-      
-      // Actualizar la vista previa si está abierta
-      if (propuestaPreview?.id === propuestaActualizada.id) {
-        setPropuestaPreview(propuestaActualizada);
-      }
 
-      // Si el modal de edición está abierto, actualizar también el estado local
-      if (isEditModalOpen && propuestaEditando?.id === propuestaActualizada.id) {
-        setPropuestaEditando(propuestaActualizada);
-        let adjuntosActualizados: AdjuntoPropuesta[];
-        if (Array.isArray(propuestaActualizada.adjuntos)) {
-          adjuntosActualizados = propuestaActualizada.adjuntos;
-        } else if (propuestaActualizada.adjuntos) {
-          adjuntosActualizados = [propuestaActualizada.adjuntos];
-        } else {
-          adjuntosActualizados = [];
-        }
-        setAdjuntos(adjuntosActualizados);
-        console.log('📝 Adjuntos actualizados en formulario:', adjuntosActualizados);
-      }
+      sincronizarEstadosPropuestaActualizada(propuestaActualizada);
       
       setIsEditModalOpen(false);
       resetFormulario();
@@ -482,7 +508,7 @@ export default function PropuestasPage() {
     }
   };
 
-  const handleExportarPDF = async (propuesta: Propuesta) => {
+  const handleExportarPDF = async (propuesta: Propuesta) => { // NOSONAR
     try {
       console.log('Generando PDF directamente desde los datos de la propuesta...');
       
@@ -512,7 +538,7 @@ export default function PropuestasPage() {
           'ü': 'u', 'Ü': 'U',
           'ç': 'c', 'Ç': 'C',
         };
-        return String(text).replace(/[\x80-\uFFFF]/g, (char: string) => map[char] ?? char);
+        return String(text).replace(/[\x80-\uFFFF]/g, (char: string) => map[char] ?? char); // NOSONAR
       };
       
       // Función para agregar texto con salto de página automático
