@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Loading from '../atoms/Loading';
@@ -17,38 +17,7 @@ export default function CalendarioPage() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState<EventoCalendario | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    cargarEventos();
-  }, [fechaActual, vista]);
-
-  // Escuchar cambios en sesiones para refrescar eventos
-  useEffect(() => {
-    const handleSesionChange = () => {
-      // Recargar eventos cuando se detecta un cambio en sesiones
-      cargarEventos();
-    };
-
-    // Escuchar eventos de storage (cuando se actualiza una sesión desde otra pestaña)
-    window.addEventListener('storage', handleSesionChange);
-    
-    // Escuchar eventos personalizados (cuando se actualiza una sesión en la misma pestaña)
-    window.addEventListener('sesionActualizada', handleSesionChange);
-    window.addEventListener('sesionEliminada', handleSesionChange);
-
-    // También recargar periódicamente cada 30 segundos para asegurar sincronización
-    const interval = setInterval(() => {
-      cargarEventos();
-    }, 30000);
-
-    return () => {
-      window.removeEventListener('storage', handleSesionChange);
-      window.removeEventListener('sesionActualizada', handleSesionChange);
-      window.removeEventListener('sesionEliminada', handleSesionChange);
-      clearInterval(interval);
-    };
-  }, [fechaActual, vista]); // Incluir dependencias para que cargarEventos tenga acceso a las variables actuales
-
-  const cargarEventos = async () => {
+  const cargarEventos = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -60,35 +29,33 @@ export default function CalendarioPage() {
       inicio.setHours(0, 0, 0, 0);
 
       switch (vista) {
-        case 'dia':
+        case 'dia': {
           fechaInicio = inicio.toISOString();
           const finDia = new Date(inicio);
           finDia.setHours(23, 59, 59, 999);
           fechaFin = finDia.toISOString();
           break;
-        case 'semana':
-          // Obtener el inicio de la semana (lunes)
+        }
+        case 'semana': {
           const inicioSemana = new Date(inicio);
           const diaSemana = inicioSemana.getDay();
           const diff = inicioSemana.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
           inicioSemana.setDate(diff);
           fechaInicio = inicioSemana.toISOString();
-          
           const finSemana = new Date(inicioSemana);
           finSemana.setDate(finSemana.getDate() + 6);
           finSemana.setHours(23, 59, 59, 999);
           fechaFin = finSemana.toISOString();
           break;
-        case 'mes':
-          // Primer día del mes
+        }
+        case 'mes': {
           const inicioMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1);
           fechaInicio = inicioMes.toISOString();
-          
-          // Último día del mes
           const finMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 0);
           finMes.setHours(23, 59, 59, 999);
           fechaFin = finMes.toISOString();
           break;
+        }
       }
 
       const respuesta = await obtenerEventosCalendario(fechaInicio, fechaFin, 200);
@@ -100,7 +67,25 @@ export default function CalendarioPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fechaActual, vista]);
+
+  useEffect(() => {
+    cargarEventos();
+  }, [cargarEventos]);
+
+  useEffect(() => {
+    const handleSesionChange = () => cargarEventos();
+    globalThis.addEventListener('storage', handleSesionChange);
+    globalThis.addEventListener('sesionActualizada', handleSesionChange);
+    globalThis.addEventListener('sesionEliminada', handleSesionChange);
+    const interval = setInterval(cargarEventos, 30000);
+    return () => {
+      globalThis.removeEventListener('storage', handleSesionChange);
+      globalThis.removeEventListener('sesionActualizada', handleSesionChange);
+      globalThis.removeEventListener('sesionEliminada', handleSesionChange);
+      clearInterval(interval);
+    };
+  }, [cargarEventos]);
 
   const formatearFecha = (fechaISO: string): string => {
     const fecha = new Date(fechaISO);
@@ -343,32 +328,32 @@ export default function CalendarioPage() {
               {/* Días del calendario */}
               <div className="grid grid-cols-7 gap-1">
                 {obtenerDiasDelMes().map((fecha, index) => {
-                  if (!fecha) return <div key={index} className="min-h-[100px]"></div>;
-                  
+                  const row = Math.floor(index / 7);
+                  const col = index % 7;
+                  if (!fecha) return <div key={`empty-${row}-${col}`} className="min-h-[100px]"></div>;
                   const eventosDia = obtenerEventosDelDia(fecha);
                   const esDiaActual = esHoy(fecha);
                   const esDelMes = esMismoMes(fecha);
-                  
+                  const cellClass = esDelMes ? '' : 'bg-gray-50 text-gray-400';
                   return (
                     <div
-                      key={index}
-                      className={`min-h-[100px] border border-gray-200 p-1 ${
-                        esDiaActual ? 'bg-blue-50 border-blue-300' : ''
-                      } ${!esDelMes ? 'bg-gray-50 text-gray-400' : ''}`}
+                      key={fecha.toISOString()}
+                      className={`min-h-[100px] border border-gray-200 p-1 ${esDiaActual ? 'bg-blue-50 border-blue-300' : ''} ${cellClass}`}
                     >
                       <div className={`text-sm font-semibold mb-1 ${esDiaActual ? 'text-blue-700' : ''}`}>
                         {fecha.getDate()}
                       </div>
                       <div className="space-y-1">
                         {eventosDia.slice(0, 3).map((evento) => (
-                          <div
+                          <button
+                            type="button"
                             key={evento.id}
                             onClick={() => handleClickEvento(evento)}
-                            className="text-xs bg-emerald-500 text-white p-1 rounded cursor-pointer hover:bg-emerald-600 truncate"
+                            className="w-full text-left text-xs bg-emerald-500 text-white p-1 rounded cursor-pointer hover:bg-emerald-600 truncate border-0"
                             title={evento.titulo}
                           >
                             {formatearHora(evento.fechaInicio)} {evento.titulo}
-                          </div>
+                          </button>
                         ))}
                         {eventosDia.length > 3 && (
                           <div className="text-xs text-emerald-700 font-semibold">
@@ -395,9 +380,8 @@ export default function CalendarioPage() {
                 {obtenerDiasSemana().map((fecha, index) => {
                   const eventosDia = obtenerEventosDelDia(fecha);
                   const esDiaActual = esHoy(fecha);
-                  
                   return (
-                    <div key={index} className="border border-gray-200 rounded-lg p-2">
+                    <div key={fecha.toISOString()} className="border border-gray-200 rounded-lg p-2">
                       <div className={`text-center font-semibold mb-2 ${esDiaActual ? 'text-blue-700' : 'text-gray-700'}`}>
                         <div className="text-sm">{nombresDiasCompletos[index]}</div>
                         <div className={`text-lg ${esDiaActual ? 'bg-blue-100 rounded-full w-8 h-8 flex items-center justify-center mx-auto' : ''}`}>
@@ -406,14 +390,15 @@ export default function CalendarioPage() {
                       </div>
                       <div className="space-y-2">
                         {eventosDia.map((evento) => (
-                          <div
+                          <button
+                            type="button"
                             key={evento.id}
                             onClick={() => handleClickEvento(evento)}
-                            className="text-xs bg-emerald-500 text-white p-2 rounded cursor-pointer hover:bg-emerald-600"
+                            className="w-full text-left text-xs bg-emerald-500 text-white p-2 rounded cursor-pointer hover:bg-emerald-600 border-0"
                           >
                             <div className="font-semibold">{formatearHora(evento.fechaInicio)}</div>
                             <div className="truncate">{evento.titulo}</div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -444,10 +429,11 @@ export default function CalendarioPage() {
                   </div>
                 ) : (
                   obtenerEventosDelDia(fechaActual).map((evento) => (
-                    <div
+                    <button
+                      type="button"
                       key={evento.id}
                       onClick={() => handleClickEvento(evento)}
-                      className="border border-emerald-200 rounded-lg p-4 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors"
+                      className="w-full text-left border border-emerald-200 rounded-lg p-4 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors border-solid"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -471,7 +457,7 @@ export default function CalendarioPage() {
                           </a>
                         )}
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -554,7 +540,7 @@ export default function CalendarioPage() {
                     <div className="flex flex-wrap gap-2">
                       {eventoSeleccionado.invitados.map((invitado, index) => (
                         <span
-                          key={index}
+                          key={invitado.email ?? `inv-${index}`}
                           className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-xs"
                         >
                           <span>👤</span>

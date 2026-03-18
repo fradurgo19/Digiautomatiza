@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -14,13 +14,11 @@ import {
   obtenerPropuestas,
   crearPropuesta,
   actualizarPropuesta,
-  eliminarPropuesta,
   obtenerClientes,
   obtenerOportunidades,
 } from '../services/databaseService';
 import { subirArchivoPropuesta } from '../services/storageService';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const estadosPropuesta: { value: EstadoPropuesta; label: string; color: 'info' | 'primary' | 'success' | 'warning' | 'danger' }[] = [
   { value: 'borrador', label: 'Borrador', color: 'info' },
@@ -106,26 +104,14 @@ export default function PropuestasPage() {
   const cargarDatos = async () => {
     setIsLoading(true);
     try {
-      const [propuestasData, clientesData, oportunidadesData] = await Promise.all([
+      const [propuestasData, clientesRes, oportunidadesData] = await Promise.all([
         obtenerPropuestas(),
         obtenerClientes(),
         obtenerOportunidades(),
       ]);
-      
-      // Log para diagnosticar adjuntos
-      console.log('📋 Propuestas cargadas:', propuestasData.length);
-      propuestasData.forEach((p, index) => {
-        console.log(`📎 Propuesta ${index + 1} (${p.id}):`, {
-          titulo: p.titulo,
-          adjuntos: p.adjuntos,
-          tipoAdjuntos: typeof p.adjuntos,
-          esArray: Array.isArray(p.adjuntos),
-          longitud: p.adjuntos ? p.adjuntos.length : 0
-        });
-      });
-      
+
       setPropuestas(propuestasData);
-      setClientes(clientesData);
+      setClientes(clientesRes.data);
       setOportunidades(oportunidadesData);
     } catch (error) {
       console.error('Error al cargar datos:', error);
@@ -136,8 +122,8 @@ export default function PropuestasPage() {
   };
 
   const calcularTotal = () => {
-    const subtotal = parseFloat(nuevaPropuesta.valorTotal) || 0;
-    const descuento = parseFloat(nuevaPropuesta.descuento) || 0;
+    const subtotal = Number.parseFloat(nuevaPropuesta.valorTotal) || 0;
+    const descuento = Number.parseFloat(nuevaPropuesta.descuento) || 0;
     return {
       subtotal,
       descuento,
@@ -154,9 +140,10 @@ export default function PropuestasPage() {
       const resultado = await subirArchivoPropuesta(file);
       setAdjuntos([...adjuntos, resultado]);
       alert('✅ Archivo subido exitosamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al subir archivo:', error);
-      alert(`Error al subir archivo: ${error.message}`);
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al subir archivo: ${message}`);
     } finally {
       setSubiendoArchivo(false);
       // Resetear el input
@@ -213,19 +200,21 @@ export default function PropuestasPage() {
         subtotal: calcularTotal().subtotal,
       };
 
-      const propuestaData = {
+      const propuestaData: Omit<Propuesta, 'id' | 'cliente' | 'createdAt' | 'updatedAt'> = {
         oportunidadId: nuevaPropuesta.oportunidadId || undefined,
         clienteId: nuevaPropuesta.clienteId,
         titulo: nuevaPropuesta.titulo,
+        numeroPropuesta: `PROP-${Date.now()}`,
         servicio: nuevaPropuesta.servicio,
+        estado: 'borrador',
         valorTotal: calcularTotal().subtotal,
         descuento: calcularTotal().descuento,
         valorFinal: total,
-        validez: parseInt(nuevaPropuesta.validez) || 30,
+        validez: Number.parseInt(nuevaPropuesta.validez, 10) || 30,
         contenido: JSON.stringify(contenido),
         items: [itemUnico],
         especificaciones: nuevaPropuesta.especificaciones,
-        adjuntos: adjuntos.length > 0 ? adjuntos : null,
+        adjuntos: adjuntos.length > 0 ? adjuntos : undefined,
         notas: nuevaPropuesta.notas || undefined,
       };
 
@@ -287,13 +276,16 @@ export default function PropuestasPage() {
       notas: propuesta.notas || '',
     });
     
-    // Asegurar que adjuntos sea un array válido
-    // Si es null o undefined, usar array vacío para el formulario
-    // Pero guardar el valor original en propuestaEditando para referencia
-    const adjuntosParaFormulario = Array.isArray(propuesta.adjuntos) 
-      ? propuesta.adjuntos 
-      : (propuesta.adjuntos ? [propuesta.adjuntos] : []);
-    
+    // Asegurar que adjuntos sea un array válido para el formulario
+    let adjuntosParaFormulario: AdjuntoPropuesta[];
+    if (Array.isArray(propuesta.adjuntos)) {
+      adjuntosParaFormulario = propuesta.adjuntos;
+    } else if (propuesta.adjuntos) {
+      adjuntosParaFormulario = [propuesta.adjuntos];
+    } else {
+      adjuntosParaFormulario = [];
+    }
+
     console.log('📥 FRONTEND - Adjuntos para formulario:', adjuntosParaFormulario);
     setAdjuntos(adjuntosParaFormulario);
     setIsEditModalOpen(true);
@@ -308,7 +300,7 @@ export default function PropuestasPage() {
 
     try {
       await actualizarPropuesta(propuesta.id, {
-        estadoAprobacion: nuevoEstado as 'Aprobada' | 'Sin Aprobar',
+        estadoAprobacion: nuevoEstado,
       });
       
       // Recargar propuestas
@@ -377,32 +369,27 @@ export default function PropuestasPage() {
         propuestaEditandoAdjuntosEsArray: Array.isArray(propuestaEditando?.adjuntos)
       });
 
-      // Asegurar que adjuntos se envíe correctamente
-      // PRIORIDAD 1: Si hay adjuntos en el estado local (nuevos o modificados), usarlos
-      // PRIORIDAD 2: Si no hay en el estado local pero hay en propuestaEditando (originales), usar esos
-      // PRIORIDAD 3: Si no hay ninguno, enviar null
-      let adjuntosParaEnviar = null;
-      
+      // Asegurar que adjuntos se envíe correctamente: estado local o originales de la propuesta
+      const adjuntosOriginales = ((): AdjuntoPropuesta[] => {
+        const a = propuestaEditando?.adjuntos;
+        if (Array.isArray(a)) return a.length > 0 ? a : [];
+        if (a) return [a];
+        return [];
+      })();
+      let adjuntosParaEnviar: AdjuntoPropuesta[] | null;
       if (adjuntos.length > 0) {
-        // Hay adjuntos en el estado local (pueden ser nuevos o los originales cargados)
         adjuntosParaEnviar = adjuntos;
+      } else if (adjuntosOriginales.length > 0) {
+        adjuntosParaEnviar = adjuntosOriginales;
+      } else {
+        adjuntosParaEnviar = null;
+      }
+      if (adjuntos.length > 0) {
         console.log('✅ Usando adjuntos del estado local:', adjuntosParaEnviar);
-      } else if (propuestaEditando?.adjuntos) {
-        // No hay adjuntos en el estado local, pero hay en la propuesta original
-        const adjuntosOriginales = Array.isArray(propuestaEditando.adjuntos) 
-          ? propuestaEditando.adjuntos 
-          : (propuestaEditando.adjuntos ? [propuestaEditando.adjuntos] : []);
-        
-        if (adjuntosOriginales.length > 0) {
-          adjuntosParaEnviar = adjuntosOriginales;
-          console.log('⚠️ No hay adjuntos en estado local, usando adjuntos originales de propuestaEditando:', adjuntosParaEnviar);
-        } else {
-          console.log('⚠️ No hay adjuntos ni en estado local ni en propuestaEditando');
-          adjuntosParaEnviar = null;
-        }
+      } else if (adjuntosOriginales.length > 0) {
+        console.log('⚠️ No hay adjuntos en estado local, usando adjuntos originales de propuestaEditando:', adjuntosParaEnviar);
       } else {
         console.log('⚠️ No hay adjuntos disponibles');
-        adjuntosParaEnviar = null;
       }
 
       const propuestaData = {
@@ -413,16 +400,24 @@ export default function PropuestasPage() {
         valorTotal: calcularTotal().subtotal,
         descuento: calcularTotal().descuento,
         valorFinal: total,
-        validez: parseInt(nuevaPropuesta.validez) || 30,
+        validez: Number.parseInt(nuevaPropuesta.validez, 10) || 30,
         contenido: JSON.stringify(contenido),
         items: [itemUnico],
         especificaciones: nuevaPropuesta.especificaciones,
-        adjuntos: adjuntosParaEnviar,
+        adjuntos: adjuntosParaEnviar ?? undefined,
         notas: nuevaPropuesta.notas || undefined,
       };
 
+      let numAdjuntos: number;
+      if (adjuntosParaEnviar == null) {
+        numAdjuntos = 0;
+      } else if (Array.isArray(adjuntosParaEnviar)) {
+        numAdjuntos = adjuntosParaEnviar.length;
+      } else {
+        numAdjuntos = 1;
+      }
       console.log('📤 FRONTEND - Enviando actualización con adjuntos:', adjuntosParaEnviar);
-      console.log('📤 FRONTEND - Número de adjuntos:', adjuntosParaEnviar ? (Array.isArray(adjuntosParaEnviar) ? adjuntosParaEnviar.length : 1) : 0);
+      console.log('📤 FRONTEND - Número de adjuntos:', numAdjuntos);
       console.log('📤 FRONTEND - propuestaData.adjuntos:', propuestaData.adjuntos);
       
       const actualizada = await actualizarPropuesta(propuestaEditando.id, propuestaData);
@@ -441,17 +436,21 @@ export default function PropuestasPage() {
       console.log('📥 Es array?:', Array.isArray(propuestaActualizada.adjuntos));
       
       // Actualizar la vista previa si está abierta
-      if (propuestaPreview && propuestaPreview.id === propuestaActualizada.id) {
+      if (propuestaPreview?.id === propuestaActualizada.id) {
         setPropuestaPreview(propuestaActualizada);
       }
-      
+
       // Si el modal de edición está abierto, actualizar también el estado local
-      if (isEditModalOpen && propuestaEditando && propuestaEditando.id === propuestaActualizada.id) {
+      if (isEditModalOpen && propuestaEditando?.id === propuestaActualizada.id) {
         setPropuestaEditando(propuestaActualizada);
-        // Asegurar que adjuntos sea un array
-        const adjuntosActualizados = Array.isArray(propuestaActualizada.adjuntos) 
-          ? propuestaActualizada.adjuntos 
-          : (propuestaActualizada.adjuntos ? [propuestaActualizada.adjuntos] : []);
+        let adjuntosActualizados: AdjuntoPropuesta[];
+        if (Array.isArray(propuestaActualizada.adjuntos)) {
+          adjuntosActualizados = propuestaActualizada.adjuntos;
+        } else if (propuestaActualizada.adjuntos) {
+          adjuntosActualizados = [propuestaActualizada.adjuntos];
+        } else {
+          adjuntosActualizados = [];
+        }
         setAdjuntos(adjuntosActualizados);
         console.log('📝 Adjuntos actualizados en formulario:', adjuntosActualizados);
       }
@@ -506,18 +505,14 @@ export default function PropuestasPage() {
       const cleanText = (text: string): string => {
         if (!text) return '';
         // Reemplazar caracteres problemáticos comunes, pero mantener números, símbolos de moneda y caracteres comunes
-        return String(text)
-          .replace(/[^\x00-\x7F]/g, (char) => {
-            // Mapeo de caracteres especiales comunes
-            const map: { [key: string]: string } = {
-              'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
-              'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
-              'ñ': 'n', 'Ñ': 'N',
-              'ü': 'u', 'Ü': 'U',
-              'ç': 'c', 'Ç': 'C',
-            };
-            return map[char] || char;
-          });
+        const map: Record<string, string> = {
+          'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+          'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+          'ñ': 'n', 'Ñ': 'N',
+          'ü': 'u', 'Ü': 'U',
+          'ç': 'c', 'Ç': 'C',
+        };
+        return String(text).replace(/[\x80-\uFFFF]/g, (char: string) => map[char] ?? char);
       };
       
       // Función para agregar texto con salto de página automático
@@ -823,7 +818,8 @@ export default function PropuestasPage() {
           yPosition += 10;
           
           // Si es imagen, intentar agregarla al PDF
-          if (adjunto.tipo === 'imagen' || adjunto.url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          const esImagenAdjunto = adjunto.tipo === 'imagen' || /\.(jpg|jpeg|png|gif|webp)$/i.exec(adjunto.url) !== null;
+          if (esImagenAdjunto) {
             try {
               // Cargar imagen y convertir a base64
               const img = new Image();
@@ -845,12 +841,12 @@ export default function PropuestasPage() {
                     const maxHeightMM = 250; // Altura máxima en milímetros (aumentada significativamente)
                     
                     // Obtener dimensiones originales de la imagen
-                    let originalWidth = img.width;
-                    let originalHeight = img.height;
-                    
+                    const originalWidth = img.width;
+                    const originalHeight = img.height;
+
                     // Calcular aspect ratio original
                     const aspectRatio = originalWidth / originalHeight;
-                    
+
                     // Calcular dimensiones finales en milímetros manteniendo aspect ratio
                     let imgWidthMM = maxWidthMM;
                     let imgHeightMM = imgWidthMM / aspectRatio;
@@ -1181,7 +1177,7 @@ export default function PropuestasPage() {
                         📥 PDF
                       </Button>
                       <Button
-                        variant={propuesta.estadoAprobacion === 'Aprobada' ? 'success' : 'outline'}
+                        variant={propuesta.estadoAprobacion === 'Aprobada' ? 'primary' : 'outline'}
                         size="sm"
                         onClick={() => handleCambiarEstadoAprobacion(propuesta)}
                         title={propuesta.estadoAprobacion === 'Aprobada' ? 'Cambiar a Sin Aprobar' : 'Aprobar Propuesta'}
@@ -1299,7 +1295,7 @@ export default function PropuestasPage() {
                 {adjuntos.length > 0 && (
                   <div className="space-y-2">
                     {adjuntos.map((adjunto, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                      <div key={adjunto.url ?? `adj-${index}`} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           {adjunto.tipo === 'imagen' ? (
                             <img 
@@ -1313,7 +1309,7 @@ export default function PropuestasPage() {
                           <div>
                             <p className="font-medium text-emerald-900">{adjunto.nombre}</p>
                             <p className="text-sm text-gray-600">
-                              {(adjunto.tamaño / 1024).toFixed(2)} KB
+                              {((adjunto.tamaño ?? 0) / 1024).toFixed(2)} KB
                             </p>
                           </div>
                         </div>
@@ -1512,7 +1508,7 @@ export default function PropuestasPage() {
                 {adjuntos.length > 0 && (
                   <div className="space-y-2">
                     {adjuntos.map((adjunto, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                      <div key={adjunto.url ?? `adj-${index}`} className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           {adjunto.tipo === 'imagen' ? (
                             <img 
@@ -1526,7 +1522,7 @@ export default function PropuestasPage() {
                           <div>
                             <p className="font-medium text-emerald-900">{adjunto.nombre}</p>
                             <p className="text-sm text-gray-600">
-                              {(adjunto.tamaño / 1024).toFixed(2)} KB
+                              {((adjunto.tamaño ?? 0) / 1024).toFixed(2)} KB
                             </p>
                           </div>
                         </div>
@@ -1701,8 +1697,8 @@ export default function PropuestasPage() {
                             <div>
                               <h4 className="font-semibold text-gray-800 mb-2">Beneficios:</h4>
                               <ul className="list-disc list-inside space-y-1 text-gray-700">
-                                {contenido.beneficios.map((beneficio: string, index: number) => (
-                                  <li key={index}>{beneficio}</li>
+                                {contenido.beneficios.map((beneficio: string) => (
+                                  <li key={beneficio}>{beneficio}</li>
                                 ))}
                               </ul>
                             </div>
@@ -1755,14 +1751,12 @@ export default function PropuestasPage() {
                     <div className="space-y-6">
                       {propuestaPreview.adjuntos.map((adjunto, index) => {
                         const esPDF = adjunto.nombre.toLowerCase().endsWith('.pdf');
-                        const esImagen = adjunto.tipo === 'imagen' || 
-                          adjunto.nombre.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                        
-                        return (
-                          <div key={index} className="border-2 border-emerald-200 rounded-lg p-4 bg-gray-50">
-                            <p className="text-sm font-semibold text-gray-700 mb-3">{adjunto.nombre}</p>
-                            
-                            {esPDF ? (
+                        const esImagen = adjunto.tipo === 'imagen' ||
+                          /\.(jpg|jpeg|png|gif|webp)$/i.exec(adjunto.nombre.toLowerCase()) !== null;
+
+                        let adjuntoPreviewContent: ReactNode;
+                        if (esPDF) {
+                          adjuntoPreviewContent = (
                               <div>
                                 <div className="bg-white p-4 rounded border border-gray-300 mb-2" style={{ height: '600px', overflow: 'auto' }}>
                                   {/* Verificar que la URL sea válida antes de cargar el iframe */}
@@ -1819,7 +1813,9 @@ export default function PropuestasPage() {
                                   </a>
                                 </div>
                               </div>
-                            ) : esImagen ? (
+                            );
+                        } else if (esImagen) {
+                          adjuntoPreviewContent = (
                               <div>
                                 <div className="flex justify-center bg-white p-2 rounded mb-2">
                                   <img 
@@ -1858,7 +1854,9 @@ export default function PropuestasPage() {
                                   </a>
                                 </div>
                               </div>
-                            ) : (
+                            );
+                        } else {
+                          adjuntoPreviewContent = (
                               <div className="text-center py-4">
                                 <div className="bg-emerald-100 rounded-lg p-6 mb-3">
                                   <span className="text-6xl block mb-2">📄</span>
@@ -1876,7 +1874,13 @@ export default function PropuestasPage() {
                                   Ver documento completo en línea
                                 </a>
                               </div>
-                            )}
+                            );
+                        }
+
+                        return (
+                          <div key={adjunto.url ?? `adj-prev-${index}`} className="border-2 border-emerald-200 rounded-lg p-4 bg-gray-50">
+                            <p className="text-sm font-semibold text-gray-700 mb-3">{adjunto.nombre}</p>
+                            {adjuntoPreviewContent}
                           </div>
                         );
                       })}

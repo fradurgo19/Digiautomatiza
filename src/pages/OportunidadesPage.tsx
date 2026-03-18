@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -67,6 +67,91 @@ const initialForm: OportunidadForm = {
   fechaCierreEstimada: '',
 };
 
+type ColumnaEtapa = { id: string; label: string; color: 'info' | 'primary' | 'success' | 'warning' | 'danger'; items: Oportunidad[] };
+
+function OportunidadKanbanCard({
+  opp,
+  columna,
+  etapas,
+  servicioOptions,
+  onMoverEtapa,
+  onEditar,
+  onEliminar,
+}: Readonly<{
+  opp: Oportunidad;
+  columna: ColumnaEtapa;
+  etapas: { id: EtapaOportunidad; label: string; color: 'info' | 'primary' | 'success' | 'warning' | 'danger' }[];
+  servicioOptions: { value: ServicioTipo; label: string }[];
+  onMoverEtapa: (opp: Oportunidad, etapaId: EtapaOportunidad) => void;
+  onEditar: (opp: Oportunidad) => void;
+  onEliminar: (id: string) => void;
+}>) {
+  const otrasEtapas = etapas.filter((e) => e.id !== opp.etapa).slice(0, 2);
+  return (
+    <Card
+      className="bg-white border border-emerald-100 shadow-sm shadow-emerald-100/40"
+    >
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-emerald-900">{opp.titulo}</p>
+            <p className="text-xs text-gray-500">
+              {opp.cliente.nombre} · {opp.cliente.empresa || opp.cliente.email}
+            </p>
+          </div>
+          <Badge variant={columna.color}>{columna.label}</Badge>
+        </div>
+        <p className="text-xs text-gray-600 line-clamp-3">
+          {opp.descripcion || 'Sin descripción aún.'}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600 mt-1">
+          {opp.servicioPrincipal && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800 border border-emerald-100">
+              💼 {servicioOptions.find((s) => s.value === opp.servicioPrincipal)?.label || opp.servicioPrincipal}
+            </span>
+          )}
+          {opp.valorEstimado != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-lime-50 px-2 py-0.5 text-lime-800 border border-lime-100">
+              💰 {opp.valorEstimado.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+            </span>
+          )}
+          {opp.probabilidad != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 border border-emerald-100">
+              🎯 {opp.probabilidad}%
+            </span>
+          )}
+          {opp.fechaCierreEstimada && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-gray-700 border border-gray-200">
+              📅 {new Date(opp.fechaCierreEstimada).toLocaleDateString('es-ES')}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <div className="flex flex-wrap gap-1">
+            {otrasEtapas.map((e) => (
+              <button
+                key={e.id}
+                onClick={() => onMoverEtapa(opp, e.id)}
+                className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-100 text-emerald-700 hover:bg-emerald-50 transition-colors"
+              >
+                {e.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" onClick={() => onEditar(opp)}>
+              Editar
+            </Button>
+            <Button size="sm" variant="danger" onClick={() => onEliminar(opp.id)}>
+              ✕
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function OportunidadesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [oportunidades, setOportunidades] = useState<Oportunidad[]>([]);
@@ -82,11 +167,11 @@ export default function OportunidadesPage() {
       setIsLoading(true);
       setFetchError(null);
       try {
-        const [clientesData, oportunidadesData] = await Promise.all([
+        const [clientesRes, oportunidadesData] = await Promise.all([
           obtenerClientes(),
           obtenerOportunidades(),
         ]);
-        setClientes(clientesData);
+        setClientes(clientesRes.data);
         setOportunidades(oportunidadesData);
       } catch (error) {
         console.error('Error al cargar oportunidades:', error);
@@ -119,8 +204,8 @@ export default function OportunidadesPage() {
       servicioPrincipal: opp.servicioPrincipal,
       etapa: opp.etapa,
       origen: opp.origen || 'lead-web',
-      valorEstimado: opp.valorEstimado != null ? String(opp.valorEstimado) : '',
-      probabilidad: opp.probabilidad != null ? String(opp.probabilidad) : '',
+      valorEstimado: opp.valorEstimado == null ? '' : String(opp.valorEstimado),
+      probabilidad: opp.probabilidad == null ? '' : String(opp.probabilidad),
       fechaCierreEstimada: opp.fechaCierreEstimada
         ? new Date(opp.fechaCierreEstimada).toISOString().slice(0, 10)
         : '',
@@ -136,7 +221,7 @@ export default function OportunidadesPage() {
 
     setIsSaving(true);
     try {
-      const payload = {
+      const payload: Partial<Oportunidad> = {
         clienteId: form.clienteId,
         titulo: form.titulo,
         descripcion: form.descripcion || undefined,
@@ -145,7 +230,7 @@ export default function OportunidadesPage() {
         origen: form.origen || undefined,
         valorEstimado: form.valorEstimado ? Number(form.valorEstimado) : undefined,
         probabilidad: form.probabilidad ? Number(form.probabilidad) : undefined,
-        fechaCierreEstimada: form.fechaCierreEstimada || undefined,
+        fechaCierreEstimada: form.fechaCierreEstimada ? new Date(form.fechaCierreEstimada) : undefined,
       };
 
       let opp: Oportunidad;
@@ -153,7 +238,18 @@ export default function OportunidadesPage() {
         opp = await actualizarOportunidad(oportunidadEditando.id, payload);
         setOportunidades((prev) => prev.map((o) => (o.id === opp.id ? opp : o)));
       } else {
-        opp = await crearOportunidad(payload as any);
+        const createData: Omit<Oportunidad, 'id' | 'cliente' | 'createdAt' | 'updatedAt'> = {
+          clienteId: form.clienteId,
+          titulo: form.titulo,
+          descripcion: form.descripcion || undefined,
+          servicioPrincipal: form.servicioPrincipal,
+          etapa: form.etapa,
+          origen: form.origen || undefined,
+          valorEstimado: form.valorEstimado ? Number(form.valorEstimado) : undefined,
+          probabilidad: form.probabilidad ? Number(form.probabilidad) : undefined,
+          fechaCierreEstimada: form.fechaCierreEstimada ? new Date(form.fechaCierreEstimada) : undefined,
+        };
+        opp = await crearOportunidad(createData);
         setOportunidades((prev) => [opp, ...prev]);
       }
 
@@ -189,6 +285,63 @@ export default function OportunidadesPage() {
     }
   };
 
+  let mainContent: ReactNode;
+  if (isLoading) {
+    mainContent = (
+      <div className="py-24 flex justify-center">
+        <Loading text="Cargando oportunidades..." />
+      </div>
+    );
+  } else if (fetchError) {
+    mainContent = (
+      <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-red-700">No se pudieron cargar las oportunidades</h3>
+            <p className="text-sm text-red-600">{fetchError}</p>
+          </div>
+        </div>
+      </Card>
+    );
+  } else {
+    mainContent = (
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {oportunidadesPorEtapa.map((columna) => (
+          <div
+            key={columna.id}
+            className="flex flex-col rounded-3xl bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/60 max-h-[70vh]"
+          >
+            <div className="px-4 py-3 border-b border-emerald-100 flex items-center justify-between bg-emerald-50/80 rounded-t-3xl">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-emerald-700 font-semibold">
+                  {columna.label}
+                </p>
+                <p className="text-xs text-gray-500">{columna.items.length} oportunidades</p>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {columna.items.length === 0 && (
+                <p className="text-xs text-gray-400 text-center mt-4">Sin oportunidades</p>
+              )}
+              {columna.items.length > 0 && columna.items.map((opp) => (
+                <OportunidadKanbanCard
+                  key={opp.id}
+                  opp={opp}
+                  columna={columna}
+                  etapas={etapas}
+                  servicioOptions={servicioOptions}
+                  onMoverEtapa={handleMoverEtapa}
+                  onEditar={abrirModalEditar}
+                  onEliminar={handleEliminar}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
       <div
@@ -221,126 +374,7 @@ export default function OportunidadesPage() {
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="py-24 flex justify-center">
-            <Loading text="Cargando oportunidades..." />
-          </div>
-        ) : fetchError ? (
-          <Card className="bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/40">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-red-700">No se pudieron cargar las oportunidades</h3>
-                <p className="text-sm text-red-600">{fetchError}</p>
-              </div>
-            </div>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {oportunidadesPorEtapa.map((columna) => (
-              <div
-                key={columna.id}
-                className="flex flex-col rounded-3xl bg-white/80 border border-emerald-100 shadow-md shadow-emerald-100/60 max-h-[70vh]"
-              >
-                <div className="px-4 py-3 border-b border-emerald-100 flex items-center justify-between bg-emerald-50/80 rounded-t-3xl">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-emerald-700 font-semibold">
-                      {columna.label}
-                    </p>
-                    <p className="text-xs text-gray-500">{columna.items.length} oportunidades</p>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {columna.items.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center mt-4">Sin oportunidades</p>
-                  ) : (
-                    columna.items.map((opp) => (
-                      <Card
-                        key={opp.id}
-                        className="bg-white border border-emerald-100 shadow-sm shadow-emerald-100/40"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-semibold text-emerald-900">
-                                {opp.titulo}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {opp.cliente.nombre} · {opp.cliente.empresa || opp.cliente.email}
-                              </p>
-                            </div>
-                            <Badge variant={columna.color}>
-                              {columna.label}
-                            </Badge>
-                          </div>
-
-                          <p className="text-xs text-gray-600 line-clamp-3">
-                            {opp.descripcion || 'Sin descripción aún.'}
-                          </p>
-
-                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600 mt-1">
-                            {opp.servicioPrincipal && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800 border border-emerald-100">
-                                💼 {servicioOptions.find(s => s.value === opp.servicioPrincipal)?.label || opp.servicioPrincipal}
-                              </span>
-                            )}
-                            {opp.valorEstimado != null && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-lime-50 px-2 py-0.5 text-lime-800 border border-lime-100">
-                                💰 {opp.valorEstimado.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
-                              </span>
-                            )}
-                            {opp.probabilidad != null && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 border border-emerald-100">
-                                🎯 {opp.probabilidad}%
-                              </span>
-                            )}
-                            {opp.fechaCierreEstimada && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-gray-700 border border-gray-200">
-                                📅 {new Date(opp.fechaCierreEstimada).toLocaleDateString('es-ES')}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 mt-2">
-                            <div className="flex flex-wrap gap-1">
-                              {etapas
-                                .filter((e) => e.id !== opp.etapa)
-                                .slice(0, 2)
-                                .map((e) => (
-                                  <button
-                                    key={e.id}
-                                    onClick={() => handleMoverEtapa(opp, e.id)}
-                                    className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-100 text-emerald-700 hover:bg-emerald-50 transition-colors"
-                                  >
-                                    {e.label}
-                                  </button>
-                                ))}
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                onClick={() => abrirModalEditar(opp)}
-                              >
-                                Editar
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="danger"
-                                onClick={() => handleEliminar(opp.id)}
-                              >
-                                ✕
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {mainContent}
 
         {/* Modal Crear / Editar Oportunidad */}
         <Modal
@@ -359,7 +393,7 @@ export default function OportunidadesPage() {
                 label="Cliente *"
                 options={clientes.map((c) => ({
                   value: c.id,
-                  label: `${c.nombre} ${c.empresa ? `- ${c.empresa}` : ''}`,
+                  label: c.empresa ? `${c.nombre} - ${c.empresa}` : c.nombre,
                 }))}
                 value={form.clienteId}
                 onChange={(e) => setForm({ ...form, clienteId: e.target.value })}
@@ -478,11 +512,11 @@ export default function OportunidadesPage() {
                 onClick={handleGuardar}
                 disabled={isSaving || !form.clienteId || !form.titulo}
               >
-                {isSaving
-                  ? 'Guardando...'
-                  : oportunidadEditando
-                  ? 'Actualizar Oportunidad'
-                  : 'Crear Oportunidad'}
+                {(() => {
+                  if (isSaving) return 'Guardando...';
+                  if (oportunidadEditando) return 'Actualizar Oportunidad';
+                  return 'Crear Oportunidad';
+                })()}
               </Button>
             </div>
           </div>
