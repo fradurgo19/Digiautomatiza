@@ -25,9 +25,9 @@ export default function PaymentHistory() {
       const data = await obtenerHistorialTransacciones(email);
       setTransacciones(data);
       setHasSearched(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al cargar historial:', err);
-      setError(err.message || 'Error al cargar el historial');
+      setError(err instanceof Error ? err.message : 'Error al cargar el historial');
       setTransacciones([]);
     } finally {
       setIsLoading(false);
@@ -96,7 +96,7 @@ export default function PaymentHistory() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Ingresa tu email para consultar tus pagos"
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   loadHistorial();
                 }
@@ -136,6 +136,7 @@ export default function PaymentHistory() {
                   Historial de Pagos ({transacciones.length})
                 </h3>
                 <button
+                  type="button"
                   onClick={loadHistorial}
                   className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
                 >

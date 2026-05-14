@@ -10,7 +10,7 @@
  * 3. El resto del código sigue funcionando sin cambios
  */
 
-import { DatosPago, RespuestaCrearPago, Transaccion, PasarelaPago, EstadoTransaccion } from '../types';
+import { DatosPago, RespuestaCrearPago, Transaccion } from '../types';
 
 // URL del backend
 const API_URL =
@@ -31,8 +31,6 @@ export async function crearPago(
   }
 ): Promise<RespuestaCrearPago> {
   try {
-    console.log('💳 Creando pago:', datos);
-
     const response = await fetch(`${API_URL}/api/pagos`, {
       method: 'POST',
       headers: {
@@ -46,10 +44,7 @@ export async function crearPago(
       throw new Error(error.error || 'Error al crear el pago');
     }
 
-    const result = await response.json();
-    console.log('✅ Pago creado exitosamente:', result);
-    
-    return result;
+    return await response.json();
   } catch (error) {
     console.error('❌ Error en crearPago:', error);
     throw error;

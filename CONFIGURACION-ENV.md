@@ -35,14 +35,38 @@ VITE_SUPABASE_ANON_KEY=tu_anon_key_aqui
 VITE_SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxx
 
 # ===== PASARELA DE PAGOS (Vercel / API) =====
-# Usar Mercado Pago en producción: PAYMENT_PROVIDER=mercado-pago
-# PayU (legacy): PAYMENT_PROVIDER=payu
+# Pasarela activa. Producción → mercado-pago. Legacy → payu.
 PAYMENT_PROVIDER=mercado-pago
 
-# Mercado Pago - Access Token (Producción o Pruebas desde https://www.mercadopago.com.co/developers/panel/app)
+# URL pública del sitio (CRÍTICO en producción). Se usa para:
+#   - notification_url de Mercado Pago
+#   - back_urls (success/failure/pending) de Checkout Pro
+# Debe ser HTTPS y SIN slash final.
+PUBLIC_BASE_URL=https://www.digiautomatiza.co
+
+# ----- Mercado Pago -----
+# Access Token de tu aplicación (producción o pruebas) desde
+# https://www.mercadopago.com.co/developers/panel/app
+#   - Producción → empieza por APP_USR-
+#   - Pruebas    → empieza por TEST-
 MERCADOPAGO_ACCESS_TOKEN=APP_USR-xxxxxxxxxxxxxxxxxxxxxxxx
 
-# En Mercado Pago Panel → Tu integración → Notificaciones IPN: URL https://www.digiautomatiza.co/api/pagos
+# Clave secreta del Webhook para validar la firma x-signature de las notificaciones.
+# Se obtiene en: MP Panel → Tu aplicación → Webhooks → "Clave secreta".
+# OBLIGATORIO en producción (sin él se omite la validación de firma y se aceptan webhooks no firmados).
+MERCADOPAGO_WEBHOOK_SECRET=tu_clave_secreta_de_webhook
+
+# En MP Panel → Tu aplicación → Webhooks:
+#   URL de notificación de PRODUCCIÓN: https://www.digiautomatiza.co/api/pagos
+#   Eventos a suscribir: "Pagos" (payment)
+#   Modo: Productivo
+
+# ----- PayU (legacy, solo si PAYMENT_PROVIDER=payu) -----
+# PAYU_MERCHANT_ID=...
+# PAYU_API_KEY=...
+# PAYU_API_LOGIN=...
+# PAYU_ACCOUNT_ID=...
+# PAYU_TEST_MODE=true
 
 # ===== PRISMA / BASE DE DATOS =====
 # Para desarrollo local con PostgreSQL 17 (docker-compose.postgres.yml)

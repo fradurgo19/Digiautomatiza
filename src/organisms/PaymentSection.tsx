@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import PaymentCheckout from '../molecules/PaymentCheckout';
 import PaymentHistory from '../molecules/PaymentHistory';
 import Card from '../atoms/Card';
@@ -6,14 +6,19 @@ import Card from '../atoms/Card';
 export default function PaymentSection() {
   const [activeTab, setActiveTab] = useState<'checkout' | 'historial'>('checkout');
 
-  const handlePaymentSuccess = (urlPago: string) => {
-    // Abrir la URL de pago en una nueva ventana
-    window.open(urlPago, '_blank');
-    // Cambiar a historial después de un momento
-    setTimeout(() => {
-      setActiveTab('historial');
-    }, 2000);
-  };
+  const handlePaymentSuccess = useCallback((urlPago: string) => {
+    // Redirigimos en la misma pestaña porque window.open dentro de un callback
+    // asíncrono (tras un fetch) es frecuentemente bloqueado por los navegadores.
+    // El checkout de Mercado Pago tiene su propio "Volver al sitio" para regresar.
+    globalThis.location.assign(urlPago);
+  }, []);
+
+  const handlePaymentError = useCallback((error: string) => {
+    alert(`Error: ${error}`);
+  }, []);
+
+  const handleSelectCheckout = useCallback(() => setActiveTab('checkout'), []);
+  const handleSelectHistorial = useCallback(() => setActiveTab('historial'), []);
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -24,7 +29,7 @@ export default function PaymentSection() {
       <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl backdrop-blur-sm border border-white/10">
         <button
           type="button"
-          onClick={() => setActiveTab('checkout')}
+          onClick={handleSelectCheckout}
           className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
             activeTab === 'checkout'
               ? 'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow-lg shadow-emerald-500/40'
@@ -37,7 +42,7 @@ export default function PaymentSection() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('historial')}
+          onClick={handleSelectHistorial}
           className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
             activeTab === 'historial'
               ? 'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow-lg shadow-emerald-500/40'
@@ -64,9 +69,7 @@ export default function PaymentSection() {
             </div>
             <PaymentCheckout
               onSuccess={handlePaymentSuccess}
-              onError={(error) => {
-                alert(`Error: ${error}`);
-              }}
+              onError={handlePaymentError}
             />
           </div>
         ) : (

@@ -70,7 +70,6 @@ export default function PaymentCheckout({ onSuccess, onError }: Readonly<Payment
       const resultado = await crearPago(datosPago);
 
       if (resultado.urlPago) {
-        // Redirigir al usuario a la página de pago
         if (onSuccess) {
           onSuccess(resultado.urlPago);
         } else {
@@ -79,9 +78,9 @@ export default function PaymentCheckout({ onSuccess, onError }: Readonly<Payment
       } else {
         throw new Error('No se recibió URL de pago');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al crear pago:', error);
-      const errorMessage = error.message || 'Error al procesar el pago';
+      const errorMessage = error instanceof Error ? error.message : 'Error al procesar el pago';
       if (onError) {
         onError(errorMessage);
       } else {

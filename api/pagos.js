@@ -9,6 +9,25 @@ import crypto from 'node:crypto';
 const PAYMENT_PROVIDER = (process.env.PAYMENT_PROVIDER || 'payu').toLowerCase();
 
 /**
+ * URL pública del sitio. Prioridad:
+ *   1) PUBLIC_BASE_URL (var explícita y estable que el usuario configura en Vercel)
+ *   2) https://<VERCEL_URL>     (dominio efímero del deploy, fallback)
+ *   3) https://www.digiautomatiza.co (último recurso)
+ *
+ * Importante: process.env.VERCEL_URL viene SIN protocolo y cambia por deploy,
+ * por eso PUBLIC_BASE_URL es el camino correcto para producción estable.
+ */
+function obtenerBaseUrl() {
+  if (process.env.PUBLIC_BASE_URL) {
+    return process.env.PUBLIC_BASE_URL.replace(/\/+$/, '');
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return 'https://www.digiautomatiza.co';
+}
+
+/**
  * Generar referencia única para la transacción
  */
 function generarReferencia() {
@@ -66,7 +85,7 @@ async function crearPagoPayU(datos) {
         description: descripcion,
         language: 'es',
         signature: signature,
-        notifyUrl: `${process.env.VERCEL_URL || 'https://www.digiautomatiza.co'}/api/pagos`,
+        notifyUrl: `${obtenerBaseUrl()}/api/pagos`,
         additionalValues: {
           TX_VALUE: {
             value: valorFormateado,
@@ -160,11 +179,15 @@ async function crearPagoMercadoPago(datos, referencia) {
     throw new Error('MERCADOPAGO_ACCESS_TOKEN no está configurada');
   }
 
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'https://www.digiautomatiza.co';
+  const baseUrl = obtenerBaseUrl();
   const notificationUrl = `${baseUrl}/api/pagos`;
-  const backUrl = `${baseUrl}/#pagos`;
+  // Mercado Pago NO admite fragmentos (#) en back_urls cuando auto_return está activo.
+  // Usamos query string para que el frontend pueda reaccionar (p. ej. abrir el tab "historial").
+  const successUrl = `${baseUrl}/?pago=ok`;
+  const failureUrl = `${baseUrl}/?pago=error`;
+  const pendingUrl = `${baseUrl}/?pago=pendiente`;
+
+  const usaHttps = baseUrl.startsWith('https://');
 
   const payload = {
     items: [
@@ -184,11 +207,12 @@ async function crearPagoMercadoPago(datos, referencia) {
     external_reference: referencia,
     notification_url: notificationUrl,
     back_urls: {
-      success: backUrl,
-      failure: backUrl,
-      pending: backUrl,
+      success: successUrl,
+      failure: failureUrl,
+      pending: pendingUrl,
     },
-    auto_return: 'approved',
+    // auto_return requiere back_urls HTTPS válidas y sin fragmento. En entornos locales (http://localhost) se omite.
+    ...(usaHttps && { auto_return: 'approved' }),
     statement_descriptor: 'DIGIAUTOMATIZA',
   };
 
@@ -235,26 +259,94 @@ function mapearEstadoMercadoPago(status) {
   return estados[status] || 'pendiente';
 }
 
+/**
+ * Verificar la firma del webhook de Mercado Pago.
+ * Mercado Pago envía un header `x-signature` con formato:
+ *   ts=1234567890,v1=<hmac_sha256>
+ * El HMAC se calcula sobre el manifest:
+ *   id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+ * usando como clave el secret de webhook (Settings → Webhooks → Clave secreta).
+ *
+ * Si MERCADOPAGO_WEBHOOK_SECRET no está configurada, devolvemos true para no
+ * bloquear el desarrollo, pero en producción DEBE estar configurada.
+ */
+function verificarFirmaMercadoPago(req, dataId) {
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('⚠️ MERCADOPAGO_WEBHOOK_SECRET no configurada. La validación de firma se omite (NO recomendado en producción).');
+    }
+    return true;
+  }
+
+  const signatureHeader = req.headers['x-signature'] || req.headers['X-Signature'];
+  const requestId = req.headers['x-request-id'] || req.headers['X-Request-Id'] || '';
+  if (!signatureHeader || typeof signatureHeader !== 'string') {
+    console.warn('⚠️ Webhook MP sin header x-signature');
+    return false;
+  }
+
+  // Parsear "ts=...,v1=..."
+  const parts = signatureHeader.split(',').map((p) => p.trim());
+  let ts = '';
+  let v1 = '';
+  for (const part of parts) {
+    const [k, v] = part.split('=');
+    if (k === 'ts') ts = v;
+    if (k === 'v1') v1 = v;
+  }
+  if (!ts || !v1) {
+    console.warn('⚠️ Webhook MP con x-signature mal formado');
+    return false;
+  }
+
+  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+  const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
+
+  // Comparación constante para evitar timing attacks
+  const a = Buffer.from(expected, 'hex');
+  const b = Buffer.from(v1, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 async function handleWebhookMercadoPago(req, res, notifId) {
   try {
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    if (!accessToken) return;
+    if (!accessToken) {
+      console.error('⚠️ MERCADOPAGO_ACCESS_TOKEN no configurada al procesar webhook');
+      return;
+    }
+
+    // Validación de firma (si el secret está configurado).
+    if (!verificarFirmaMercadoPago(req, notifId)) {
+      console.error('⚠️ Firma de webhook MP inválida. Descartando notificación.');
+      return;
+    }
+
     const payRes = await fetch(`https://api.mercadopago.com/v1/payments/${notifId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const payment = await payRes.json();
     const externalRef = payment.external_reference;
     const status = payment.status;
-    if (!externalRef) return;
+    if (!externalRef) {
+      console.warn('⚠️ Webhook MP sin external_reference. payment.id=', notifId);
+      return;
+    }
     const transaccion = await prisma.transaccion.findUnique({
       where: { referencia: externalRef },
     });
-    if (!transaccion) return;
+    if (!transaccion) {
+      console.warn(`⚠️ Transacción no encontrada: ${externalRef}`);
+      return;
+    }
     const estadoNuevo = mapearEstadoMercadoPago(status);
     const datosActualizacion = {
       estado: estadoNuevo,
       respuestaPasarela: JSON.stringify(payment),
       transactionId: String(payment.id),
+      metodoPago: payment.payment_method_id || transaccion.metodoPago,
     };
     if (estadoNuevo === 'aprobada') {
       datosActualizacion.fechaPago = new Date();
@@ -349,29 +441,45 @@ async function handleCrearPago(req, res) {
   });
 
   let resultadoPasarela;
-  if (PAYMENT_PROVIDER === 'payu') {
-    resultadoPasarela = await crearPagoPayU({
-      valor: valorNum,
-      descripcion,
-      compradorEmail,
-      compradorNombre,
-      compradorTelefono: compradorTelefono || '',
-      compradorDocumento: compradorDocumento || '',
-    });
-  } else if (PAYMENT_PROVIDER === 'mercado-pago') {
-    resultadoPasarela = await crearPagoMercadoPago(
-      {
+  try {
+    if (PAYMENT_PROVIDER === 'payu') {
+      resultadoPasarela = await crearPagoPayU({
         valor: valorNum,
         descripcion,
         compradorEmail,
         compradorNombre,
         compradorTelefono: compradorTelefono || '',
         compradorDocumento: compradorDocumento || '',
+      });
+    } else if (PAYMENT_PROVIDER === 'mercado-pago') {
+      resultadoPasarela = await crearPagoMercadoPago(
+        {
+          valor: valorNum,
+          descripcion,
+          compradorEmail,
+          compradorNombre,
+          compradorTelefono: compradorTelefono || '',
+          compradorDocumento: compradorDocumento || '',
+        },
+        referenciaNueva
+      );
+    } else {
+      return res.status(400).json({ error: `Pasarela ${PAYMENT_PROVIDER} no implementada aún` });
+    }
+  } catch (error_) {
+    // Si la pasarela falla, marcamos la transacción como rechazada en BD
+    // para no dejarla huérfana en estado "pendiente" sin urlPago.
+    console.error('Error al crear pago en pasarela:', error_);
+    await prisma.transaccion.update({
+      where: { id: transaccion.id },
+      data: {
+        estado: 'rechazada',
+        respuestaPasarela: JSON.stringify({ error: error_.message }),
       },
-      referenciaNueva
-    );
-  } else {
-    return res.status(400).json({ error: `Pasarela ${PAYMENT_PROVIDER} no implementada aún` });
+    });
+    return res.status(502).json({
+      error: error_.message || 'Error al crear el pago en la pasarela',
+    });
   }
 
   await prisma.transaccion.update({
@@ -433,16 +541,48 @@ async function handleGetHistorial(res, emailComprador) {
   return res.status(200).json({ success: true, transacciones: transaccionesFormateadas });
 }
 
+/**
+ * Detecta una notificación de Mercado Pago en cualquiera de sus dos formatos:
+ *   v1 (IPN clásico): ?topic=payment&id=12345
+ *   v2 (Webhooks):    ?type=payment&data.id=12345  ó  body { action, type, data: { id } }
+ * Devuelve { tipo, id } si es webhook MP de payment, o null en caso contrario.
+ */
+function detectarWebhookMercadoPago(req) {
+  // v1
+  const topic = req.query?.topic || req.body?.topic;
+  const idV1 = req.query?.id || req.body?.id;
+  if (topic === 'payment' && idV1) {
+    return { tipo: 'payment', id: String(idV1) };
+  }
+  // v2 (query)
+  const type = req.query?.type || req.body?.type;
+  const dataIdQuery = req.query?.['data.id'];
+  if (type === 'payment' && dataIdQuery) {
+    return { tipo: 'payment', id: String(dataIdQuery) };
+  }
+  // v2 (body JSON)
+  if (type === 'payment' && req.body?.data?.id) {
+    return { tipo: 'payment', id: String(req.body.data.id) };
+  }
+  return null;
+}
+
 /** Devuelve true si la petición fue un webhook y ya se respondió. */
 async function tryHandleWebhooks(req, res) {
-  const topic = req.query?.topic || req.body?.topic;
-  const notifId = req.query?.id || req.body?.id;
   const isGetOrPost = req.method === 'GET' || req.method === 'POST';
-  if (isGetOrPost && topic && notifId && PAYMENT_PROVIDER === 'mercado-pago') {
-    if (topic === 'payment') await handleWebhookMercadoPago(req, res, notifId);
-    res.status(200).end();
-    return true;
+
+  if (isGetOrPost && PAYMENT_PROVIDER === 'mercado-pago') {
+    const mp = detectarWebhookMercadoPago(req);
+    if (mp) {
+      if (mp.tipo === 'payment') {
+        await handleWebhookMercadoPago(req, res, mp.id);
+      }
+      // MP requiere respuesta 200/2xx para no reintentar.
+      res.status(200).end();
+      return true;
+    }
   }
+
   const isPayUWebhook = req.method === 'POST' && !req.body?.valor && (req.body?.referenceCode || req.body?.reference_sale);
   if (isPayUWebhook) {
     if (PAYMENT_PROVIDER === 'payu') {
