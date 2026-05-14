@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import { useAuth } from '../context/AuthContext';
 import { obtenerStatsDashboard, DashboardStats } from '../services/databaseService';
-import Loading from '../atoms/Loading';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -36,26 +35,29 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  const quickActions = [
-    {
-      title: 'Gestionar Clientes',
-      description: 'Ver, agregar y editar información de clientes',
-      icon: '👥',
-      action: () => navigate('/clientes'),
-    },
-    {
-      title: 'Programar Sesión',
-      description: 'Agendar reuniones con clientes potenciales',
-      icon: '📅',
-      action: () => navigate('/sesiones'),
-    },
-    {
-      title: 'Envío Masivo',
-      description: 'Enviar correos y mensajes a múltiples clientes',
-      icon: '📧',
-      action: () => navigate('/clientes'),
-    },
-  ];
+  const quickActions = useMemo(
+    () => [
+      {
+        title: 'Gestionar Clientes',
+        description: 'Ver, agregar y editar información de clientes',
+        icon: '👥',
+        action: () => navigate('/clientes'),
+      },
+      {
+        title: 'Programar Sesión',
+        description: 'Agendar reuniones con clientes potenciales',
+        icon: '📅',
+        action: () => navigate('/sesiones'),
+      },
+      {
+        title: 'Envío Masivo',
+        description: 'Enviar correos y mensajes a múltiples clientes',
+        icon: '📧',
+        action: () => navigate('/clientes'),
+      },
+    ],
+    [navigate]
+  );
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
@@ -96,72 +98,95 @@ export default function DashboardPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {isLoading ? (
-            <div className="col-span-4 flex justify-center py-10">
-              <Loading text="Cargando estadísticas..." />
-            </div>
-          ) : error || !stats ? (
-            <div className="col-span-4">
-              <Card className="bg-white/80 border border-red-100 text-red-800">
-                <p className="text-sm">{error || 'No se pudieron cargar las estadísticas.'}</p>
-              </Card>
-            </div>
-          ) : (
-            <>
-              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
-                      Total Clientes
-                    </p>
-                    <p className="text-3xl font-bold text-emerald-700">
-                      {stats.totalClientes}
-                    </p>
-                  </div>
-                  <div className="text-4xl">👥</div>
+          {(() => {
+            let statsContent: ReactNode;
+            if (isLoading) {
+              statsContent = (
+                <>
+                  {['clientes', 'interesados', 'programadas', 'completadas'].map((slot) => (
+                    <Card
+                      key={`skeleton-stat-${slot}`}
+                      className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60"
+                    >
+                      <div className="flex items-center justify-between animate-pulse">
+                        <div className="w-full">
+                          <div className="h-3 bg-emerald-100 rounded w-24 mb-3"></div>
+                          <div className="h-8 bg-emerald-200 rounded w-16"></div>
+                        </div>
+                        <div className="w-10 h-10 bg-emerald-100 rounded-full"></div>
+                      </div>
+                    </Card>
+                  ))}
+                </>
+              );
+            } else if (error || !stats) {
+              statsContent = (
+                <div className="col-span-4">
+                  <Card className="bg-white/80 border border-red-100 text-red-800">
+                    <p className="text-sm">{error || 'No se pudieron cargar las estadísticas.'}</p>
+                  </Card>
                 </div>
-              </Card>
-              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
-                      Clientes Interesados
-                    </p>
-                    <p className="text-3xl font-bold text-lime-700">
-                      {stats.clientesInteresados}
-                    </p>
-                  </div>
-                  <div className="text-4xl">🧠</div>
-                </div>
-              </Card>
-              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
-                      Sesiones Programadas
-                    </p>
-                    <p className="text-3xl font-bold text-teal-700">
-                      {stats.sesionesProgramadas}
-                    </p>
-                  </div>
-                  <div className="text-4xl">📅</div>
-                </div>
-              </Card>
-              <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
-                      Sesiones Completadas
-                    </p>
-                    <p className="text-3xl font-bold text-sky-700">
-                      {stats.sesionesCompletadas}
-                    </p>
-                  </div>
-                  <div className="text-4xl">✅</div>
-                </div>
-              </Card>
-            </>
-          )}
+              );
+            } else {
+              statsContent = (
+                <>
+                  <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                          Total Clientes
+                        </p>
+                        <p className="text-3xl font-bold text-emerald-700">
+                          {stats.totalClientes}
+                        </p>
+                      </div>
+                      <div className="text-4xl">👥</div>
+                    </div>
+                  </Card>
+                  <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                          Clientes Interesados
+                        </p>
+                        <p className="text-3xl font-bold text-lime-700">
+                          {stats.clientesInteresados}
+                        </p>
+                      </div>
+                      <div className="text-4xl">🧠</div>
+                    </div>
+                  </Card>
+                  <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                          Sesiones Programadas
+                        </p>
+                        <p className="text-3xl font-bold text-teal-700">
+                          {stats.sesionesProgramadas}
+                        </p>
+                      </div>
+                      <div className="text-4xl">📅</div>
+                    </div>
+                  </Card>
+                  <Card className="bg-white/80 border border-emerald-100 text-emerald-900 shadow-lg shadow-emerald-100/60">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-emerald-600 mb-2">
+                          Sesiones Completadas
+                        </p>
+                        <p className="text-3xl font-bold text-sky-700">
+                          {stats.sesionesCompletadas}
+                        </p>
+                      </div>
+                      <div className="text-4xl">✅</div>
+                    </div>
+                  </Card>
+                </>
+              );
+            }
+            return statsContent;
+          })()}
         </div>
 
         {/* Quick Actions */}
@@ -175,14 +200,15 @@ export default function DashboardPage() {
                 className="cursor-pointer bg-white/80 border border-emerald-100 shadow-lg shadow-emerald-100/40"
                 padding="lg"
               >
-                <div
+                <button
+                  type="button"
                   onClick={action.action}
-                  className="text-center transition-all rounded-2xl p-5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900"
+                  className="w-full text-center transition-all rounded-2xl p-5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-0 cursor-pointer"
                 >
                   <div className="text-5xl mb-3">{action.icon}</div>
                   <h3 className="text-xl font-bold text-emerald-900 mb-2">{action.title}</h3>
                   <p className="text-gray-600 text-sm">{action.description}</p>
-                </div>
+                </button>
               </Card>
             ))}
           </div>

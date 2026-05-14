@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -228,15 +228,24 @@ export default function SesionesPage() {
     }
   };
 
-  const sesionesFiltradas = filtroEstado === 'todas'
-    ? sesiones
-    : sesiones.filter(s => s.estado === filtroEstado);
+  const sesionesOrdenadas = useMemo(() => {
+    const filtradas = filtroEstado === 'todas'
+      ? sesiones
+      : sesiones.filter(s => s.estado === filtroEstado);
+    return [...filtradas].sort((a, b) => {
+      const dateA = new Date(a.fecha).getTime();
+      const dateB = new Date(b.fecha).getTime();
+      return dateB - dateA; // Más recientes primero
+    });
+  }, [sesiones, filtroEstado]);
 
-  const sesionesOrdenadas = [...sesionesFiltradas].sort((a, b) => {
-    const dateA = new Date(a.fecha).getTime();
-    const dateB = new Date(b.fecha).getTime();
-    return dateB - dateA; // Más recientes primero
-  });
+  const conteoPorEstado = useMemo(() => {
+    const counts = new Map<EstadoSesion, number>();
+    for (const sesion of sesiones) {
+      counts.set(sesion.estado, (counts.get(sesion.estado) ?? 0) + 1);
+    }
+    return counts;
+  }, [sesiones]);
 
   const mensajeListaVacia =
     filtroEstado === 'todas'
@@ -413,7 +422,7 @@ export default function SesionesPage() {
         {/* Estadísticas rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           {estadoOptions.map(estado => {
-            const count = sesiones.filter(s => s.estado === estado.value).length;
+            const count = conteoPorEstado.get(estado.value as EstadoSesion) ?? 0;
             return (
               <Card key={estado.value} className="bg-white/80 border border-emerald-100 text-center shadow-md shadow-emerald-100/50">
                 <div className="text-center">

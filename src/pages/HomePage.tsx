@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import ContactForm from '../molecules/ContactForm';
 import Modal from '../molecules/Modal';
 import LoginForm from '../molecules/LoginForm';
@@ -19,38 +19,9 @@ type ServicioDestacado = {
   casos: string;
 };
 
-export default function HomePage() {
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
-  const [selectedService, setSelectedService] = useState<null | {
-    titulo: string;
-    resumen: string;
-    beneficios: string[];
-    casos: string;
-  }>(null);
-  const { login, isAuthenticated, usuario } = useAuth();
-  const navigate = useNavigate();
+// === Constantes movidas fuera del componente para evitar recrearlas en cada render ===
 
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Si está autenticado y NO es cliente, redirigir al dashboard
-  useEffect(() => {
-    if (isAuthenticated && usuario && usuario.rol !== 'cliente') {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, usuario, navigate]);
-
-  // Si está autenticado como comercial/admin, redirigir al dashboard
-  if (isAuthenticated && usuario && usuario.rol !== 'cliente') {
-    navigate('/dashboard');
-    return null;
-  }
-
-  const servicios: ServicioDestacado[] = [
+const SERVICIOS: readonly ServicioDestacado[] = [
     {
       icono: '🌐',
       titulo: 'Páginas Web',
@@ -131,36 +102,126 @@ export default function HomePage() {
     },
   ];
 
-  const stats = [
-    { number: '100+', label: 'Proyectos Completados' },
-    { number: '50+', label: 'Clientes Satisfechos' },
-    { number: '99%', label: 'Tasa de Éxito' },
-    { number: '24/7', label: 'Soporte Continuo' },
-  ];
+const STATS: ReadonlyArray<{ number: string; label: string }> = [
+  { number: '100+', label: 'Proyectos Completados' },
+  { number: '50+', label: 'Clientes Satisfechos' },
+  { number: '99%', label: 'Tasa de Éxito' },
+  { number: '24/7', label: 'Soporte Continuo' },
+];
 
-  const tecnologias = [
-    'React', 'Node.js', 'TypeScript', 'Python', 'Power BI', 
-    'N8N', 'Power Apps', 'Azure', 'AWS', 'PostgreSQL'
-  ];
+const TECNOLOGIAS: ReadonlyArray<string> = [
+  'React', 'Node.js', 'TypeScript', 'Python', 'Power BI',
+  'N8N', 'Power Apps', 'Azure', 'AWS', 'PostgreSQL',
+];
 
-  const handleContactSubmit = async (data: Contacto) => {
+// Lista duplicada precomputada para el marquee (evita reconstrucción en cada render).
+const TECNOLOGIAS_MARQUEE: ReadonlyArray<string> = [...TECNOLOGIAS, ...TECNOLOGIAS];
+
+const RAZONES: ReadonlyArray<{ icon: string; title: string; desc: string }> = [
+  { icon: '⚡', title: 'Rapidez', desc: 'Entregas ágiles sin comprometer calidad' },
+  { icon: '🎯', title: 'Precisión', desc: 'Soluciones personalizadas a tu medida' },
+  { icon: '🔒', title: 'Seguridad', desc: 'Protección de datos de nivel empresarial' },
+  { icon: '📈', title: 'Escalabilidad', desc: 'Crece sin limitaciones técnicas' },
+];
+
+const STACK_TILES: ReadonlyArray<{ label: string; sub: string }> = [
+  { label: 'IA', sub: 'Inteligencia' },
+  { label: 'RPA', sub: 'Automatización' },
+  { label: 'API', sub: 'Integraciones' },
+  { label: 'BI', sub: 'Analítica' },
+  { label: 'ERP', sub: 'Procesos' },
+  { label: 'N8N', sub: 'Orquestación' },
+];
+
+const PROCESO_STEPS: ReadonlyArray<{ num: string; title: string; desc: string }> = [
+  { num: '01', title: 'Análisis', desc: 'Entendemos tu negocio y necesidades' },
+  { num: '02', title: 'Diseño', desc: 'Creamos la solución perfecta' },
+  { num: '03', title: 'Desarrollo', desc: 'Implementamos con excelencia' },
+  { num: '04', title: 'Soporte', desc: 'Te acompañamos siempre' },
+];
+
+const CASOS_DESTACADOS: ReadonlyArray<{ title: string; desc: string; result: string }> = [
+  {
+    title: 'Retail regional',
+    desc: 'Automatización de inventario SAP ↔ Excel ↔ WhatsApp Business con bots n8n y Twilio.',
+    result: 'Ahorro 320h/mes · 0 errores de digitación',
+  },
+  {
+    title: 'Holding financiero',
+    desc: 'Plataforma full-stack React + Node + Power BI para onboarding digital con RPA y firma electrónica.',
+    result: 'Onboarding 6x más rápido · Cumplimiento 100%',
+  },
+  {
+    title: 'Industria manufactura',
+    desc: 'Data Lake en Neon + dashboards Power BI + alertas IA para mantenimiento predictivo.',
+    result: 'Reducción 35% paradas · ROI en 5 meses',
+  },
+];
+
+export default function HomePage() {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const [selectedService, setSelectedService] = useState<null | {
+    titulo: string;
+    resumen: string;
+    beneficios: string[];
+    casos: string;
+  }>(null);
+  const { login, isAuthenticated, usuario } = useAuth();
+  const navigate = useNavigate();
+
+  // Scroll listener throttleado con requestAnimationFrame + listener pasivo.
+  // Evita re-renders desbordados (60+/s) que volvían a renderizar todas las secciones.
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setScrollY(window.scrollY);
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Si está autenticado y NO es cliente, redirigir al dashboard
+  useEffect(() => {
+    if (isAuthenticated && usuario && usuario.rol !== 'cliente') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, usuario, navigate]);
+
+  const handleContactSubmit = useCallback(async (data: Contacto) => {
     try {
-      console.log('Enviando formulario de contacto:', data);
       await enviarFormularioContacto(data);
     } catch (error) {
       console.error('Error al enviar contacto:', error);
       throw error;
     }
-  };
+  }, []);
 
-  const handleLogin = async (credentials: { email: string; password: string }) => {
+  const handleLogin = useCallback(async (credentials: { email: string; password: string }) => {
     await login(credentials);
     setIsLoginModalOpen(false);
     navigate('/dashboard');
-  };
+  }, [login, navigate]);
 
-  // Si está autenticado y NO es cliente, ya se redirige en el useEffect
-  // Si es cliente, mostrar la página con sección de pagos
+  const handleOpenLogin = useCallback(() => setIsLoginModalOpen(true), []);
+  const handleCloseLogin = useCallback(() => setIsLoginModalOpen(false), []);
+  const handleCloseService = useCallback(() => setSelectedService(null), []);
+  const handleCotizarServicio = useCallback(() => {
+    setSelectedService(null);
+    document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  // Si es cliente o no está autenticado, mostrar la página completa.
+  // Si NO es cliente, el useEffect ya disparó el redirect — no renderizamos contenido extra.
+  const debeRedirigir = isAuthenticated && usuario && usuario.rol !== 'cliente';
+  if (debeRedirigir) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white overflow-hidden">
@@ -179,6 +240,10 @@ export default function HomePage() {
                 <img 
                   src="https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png" 
                   alt="Digiautomatiza Logo" 
+                  width={64}
+                  height={64}
+                  decoding="async"
+                  fetchPriority="high"
                   className="h-16 w-auto transition-transform duration-300 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-emerald-500/20 blur-xl group-hover:blur-2xl transition-all" />
@@ -198,7 +263,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsLoginModalOpen(true)}
+                onClick={handleOpenLogin}
                 className="border-emerald-500 text-emerald-300 hover:bg-emerald-500/10"
               >
                 Iniciar Sesión
@@ -209,7 +274,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsLoginModalOpen(true)}
+                onClick={handleOpenLogin}
               >
                 Login
               </Button>
@@ -272,7 +337,7 @@ export default function HomePage() {
 
             {/* Stats destacados */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-              {stats.map((stat, index) => (
+              {STATS.map((stat, index) => (
                 <div
                   key={`${stat.number}-${stat.label}`}
                   className="group backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 hover:scale-105"
@@ -315,7 +380,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {servicios.map((servicio, index) => (
+            {SERVICIOS.map((servicio, index) => (
               <div
                 key={servicio.servicio}
                 className="group relative"
@@ -375,7 +440,7 @@ export default function HomePage() {
           {/* Marquee de tecnologías */}
           <div className="relative overflow-hidden">
             <div className="flex gap-6 animate-marquee">
-              {[...tecnologias, ...tecnologias].map((tech, index) => (
+              {TECNOLOGIAS_MARQUEE.map((tech, index) => (
                 <div
                   key={`${tech}-${index}`}
                   className="flex-shrink-0 backdrop-blur-lg bg-white/5 border border-white/10 px-8 py-4 rounded-full hover:bg-white/10 transition-colors"
@@ -402,12 +467,7 @@ export default function HomePage() {
               </p>
 
               <div className="space-y-6">
-                {[
-                  { icon: '⚡', title: 'Rapidez', desc: 'Entregas ágiles sin comprometer calidad' },
-                  { icon: '🎯', title: 'Precisión', desc: 'Soluciones personalizadas a tu medida' },
-                  { icon: '🔒', title: 'Seguridad', desc: 'Protección de datos de nivel empresarial' },
-                  { icon: '📈', title: 'Escalabilidad', desc: 'Crece sin limitaciones técnicas' },
-                ].map((item) => (
+                {RAZONES.map((item) => (
                   <div key={item.title} className="flex gap-4 items-start group">
                     <div className="text-4xl transform group-hover:scale-110 transition-transform">
                       {item.icon}
@@ -429,14 +489,7 @@ export default function HomePage() {
                   <div className="h-2 bg-gradient-to-r from-emerald-500 to-gray-400 rounded-full w-full" />
                   <div className="h-2 bg-gradient-to-r from-emerald-500 to-gray-400 rounded-full w-5/6" />
                   <div className="grid grid-cols-3 gap-4 mt-8">
-                    {[
-                      { label: 'IA', sub: 'Inteligencia' },
-                      { label: 'RPA', sub: 'Automatización' },
-                      { label: 'API', sub: 'Integraciones' },
-                      { label: 'BI', sub: 'Analítica' },
-                      { label: 'ERP', sub: 'Procesos' },
-                      { label: 'N8N', sub: 'Orquestación' },
-                    ].map((stack) => (
+                    {STACK_TILES.map((stack) => (
                       <div
                         key={stack.label}
                         className="aspect-square backdrop-blur-lg bg-white/5 rounded-xl border border-white/10 hover:border-emerald-400/50 transition-colors p-4 flex flex-col items-center justify-center text-center text-gray-300"
@@ -464,12 +517,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-4 gap-8">
-            {[
-              { num: '01', title: 'Análisis', desc: 'Entendemos tu negocio y necesidades' },
-              { num: '02', title: 'Diseño', desc: 'Creamos la solución perfecta' },
-              { num: '03', title: 'Desarrollo', desc: 'Implementamos con excelencia' },
-              { num: '04', title: 'Soporte', desc: 'Te acompañamos siempre' },
-            ].map((step) => (
+            {PROCESO_STEPS.map((step) => (
               <div key={step.num} className="relative group">
                 <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all hover:scale-105 h-full">
                 <div className="text-6xl font-bold bg-gradient-to-br from-emerald-500/20 to-gray-500/20 bg-clip-text text-transparent mb-4">
@@ -553,23 +601,7 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
                 Casos Realizados
               </div>
               <div className="space-y-6">
-                {[
-                  {
-                    title: 'Retail regional',
-                    desc: 'Automatización de inventario SAP ↔ Excel ↔ WhatsApp Business con bots n8n y Twilio.',
-                    result: 'Ahorro 320h/mes · 0 errores de digitación',
-                  },
-                  {
-                    title: 'Holding financiero',
-                    desc: 'Plataforma full-stack React + Node + Power BI para onboarding digital con RPA y firma electrónica.',
-                    result: 'Onboarding 6x más rápido · Cumplimiento 100%',
-                  },
-                  {
-                    title: 'Industria manufactura',
-                    desc: 'Data Lake en Neon + dashboards Power BI + alertas IA para mantenimiento predictivo.',
-                    result: 'Reducción 35% paradas · ROI en 5 meses',
-                  },
-                ].map((caso) => (
+                {CASOS_DESTACADOS.map((caso) => (
                   <div key={caso.title} className="p-4 rounded-2xl bg-white/5 border border-white/10">
                     <h4 className="text-lg font-bold text-white">{caso.title}</h4>
                     <p className="text-sm text-gray-400 mt-2">{caso.desc}</p>
@@ -689,6 +721,10 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
                 <img 
                   src="https://res.cloudinary.com/dbufrzoda/image/upload/v1760908611/Captura_de_pantalla_2025-10-19_122805_v4gvpt.png" 
                   alt="Digiautomatiza" 
+                  width={80}
+                  height={80}
+                  loading="lazy"
+                  decoding="async"
                   className="h-20 w-auto"
                 />
                 <h3 className="text-3xl font-bold bg-gradient-to-r from-emerald-300 to-gray-200 bg-clip-text text-transparent">
@@ -759,13 +795,13 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
       {/* Modal de Login */}
       <Modal
         isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        onClose={handleCloseLogin}
         size="sm"
       >
         <div className="backdrop-blur-2xl bg-gradient-to-br from-emerald-900/90 via-emerald-800/80 to-gray-900/90 border border-emerald-400/30 rounded-2xl shadow-lg shadow-emerald-900/40 px-6 py-4">
           <LoginForm
             onSubmit={handleLogin}
-            onCancel={() => setIsLoginModalOpen(false)}
+            onCancel={handleCloseLogin}
           />
         </div>
       </Modal>
@@ -773,7 +809,7 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
       {/* Modal Detalle Servicio */}
       <Modal
         isOpen={!!selectedService}
-        onClose={() => setSelectedService(null)}
+        onClose={handleCloseService}
         size="lg"
         title={selectedService?.titulo}
       >
@@ -810,17 +846,14 @@ impacto: -70% tiempo operativo · +45% tasa de respuesta · SLA 99.95%`}
               <Button
                 variant="primary"
                 size="md"
-                onClick={() => {
-                  setSelectedService(null);
-                  document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onClick={handleCotizarServicio}
               >
                 Quiero cotizar este servicio
               </Button>
               <Button
                 variant="outline"
                 size="md"
-                onClick={() => setSelectedService(null)}
+                onClick={handleCloseService}
               >
                 Seguir explorando
               </Button>

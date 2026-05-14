@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -1077,20 +1077,10 @@ export default function PropuestasPage() {
     });
   };
 
-  const propuestasFiltradas = filtroEstado === 'todos'
-    ? propuestas
-    : propuestas.filter(p => p.estado === filtroEstado);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50">
-        <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Loading />
-        </div>
-      </div>
-    );
-  }
+  const propuestasFiltradas = useMemo(
+    () => (filtroEstado === 'todos' ? propuestas : propuestas.filter((p) => p.estado === filtroEstado)),
+    [propuestas, filtroEstado]
+  );
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
@@ -1125,7 +1115,14 @@ export default function PropuestasPage() {
         </Card>
 
         {/* Lista de Propuestas */}
-        {propuestasFiltradas.length === 0 ? (
+        {isLoading && (
+          <Card className="bg-white/85 border border-emerald-100">
+            <div className="py-12 flex justify-center">
+              <Loading text="Cargando propuestas..." />
+            </div>
+          </Card>
+        )}
+        {!isLoading && propuestasFiltradas.length === 0 && (
           <Card className="bg-white/85 border border-emerald-100">
             <div className="text-center py-12">
               <span className="text-6xl mb-4 block">📄</span>
@@ -1140,7 +1137,8 @@ export default function PropuestasPage() {
               </Button>
             </div>
           </Card>
-        ) : (
+        )}
+        {!isLoading && propuestasFiltradas.length > 0 && (
           <div className="space-y-4">
             {propuestasFiltradas.map((propuesta) => {
               const estadoInfo = estadosPropuesta.find(e => e.value === propuesta.estado);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -11,16 +11,18 @@ import { useAuth } from '../context/AuthContext';
 import { Propuesta, TareaProyecto } from '../types';
 import { obtenerPropuestas, actualizarPropuesta } from '../services/databaseService';
 
-// Función para formatear moneda
-const formatearMoneda = (valor: number): string => {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-  }).format(valor);
-};
+// Formatter reutilizable (Intl.NumberFormat es costoso de instanciar).
+const CURRENCY_FORMATTER = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  minimumFractionDigits: 0,
+});
 
-const serviciosOptions: { value: string; label: string; icon: string }[] = [
+const formatearMoneda = (valor: number): string => CURRENCY_FORMATTER.format(valor);
+
+type ServicioOption = { value: string; label: string; icon: string };
+
+const SERVICIOS_OPTIONS: ReadonlyArray<ServicioOption> = [
   { value: 'paginas-web', label: 'Páginas Web', icon: '🌐' },
   { value: 'aplicaciones-web', label: 'Aplicaciones Web', icon: '💻' },
   { value: 'chatbot-ia', label: 'Chatbot con IA', icon: '🤖' },
@@ -28,6 +30,28 @@ const serviciosOptions: { value: string; label: string; icon: string }[] = [
   { value: 'analisis-datos', label: 'Análisis de Datos', icon: '📊' },
   { value: 'sap-hana', label: 'Soporte SAP ERP & HANA', icon: '🏭' },
 ];
+
+// Lookup O(1) por value, precomputado.
+const SERVICIOS_INDEX = new Map<string, ServicioOption>(SERVICIOS_OPTIONS.map((s) => [s.value, s]));
+
+const formatearFecha = (fecha?: Date): string => {
+  if (!fecha) return 'No definida';
+  return new Date(fecha).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
+
+const INITIAL_TAREA = {
+  nombre: '',
+  fechaInicio: '',
+  fechaFin: '',
+  duracion: 0,
+  progreso: 0,
+  responsable: '',
+  descripcion: '',
+};
 
 export default function DevPage() {
   const { usuario } = useAuth();
@@ -42,68 +66,49 @@ export default function DevPage() {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaEntrega, setFechaEntrega] = useState('');
   const [tareas, setTareas] = useState<TareaProyecto[]>([]);
-  const [nuevaTarea, setNuevaTarea] = useState({
-    nombre: '',
-    fechaInicio: '',
-    fechaFin: '',
-    duracion: 0,
-    progreso: 0,
-    responsable: '',
-    descripcion: '',
-  });
+  const [nuevaTarea, setNuevaTarea] = useState(INITIAL_TAREA);
 
   useEffect(() => {
+    if (!usuario) return;
+    let cancelado = false;
     const cargarPropuestas = async () => {
       setIsLoading(true);
       try {
         const todasLasPropuestas = await obtenerPropuestas();
-        
-        // Log para diagnosticar adjuntos
-        console.log('📋 Propuestas cargadas en DEV:', todasLasPropuestas.length);
-        todasLasPropuestas.forEach((p, index) => {
-          console.log(`📎 Propuesta ${index + 1} (${p.id}):`, {
-            titulo: p.titulo,
-            estadoAprobacion: p.estadoAprobacion,
-            adjuntos: p.adjuntos,
-            tipoAdjuntos: typeof p.adjuntos,
-            esArray: Array.isArray(p.adjuntos),
-            longitud: p.adjuntos ? p.adjuntos.length : 0
-          });
-        });
-        
+        if (cancelado) return;
         const propuestasAprobadas = todasLasPropuestas.filter(
-          p => p.estadoAprobacion === 'Aprobada'
+          (p) => p.estadoAprobacion === 'Aprobada'
         );
         setPropuestas(propuestasAprobadas);
       } catch (error) {
         console.error('Error al cargar propuestas:', error);
       } finally {
-        setIsLoading(false);
+        if (!cancelado) setIsLoading(false);
       }
     };
-
-    if (usuario) {
-      cargarPropuestas();
-    }
+    cargarPropuestas();
+    return () => {
+      cancelado = true;
+    };
   }, [usuario]);
 
-  const handleVerPropuesta = (propuesta: Propuesta) => {
+  const handleVerPropuesta = useCallback((propuesta: Propuesta) => {
     setPropuestaSeleccionada(propuesta);
     setFechaInicio(propuesta.fechaInicio ? new Date(propuesta.fechaInicio).toISOString().slice(0, 10) : '');
     setFechaEntrega(propuesta.fechaEntrega ? new Date(propuesta.fechaEntrega).toISOString().slice(0, 10) : '');
     setTareas(propuesta.tareasProyecto || []);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleEditarProyecto = (propuesta: Propuesta) => {
+  const handleEditarProyecto = useCallback((propuesta: Propuesta) => {
     setPropuestaSeleccionada(propuesta);
     setFechaInicio(propuesta.fechaInicio ? new Date(propuesta.fechaInicio).toISOString().slice(0, 10) : '');
     setFechaEntrega(propuesta.fechaEntrega ? new Date(propuesta.fechaEntrega).toISOString().slice(0, 10) : '');
     setTareas(propuesta.tareasProyecto || []);
     setIsEditModalOpen(true);
-  };
+  }, []);
 
-  const handleAgregarTarea = () => {
+  const handleAgregarTarea = useCallback(() => {
     if (!nuevaTarea.nombre || !nuevaTarea.fechaInicio || !nuevaTarea.fechaFin) {
       alert('Por favor completa nombre, fecha de inicio y fecha de fin de la tarea.');
       return;
@@ -124,31 +129,23 @@ export default function DevPage() {
       descripcion: nuevaTarea.descripcion || undefined,
     };
 
-    setTareas([...tareas, tarea]);
-    setNuevaTarea({
-      nombre: '',
-      fechaInicio: '',
-      fechaFin: '',
-      duracion: 0,
-      progreso: 0,
-      responsable: '',
-      descripcion: '',
-    });
-  };
+    setTareas((prev) => [...prev, tarea]);
+    setNuevaTarea(INITIAL_TAREA);
+  }, [nuevaTarea]);
 
-  const handleEliminarTarea = (tareaId: string) => {
+  const handleEliminarTarea = useCallback((tareaId: string) => {
     if (confirm('¿Estás seguro de eliminar esta tarea?')) {
-      setTareas(tareas.filter(t => t.id !== tareaId));
+      setTareas((prev) => prev.filter((t) => t.id !== tareaId));
     }
-  };
+  }, []);
 
-  const handleActualizarProgreso = (tareaId: string, progreso: number) => {
-    setTareas(tareas.map(t => 
+  const handleActualizarProgreso = useCallback((tareaId: string, progreso: number) => {
+    setTareas((prev) => prev.map((t) =>
       t.id === tareaId ? { ...t, progreso: Math.max(0, Math.min(100, progreso)) } : t
     ));
-  };
+  }, []);
 
-  const handleGuardarProyecto = async () => {
+  const handleGuardarProyecto = useCallback(async () => {
     if (!propuestaSeleccionada) return;
 
     if (!fechaInicio || !fechaEntrega) {
@@ -158,18 +155,17 @@ export default function DevPage() {
 
     setIsSaving(true);
     try {
-      await actualizarPropuesta(propuestaSeleccionada.id, {
+      const propuestaActualizada = await actualizarPropuesta(propuestaSeleccionada.id, {
         fechaInicio: new Date(fechaInicio),
         fechaEntrega: new Date(fechaEntrega),
         tareasProyecto: tareas,
       });
 
-      // Recargar propuestas
-      const todasLasPropuestas = await obtenerPropuestas();
-      const propuestasAprobadas = todasLasPropuestas.filter(
-        p => p.estadoAprobacion === 'Aprobada'
+      // Optimista: actualizamos solo la propuesta editada en el estado local en lugar de
+      // re-cargar TODAS las propuestas desde la API (evita una request completa y latencia).
+      setPropuestas((prev) =>
+        prev.map((p) => (p.id === propuestaActualizada.id ? propuestaActualizada : p))
       );
-      setPropuestas(propuestasAprobadas);
 
       setIsEditModalOpen(false);
       alert('✅ Proyecto actualizado exitosamente');
@@ -179,37 +175,37 @@ export default function DevPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [propuestaSeleccionada, fechaInicio, fechaEntrega, tareas]);
 
-  const formatearFecha = (fecha?: Date): string => {
-    if (!fecha) return 'No definida';
-    return new Date(fecha).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+  const handleCerrarModalVer = useCallback(() => {
+    setIsModalOpen(false);
+    setPropuestaSeleccionada(null);
+  }, []);
 
-  // Verificar autenticación
+  const handleCerrarModalEditar = useCallback(() => {
+    setIsEditModalOpen(false);
+    setPropuestaSeleccionada(null);
+  }, []);
+
+  // Memo de las propuestas con su servicioInfo precomputado para evitar lookup O(n) por render.
+  const propuestasConServicio = useMemo(
+    () =>
+      propuestas.map((p) => ({
+        propuesta: p,
+        servicioInfo: SERVICIOS_INDEX.get(p.servicio),
+      })),
+    [propuestas]
+  );
+
+  const isAdmin = usuario?.rol === 'admin';
+
+  // Verificar autenticación: si aún no carga el usuario, mostramos solo el navbar + skeleton inline.
   if (!usuario) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Loading />
-        </div>
-      </div>
-    );
-  }
-
-  const isAdmin = usuario.rol === 'admin';
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50">
-        <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Loading />
+          <Loading text="Verificando sesión..." />
         </div>
       </div>
     );
@@ -236,7 +232,14 @@ export default function DevPage() {
         </Card>
 
         {/* Lista de Propuestas Aprobadas */}
-        {propuestas.length === 0 ? (
+        {isLoading && (
+          <Card className="bg-white/85 border border-emerald-100">
+            <div className="py-12 flex justify-center">
+              <Loading text="Cargando propuestas aprobadas..." />
+            </div>
+          </Card>
+        )}
+        {!isLoading && propuestas.length === 0 && (
           <Card className="bg-white/85 border border-emerald-100">
             <div className="text-center py-12">
               <span className="text-6xl mb-4 block">💻</span>
@@ -248,11 +251,10 @@ export default function DevPage() {
               </p>
             </div>
           </Card>
-        ) : (
+        )}
+        {!isLoading && propuestas.length > 0 && (
           <div className="space-y-4">
-            {propuestas.map((propuesta) => {
-              const servicioInfo = serviciosOptions.find(s => s.value === propuesta.servicio);
-              
+            {propuestasConServicio.map(({ propuesta, servicioInfo }) => {
               return (
                 <Card key={propuesta.id} className="bg-white/85 border border-emerald-100 shadow-lg hover:shadow-xl transition-shadow">
                   <div className="flex justify-between items-start">
@@ -356,10 +358,7 @@ export default function DevPage() {
         {/* Modal Ver Propuesta */}
         <Modal
           isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setPropuestaSeleccionada(null);
-          }}
+          onClose={handleCerrarModalVer}
           title={`Propuesta: ${propuestaSeleccionada?.titulo || ''}`}
           size="xl"
         >
@@ -455,10 +454,7 @@ export default function DevPage() {
         {/* Modal Gestionar Proyecto */}
         <Modal
           isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setPropuestaSeleccionada(null);
-          }}
+          onClose={handleCerrarModalEditar}
           title={`Gestionar Proyecto: ${propuestaSeleccionada?.titulo || ''}`}
           size="xl"
         >
@@ -605,10 +601,7 @@ export default function DevPage() {
                 <Button
                   variant="outline"
                   fullWidth
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setPropuestaSeleccionada(null);
-                  }}
+                  onClick={handleCerrarModalEditar}
                   disabled={isSaving}
                 >
                   Cancelar

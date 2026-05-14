@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Loading from '../atoms/Loading';
@@ -78,7 +78,9 @@ export default function CalendarioPage() {
     globalThis.addEventListener('storage', handleSesionChange);
     globalThis.addEventListener('sesionActualizada', handleSesionChange);
     globalThis.addEventListener('sesionEliminada', handleSesionChange);
-    const interval = setInterval(cargarEventos, 30000);
+    // Polling cada 2 minutos (antes 30s) para reducir trabajo en background sin perder
+    // refresco automático tras eventos del calendario.
+    const interval = setInterval(cargarEventos, 120000);
     return () => {
       globalThis.removeEventListener('storage', handleSesionChange);
       globalThis.removeEventListener('sesionActualizada', handleSesionChange);
@@ -86,6 +88,21 @@ export default function CalendarioPage() {
       clearInterval(interval);
     };
   }, [cargarEventos]);
+
+  // Índice eventos -> día (clave: fecha.toDateString()) para evitar O(N) por celda.
+  const eventosPorDia = useMemo(() => {
+    const mapa = new Map<string, EventoCalendario[]>();
+    for (const evento of eventos) {
+      const key = new Date(evento.fechaInicio).toDateString();
+      const lista = mapa.get(key);
+      if (lista) {
+        lista.push(evento);
+      } else {
+        mapa.set(key, [evento]);
+      }
+    }
+    return mapa;
+  }, [eventos]);
 
   const formatearFecha = (fechaISO: string): string => {
     const fecha = new Date(fechaISO);
@@ -114,7 +131,7 @@ export default function CalendarioPage() {
     });
   };
 
-  const obtenerDiasDelMes = () => {
+  const diasDelMes = useMemo(() => {
     const year = fechaActual.getFullYear();
     const month = fechaActual.getMonth();
     const primerDia = new Date(year, month, 1);
@@ -124,18 +141,18 @@ export default function CalendarioPage() {
     const inicioSemanaAjustado = inicioSemana === 0 ? 6 : inicioSemana - 1; // Lunes = 0
 
     const dias: (Date | null)[] = [];
-    
+
     // Días del mes anterior
     for (let i = inicioSemanaAjustado - 1; i >= 0; i--) {
       const fecha = new Date(year, month, -i);
       dias.push(fecha);
     }
-    
+
     // Días del mes actual
     for (let i = 1; i <= diasEnMes; i++) {
       dias.push(new Date(year, month, i));
     }
-    
+
     // Completar hasta 42 días (6 semanas)
     while (dias.length < 42) {
       const siguienteMes = new Date(year, month + 1, dias.length - diasEnMes - inicioSemanaAjustado + 1);
@@ -143,14 +160,14 @@ export default function CalendarioPage() {
     }
 
     return dias;
-  };
+  }, [fechaActual]);
 
-  const obtenerDiasSemana = () => {
+  const diasSemana = useMemo(() => {
     const inicioSemana = new Date(fechaActual);
     const diaSemana = inicioSemana.getDay();
     const diff = inicioSemana.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
     inicioSemana.setDate(diff);
-    
+
     const dias: Date[] = [];
     for (let i = 0; i < 7; i++) {
       const fecha = new Date(inicioSemana);
@@ -158,15 +175,17 @@ export default function CalendarioPage() {
       dias.push(fecha);
     }
     return dias;
-  };
+  }, [fechaActual]);
 
-  const obtenerEventosDelDia = (fecha: Date): EventoCalendario[] => {
-    const fechaStr = fecha.toDateString();
-    return eventos.filter(evento => {
-      const fechaEvento = new Date(evento.fechaInicio);
-      return fechaEvento.toDateString() === fechaStr;
-    });
-  };
+  const obtenerEventosDelDia = useCallback(
+    (fecha: Date): EventoCalendario[] => eventosPorDia.get(fecha.toDateString()) ?? [],
+    [eventosPorDia]
+  );
+
+  const eventosDelDiaActual = useMemo(
+    () => obtenerEventosDelDia(fechaActual),
+    [obtenerEventosDelDia, fechaActual]
+  );
 
   const esHoy = (fecha: Date): boolean => {
     const hoy = new Date();
@@ -207,17 +226,6 @@ export default function CalendarioPage() {
 
   const nombresDias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const nombresDiasCompletos = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50">
-        <Navbar />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Loading />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
@@ -295,6 +303,15 @@ export default function CalendarioPage() {
           </div>
         </Card>
 
+        {/* Indicador de carga inline */}
+        {isLoading && (
+          <Card className="bg-white/85 border border-emerald-100 shadow-md shadow-emerald-100/40 mb-6">
+            <div className="flex items-center gap-3 py-2">
+              <Loading text="Cargando eventos..." />
+            </div>
+          </Card>
+        )}
+
         {/* Error */}
         {error && (
           <Card className="bg-red-50 border-red-200 mb-6">
@@ -327,7 +344,7 @@ export default function CalendarioPage() {
               
               {/* Días del calendario */}
               <div className="grid grid-cols-7 gap-1">
-                {obtenerDiasDelMes().map((fecha, index) => {
+                {diasDelMes.map((fecha, index) => {
                   const row = Math.floor(index / 7);
                   const col = index % 7;
                   if (!fecha) return <div key={`empty-${row}-${col}`} className="min-h-[100px]"></div>;
@@ -373,11 +390,11 @@ export default function CalendarioPage() {
           <Card className="bg-white/85 border border-emerald-100 shadow-lg">
             <div className="p-4">
               <h2 className="text-xl font-bold text-center mb-4 text-gray-800">
-                Semana del {obtenerDiasSemana()[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} al {obtenerDiasSemana()[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                Semana del {diasSemana[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} al {diasSemana[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
               </h2>
-              
+
               <div className="grid grid-cols-7 gap-2">
-                {obtenerDiasSemana().map((fecha, index) => {
+                {diasSemana.map((fecha, index) => {
                   const eventosDia = obtenerEventosDelDia(fecha);
                   const esDiaActual = esHoy(fecha);
                   return (
@@ -422,13 +439,13 @@ export default function CalendarioPage() {
               </h2>
               
               <div className="space-y-3">
-                {obtenerEventosDelDia(fechaActual).length === 0 ? (
+                {eventosDelDiaActual.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <span className="text-4xl block mb-2">📅</span>
                     <p>No hay eventos programados para este día</p>
                   </div>
                 ) : (
-                  obtenerEventosDelDia(fechaActual).map((evento) => (
+                  eventosDelDiaActual.map((evento) => (
                     <button
                       type="button"
                       key={evento.id}

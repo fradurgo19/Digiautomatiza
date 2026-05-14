@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Navbar from '../organisms/Navbar';
 import Card from '../atoms/Card';
 import Button from '../atoms/Button';
@@ -69,15 +69,7 @@ const initialForm: OportunidadForm = {
 
 type ColumnaEtapa = { id: string; label: string; color: 'info' | 'primary' | 'success' | 'warning' | 'danger'; items: Oportunidad[] };
 
-function OportunidadKanbanCard({
-  opp,
-  columna,
-  etapas,
-  servicioOptions,
-  onMoverEtapa,
-  onEditar,
-  onEliminar,
-}: Readonly<{
+type OportunidadKanbanCardProps = Readonly<{
   opp: Oportunidad;
   columna: ColumnaEtapa;
   etapas: { id: EtapaOportunidad; label: string; color: 'info' | 'primary' | 'success' | 'warning' | 'danger' }[];
@@ -85,7 +77,17 @@ function OportunidadKanbanCard({
   onMoverEtapa: (opp: Oportunidad, etapaId: EtapaOportunidad) => void;
   onEditar: (opp: Oportunidad) => void;
   onEliminar: (id: string) => void;
-}>) {
+}>;
+
+function OportunidadKanbanCardBase({
+  opp,
+  columna,
+  etapas,
+  servicioOptions,
+  onMoverEtapa,
+  onEditar,
+  onEliminar,
+}: OportunidadKanbanCardProps) {
   const otrasEtapas = etapas.filter((e) => e.id !== opp.etapa).slice(0, 2);
   return (
     <Card
@@ -152,6 +154,9 @@ function OportunidadKanbanCard({
   );
 }
 
+// Memoizado: evita re-render cuando las props no cambian (clave para Kanban con muchas tarjetas).
+const OportunidadKanbanCard = memo(OportunidadKanbanCardBase);
+
 export default function OportunidadesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [oportunidades, setOportunidades] = useState<Oportunidad[]>([]);
@@ -184,18 +189,29 @@ export default function OportunidadesPage() {
     cargarDatos();
   }, []);
 
-  const oportunidadesPorEtapa = etapas.map((etapa) => ({
-    ...etapa,
-    items: oportunidades.filter((opp) => opp.etapa === etapa.id),
-  }));
+  const oportunidadesPorEtapa = useMemo(() => {
+    const buckets = new Map<EtapaOportunidad, Oportunidad[]>();
+    for (const opp of oportunidades) {
+      const lista = buckets.get(opp.etapa);
+      if (lista) {
+        lista.push(opp);
+      } else {
+        buckets.set(opp.etapa, [opp]);
+      }
+    }
+    return etapas.map((etapa) => ({
+      ...etapa,
+      items: buckets.get(etapa.id) ?? [],
+    }));
+  }, [oportunidades]);
 
-  const abrirModalNueva = () => {
+  const abrirModalNueva = useCallback(() => {
     setOportunidadEditando(null);
     setForm(initialForm);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const abrirModalEditar = (opp: Oportunidad) => {
+  const abrirModalEditar = useCallback((opp: Oportunidad) => {
     setOportunidadEditando(opp);
     setForm({
       clienteId: opp.clienteId,
@@ -211,7 +227,7 @@ export default function OportunidadesPage() {
         : '',
     });
     setIsModalOpen(true);
-  };
+  }, []);
 
   const handleGuardar = async () => {
     if (!form.clienteId || !form.titulo) {
@@ -264,7 +280,7 @@ export default function OportunidadesPage() {
     }
   };
 
-  const handleEliminar = async (id: string) => {
+  const handleEliminar = useCallback(async (id: string) => {
     if (!confirm('¿Seguro deseas eliminar esta oportunidad?')) return;
     try {
       await eliminarOportunidad(id);
@@ -273,9 +289,9 @@ export default function OportunidadesPage() {
       console.error('Error al eliminar oportunidad:', error);
       alert('No se pudo eliminar la oportunidad.');
     }
-  };
+  }, []);
 
-  const handleMoverEtapa = async (opp: Oportunidad, nuevaEtapa: EtapaOportunidad) => {
+  const handleMoverEtapa = useCallback(async (opp: Oportunidad, nuevaEtapa: EtapaOportunidad) => {
     try {
       const actualizada = await actualizarOportunidad(opp.id, { etapa: nuevaEtapa });
       setOportunidades((prev) => prev.map((o) => (o.id === opp.id ? actualizada : o)));
@@ -283,7 +299,7 @@ export default function OportunidadesPage() {
       console.error('Error al mover oportunidad:', error);
       alert('No se pudo actualizar la etapa de la oportunidad.');
     }
-  };
+  }, []);
 
   let mainContent: ReactNode;
   if (isLoading) {

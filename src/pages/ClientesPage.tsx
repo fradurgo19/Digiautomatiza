@@ -451,7 +451,7 @@ export default function ClientesPage() {
     telefono: '',
     empresa: '',
     serviciosInteres: [] as ServicioTipo[],
-    estado: 'nuevo' as EstadoCliente,
+    estado: 'nuevo',
     notas: '',
   };
 
@@ -742,7 +742,10 @@ export default function ClientesPage() {
     fileInputRef.current?.click();
   };
 
-  const clientesFiltrados = clientes.filter(cliente => matchesFiltrosClientes(cliente, filtros));
+  const clientesFiltrados = useMemo(
+    () => clientes.filter(cliente => matchesFiltrosClientes(cliente, filtros)),
+    [clientes, filtros]
+  );
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-emerald-100 via-green-100 to-emerald-50 text-gray-900 overflow-hidden">
